@@ -124,7 +124,6 @@ public class ChiTietLoHangLogic {
     }
 
     public List<ChiTietLoHang> layChiTietTheoMaSP(String maSP) {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'layChiTietTheoMaSP'");
     }
 }

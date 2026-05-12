@@ -31,13 +31,15 @@ public class TaiKhoanDAO {
     }
 
     // ==========================================================
-    // 1. KIỂM TRA ĐĂNG NHẬP (Hỗ trợ cả Tên TK hoặc SĐT)
+    // 1. KIỂM TRA ĐĂNG NHẬP (ÉP PHÂN BIỆT HOA THƯỜNG 100%) 🚀
     // ==========================================================
     public String[] kiemTraDangNhap(String tenDangNhapHoacSDT, String matKhau) {
-        // JOIN với bảng NhanVien để cho phép đăng nhập bằng SĐT
-        String sql = "SELECT t.MaNV, n.ChucVu FROM TaiKhoan t " 
-                   + "JOIN NhanVien n ON t.MaNV = n.MaNV "
-                   + "WHERE (t.TaiKhoan=? OR n.SDT=?) AND t.MatKhau=?";
+        // 🔥 ĐÃ CHỈNH SỬA: Lấy thêm Tài Khoản và Mật Khẩu từ DB lên để Java tự kiểm tra
+        String sql = "SELECT NV.MaNV, NV.HoTen, TK.TaiKhoan, TK.MatKhau " +
+                     "FROM TaiKhoan TK " +
+                     "JOIN NhanVien NV ON TK.MaNV = NV.MaNV " +
+                     "WHERE (TK.TaiKhoan = ? OR NV.SDT = ?) " +
+                     "AND NV.TrangThai = N'Đang Làm Việc'";
 
         try (
             Connection con = ConnectDB.getInstance().getConnection();
@@ -45,85 +47,90 @@ public class TaiKhoanDAO {
         ) {
             ps.setString(1, tenDangNhapHoacSDT);
             ps.setString(2, tenDangNhapHoacSDT);
-            ps.setString(3, matKhau); // Mật khẩu truyền xuống đã được băm từ Logic
-
+            
+            // Dùng vòng lặp while để vét hết trường hợp SQL trả về nhiều dòng (ví dụ nv002, NV002)
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return new String[] {
-                        rs.getString("MaNV"), 
-                        rs.getString("ChucVu").trim()
-                    };
+                while (rs.next()) {
+                    String dbTaiKhoan = rs.getString("TaiKhoan");
+                    String dbMatKhau = rs.getString("MatKhau");
+
+                    // BƯỚC 1: KIỂM TRA MẬT KHẨU (Bắt buộc khớp chính xác hoa thường)
+                    if (dbMatKhau.equals(matKhau)) {
+                        
+                        // BƯỚC 2: KIỂM TRA TÀI KHOẢN
+                        // - Nếu nhập SĐT (toàn số) -> Bỏ qua soi hoa/thường, đăng nhập luôn
+                        // - Nếu nhập Tên TK -> Phải khớp chính xác từng ký tự
+                        if (tenDangNhapHoacSDT.matches("\\d+") || dbTaiKhoan.equals(tenDangNhapHoacSDT)) {
+                            return new String[]{ rs.getString("MaNV"), rs.getString("HoTen") };
+                        }
+                    }
                 }
             }
+
         } catch (SQLException e) {
             logError("kiemTraDangNhap", e);
         }
-        return null;
+        // Nếu chạy hết vòng lặp mà không return được -> Sai tên TK hoặc Mật khẩu hoa/thường
+        return null; 
     }
 
     // ==========================================================
-    // 2. KIỂM TRA TÀI KHOẢN ĐÃ TỒN TẠI (Giữ nguyên check SDT)
+    // 2. TÌM TÀI KHOẢN THEO MÃ NHÂN VIÊN
     // ==========================================================
-    public boolean kiemTraTaiKhoanDaTonTai(String thongTinKiemTra) {
-        // Kiểm tra xem Tên tài khoản HOẶC Số điện thoại này đã được dùng cho ních nào chưa
-        String sql = "SELECT COUNT(*) FROM TaiKhoan t " 
-                   + "JOIN NhanVien n ON t.MaNV = n.MaNV "
-                   + "WHERE t.TaiKhoan=? OR n.SDT=?";
-
-        try (
-            Connection con = ConnectDB.getInstance().getConnection();
-            PreparedStatement ps = con.prepareStatement(sql)
-        ) {
-            ps.setString(1, thongTinKiemTra);
-            ps.setString(2, thongTinKiemTra);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1) > 0;
-                }
-            }
-        } catch (SQLException e) {
-            logError("kiemTraTaiKhoanDaTonTai", e);
-        }
-        return false;
-    }
-
-    // ==========================================================
-    // 3. KIỂM TRA 1 NHÂN VIÊN ĐÃ CÓ TÀI KHOẢN CHƯA
-    // ==========================================================
-    public boolean kiemTraNhanVienDaCoTaiKhoan(String maNV) {
-        String sql = "SELECT COUNT(*) FROM TaiKhoan WHERE MaNV=?";
-
+    public TaiKhoan layTaiKhoanTheoMaNV(String maNV) {
+        String sql = "SELECT * FROM TaiKhoan WHERE MaNV=?";
+        
         try (
             Connection con = ConnectDB.getInstance().getConnection();
             PreparedStatement ps = con.prepareStatement(sql)
         ) {
             ps.setString(1, maNV);
-
+            
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return rs.getInt(1) > 0;
+                    return mapResultSetToTaiKhoan(rs);
                 }
             }
         } catch (SQLException e) {
-            logError("kiemTraNhanVienDaCoTaiKhoan", e);
+            logError("layTaiKhoanTheoMaNV", e);
+        }
+        return null;
+    }
+
+    // ==========================================================
+    // 3. KIỂM TRA TÊN ĐĂNG NHẬP ĐÃ TỒN TẠI CHƯA (Dùng khi Thêm mới)
+    // ==========================================================
+    public boolean kiemTraTaiKhoanTonTai(String tenTaiKhoan) {
+        String sql = "SELECT 1 FROM TaiKhoan WHERE TaiKhoan=?";
+        
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement ps = con.prepareStatement(sql)
+        ) {
+            ps.setString(1, tenTaiKhoan);
+            
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            logError("kiemTraTaiKhoanTonTai", e);
         }
         return false;
     }
 
     // ==========================================================
-    // 4. THÊM TÀI KHOẢN
+    // 4. THÊM MỚI TÀI KHOẢN
     // ==========================================================
     public boolean themTaiKhoan(TaiKhoan tk) {
-        String sql = "INSERT INTO TaiKhoan (MaNV, TaiKhoan, MatKhau) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO TaiKhoan(MaNV, TaiKhoan, MatKhau) VALUES(?, ?, ?)";
         
         try (
             Connection con = ConnectDB.getInstance().getConnection();
             PreparedStatement ps = con.prepareStatement(sql)
         ) {
             ps.setString(1, tk.getMaNV());
-            ps.setString(2, tk.getTaiKhoan()); 
-            ps.setString(3, tk.getMatKhau()); // Mật khẩu đã băm
+            ps.setString(2, tk.getTaiKhoan());
+            ps.setString(3, tk.getMatKhau());
             
             return ps.executeUpdate() > 0;
 
@@ -134,28 +141,29 @@ public class TaiKhoanDAO {
     }
 
     // ==========================================================
-    // 5. ĐỔI MẬT KHẨU
+    // 5. CẬP NHẬT MẬT KHẨU HOẶC TÊN TÀI KHOẢN
     // ==========================================================
-    public boolean doiMatKhau(String taiKhoan, String matKhauMoi) {
-        String sql = "UPDATE TaiKhoan SET MatKhau=? WHERE TaiKhoan=?";
+    public boolean suaTaiKhoan(TaiKhoan tk) {
+        String sql = "UPDATE TaiKhoan SET TaiKhoan=?, MatKhau=? WHERE MaNV=?";
         
         try (
             Connection con = ConnectDB.getInstance().getConnection();
             PreparedStatement ps = con.prepareStatement(sql)
         ) {
-            ps.setString(1, matKhauMoi);
-            ps.setString(2, taiKhoan);
+            ps.setString(1, tk.getTaiKhoan());
+            ps.setString(2, tk.getMatKhau());
+            ps.setString(3, tk.getMaNV());
             
             return ps.executeUpdate() > 0;
 
         } catch (SQLException e) {
-            logError("doiMatKhau", e);
+            logError("suaTaiKhoan", e);
         }
         return false;
     }
 
     // ==========================================================
-    // 6. XÓA TÀI KHOẢN
+    // 6. XÓA TÀI KHOẢN (Khi nhân viên nghỉ việc)
     // ==========================================================
     public boolean xoaTaiKhoan(String taiKhoan) {
         String sql = "DELETE FROM TaiKhoan WHERE TaiKhoan=?";
