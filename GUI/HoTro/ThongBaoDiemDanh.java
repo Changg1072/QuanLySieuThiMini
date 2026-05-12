@@ -19,16 +19,18 @@ public class ThongBaoDiemDanh extends JDialog {
     private List<ChiaCa> dsThieu;
     private ChiaCaLogic ccLogic;
     private NhanVienLogic nvLogic;
-    private Point initialClick; // Biến hỗ trợ kéo thả
+    private Point initialClick;
 
-    public ThongBaoDiemDanh(List<ChiaCa> ds) {
-        super((Frame) null, false);
+    // SỬA LẠI CONSTRUCTOR: Nhận Window làm owner
+    public ThongBaoDiemDanh(Window owner, List<ChiaCa> ds) {
+        super(owner, Dialog.ModalityType.MODELESS);
         this.dsThieu = ds;
         this.ccLogic = new ChiaCaLogic();
         this.nvLogic = new NhanVienLogic();
         
         setUndecorated(true);
         setAlwaysOnTop(true);
+        setFocusableWindowState(false);
         setBackground(new Color(0, 0, 0, 0)); 
 
         JPanel pnlMain = new JPanel(new BorderLayout(15, 10)) {
@@ -47,7 +49,6 @@ public class ThongBaoDiemDanh extends JDialog {
         JPanel pnlHeader = new JPanel(new BorderLayout());
         pnlHeader.setOpaque(false);
         
-        // --- LOGIC KÉO THẢ (DRAGGABLE) ---
         pnlHeader.addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent e) { initialClick = e.getPoint(); }
         });
@@ -120,9 +121,9 @@ public class ThongBaoDiemDanh extends JDialog {
         setContentPane(pnlMain);
         pack();
         
-        // VỊ TRÍ GÓC DƯỚI BÊN TRÁI
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        setLocation(20, screenSize.height - getHeight() - 60);
+        // SỬA LẠI TỌA ĐỘ: Tránh thanh Taskbar Windows
+        Rectangle bounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        setLocation(bounds.width - getWidth() - 30, bounds.height - getHeight() - 30);
     }
 
     private JPanel taoRowNhanVien(ChiaCa cc) {
@@ -142,7 +143,12 @@ public class ThongBaoDiemDanh extends JDialog {
         btnCoMat.addActionListener(e -> {
             try {
                 ccLogic.xacNhanCoMatTucThi(cc.getMaCa());
-                GUI.HoTro.ThongBaoNoi.hienThi("Thành công", "Đã ghi nhận điểm danh cho " + ten);
+                ThongBaoNoi toast = new ThongBaoNoi(getOwner(), "Thành công", 
+                                             "Đã ghi nhận điểm danh cho " + ten);
+                toast.setVisible(true);
+                Timer autoClose = new Timer(4000, ev -> toast.dispose());
+                autoClose.setRepeats(false);
+                autoClose.start();
 
                 pnlList.remove(row);
                 pnlList.revalidate();
@@ -170,7 +176,10 @@ public class ThongBaoDiemDanh extends JDialog {
 
     public static void hienThi(List<ChiaCa> ds) {
         SwingUtilities.invokeLater(() -> {
-            ThongBaoDiemDanh toast = new ThongBaoDiemDanh(ds);
+            // Lấy Frame chủ để không bị lấp đè
+            Window activeWin = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+            
+            ThongBaoDiemDanh toast = new ThongBaoDiemDanh(activeWin, ds);
             toast.setVisible(true);
         });
     }

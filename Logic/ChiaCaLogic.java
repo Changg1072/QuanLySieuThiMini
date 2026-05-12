@@ -266,55 +266,91 @@ public class ChiaCaLogic {
     // ========================================================
     // TÌM DANH SÁCH CHƯA CHECK-IN (CHỈ HIỆN NẾU NGƯỜI ĐĂNG NHẬP CÓ TRONG CA)
     // ========================================================
-    public java.util.List<ChiaCa> layDanhSachChuaCheckInCaHienTai(String maNVDangNhap) {
-        java.util.List<ChiaCa> dsThieu = new java.util.ArrayList<>();
+    public List<ChiaCa> layDanhSachChuaCheckInCaHienTai(String maNVDangNhap, boolean isAdmin) {
+        List<ChiaCa> dsThieu = new ArrayList<>();
         try {
             LocalDate homNay = LocalDate.now();
             java.time.LocalTime bayGio = java.time.LocalTime.now();
-            
+
             Logic.LoaiCaLogic lcLogic = new Logic.LoaiCaLogic();
             List<Data.LoaiCa> dsLoaiCa = lcLogic.layDanhSachLoaiCa();
             String maCaHienTai = null;
+            boolean laCaSang = false;
 
-            // 1. Xác định ca hiện tại
+            // ==========================================
+            // 🔥 ĐÃ FIX LOGIC THỜI GIAN & CA QUA ĐÊM
+            // ==========================================
             for (Data.LoaiCa lc : dsLoaiCa) {
-                if (bayGio.isAfter(lc.getGioBatDau()) && bayGio.isBefore(lc.getGioKetThuc())) {
+                java.time.LocalTime batDau = lc.getGioBatDau();
+                java.time.LocalTime ketThuc = lc.getGioKetThuc();
+                
+                // Cho phép mở điểm danh SỚM 60 PHÚT (Vd: 21:00 đã có thể điểm danh cho ca 22:00)
+                java.time.LocalTime batDauChoPhep = batDau.minusMinutes(60); 
+
+                boolean trongCa = false;
+                if (batDauChoPhep.isBefore(ketThuc)) {
+                    // Ca bình thường trong ngày (VD: 06:00 -> 14:00)
+                    trongCa = !bayGio.isBefore(batDauChoPhep) && !bayGio.isAfter(ketThuc);
+                } else { 
+                    // Ca làm xuyên đêm qua ngày hôm sau (VD: 22:00 -> 06:00)
+                    trongCa = !bayGio.isBefore(batDauChoPhep) || !bayGio.isAfter(ketThuc);
+                }
+
+                if (trongCa) {
                     maCaHienTai = lc.getMaLoaiCa();
+                    if (lc.getTenCa().toLowerCase().contains("sáng")) laCaSang = true;
                     break;
                 }
             }
+            // ==========================================
 
-            if (maCaHienTai == null) return dsThieu; 
+            if (maCaHienTai == null) {
+                System.out.println("DEBUG: Lúc " + bayGio + " chưa tới giờ mở bất kỳ ca làm nào!");
+                return dsThieu; // Trả về list rỗng
+            }
 
             List<ChiaCa> tatCaCaHnay = layDanhSachChiaCa();
-            
-            // 2. KIỂM TRA: Người đang đăng nhập có thuộc ca này không?
+
+            // Kiểm tra người đăng nhập có thuộc ca này không
             boolean isThuocCa = false;
+            ChiaCa caCuaToi = null;
             for (ChiaCa cc : tatCaCaHnay) {
-                if (cc.getNgayLam() != null && cc.getNgayLam().equals(homNay) 
-                    && cc.getMaLoaiCa().equals(maCaHienTai) 
+                if (cc.getNgayLam() != null && cc.getNgayLam().equals(homNay)
+                    && cc.getMaLoaiCa().equals(maCaHienTai)
                     && !"Đã hủy".equals(cc.getTinhTrang())
                     && cc.getMaNV() != null && cc.getMaNV().equals(maNVDangNhap)) {
                     isThuocCa = true;
+                    caCuaToi = cc;
                     break;
                 }
             }
-            
-            // 3. NẾU KHÔNG THUỘC CA -> TRẢ VỀ RỖNG (Hoàn toàn ẩn bảng điểm danh)
-            if (!isThuocCa) return dsThieu;
 
-            // 4. NẾU THUỘC CA -> Lấy danh sách những người cùng ca chưa đến để điểm danh hộ
-            for (ChiaCa cc : tatCaCaHnay) {
-                if (cc.getNgayLam() != null && cc.getNgayLam().equals(homNay) 
-                    && cc.getMaLoaiCa().equals(maCaHienTai) 
-                    && !"Đã hủy".equals(cc.getTinhTrang())) {
-                    
-                    if (cc.getThoiGianCheckIn() == null) {
-                        dsThieu.add(cc);
-                    }
+            // NV thường không thuộc ca -> ẩn hoàn toàn
+            if (!isAdmin && !isThuocCa) return dsThieu;
+            /* 
+            // Nếu thuộc ca mà chưa check-in -> tự động check-in
+            if (isThuocCa && caCuaToi != null && caCuaToi.getThoiGianCheckIn() == null) {
+                try {
+                    BigDecimal tienDau = laCaSang ? new BigDecimal("500000") : BigDecimal.ZERO;
+                    thucHienCheckIn(caCuaToi.getMaCa(), LocalDateTime.now(), caCuaToi.getTinhTrang(), tienDau);
+                    caCuaToi.setThoiGianCheckIn(LocalDateTime.now());
+                } catch (Exception ex) {
+                    System.err.println("Lỗi auto check-in: " + ex.getMessage());
                 }
             }
-        } catch(Exception e) { e.printStackTrace(); }
+            */
+
+            // Lấy những người chưa check-in đưa vào danh sách nhắc nhở
+            for (ChiaCa cc : tatCaCaHnay) {
+                if (cc.getNgayLam() != null && cc.getNgayLam().equals(homNay)
+                    && cc.getMaLoaiCa().equals(maCaHienTai)
+                    && !"Đã hủy".equals(cc.getTinhTrang())
+                    && cc.getThoiGianCheckIn() == null) {
+                    dsThieu.add(cc);
+                }
+            }
+
+        } catch (Exception e) { e.printStackTrace(); }
         return dsThieu;
     }
     public BigDecimal layTienDauCaChuyenGiao(java.time.LocalDate ngayLam, String maLoaiCaHienTai) {

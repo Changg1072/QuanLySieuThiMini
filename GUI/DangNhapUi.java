@@ -253,15 +253,15 @@ public class DangNhapUi extends JFrame {
                         isSuccess = true;
                         String maNV = ketQua[0];   
                         String vaiTro = ketQua[1];
-                        
+                        boolean isAdmin = vaiTro.toUpperCase().contains("ADMIN") 
+                            || vaiTro.equalsIgnoreCase("Quản lý");
                         QuanLyKhoCacheLogic.getInstance().taiLaiDuLieuKho();
                         Logic.ChiaCaLogic ccLogic = new Logic.ChiaCaLogic();
 
                         try { ccLogic.kiemTraVaTuDongKetCa(); } 
                         catch (Exception ex) { System.err.println("Lỗi auto kết ca: " + ex.getMessage()); }
 
-                        dsThieu = ccLogic.layDanhSachChuaCheckInCaHienTai(maNV);
-
+                        dsThieu = ccLogic.layDanhSachChuaCheckInCaHienTai(maNV, isAdmin);
                         Data.NhanVien nv = Dao.NhanVienDAO.getInstance().layNhanVienTheoMa(maNV);
                         tenNhanVienTảiTrước = (nv != null) ? nv.getHoTen() : maNV;
                         
@@ -294,9 +294,14 @@ public class DangNhapUi extends JFrame {
                 protected void done() {
                     try {
                         get(); 
+                        System.out.println("DEBUG dsThieu size: " + (dsThieu == null ? "NULL" : dsThieu.size()));
                         if (isSuccess) {
                             if (dsThieu != null && !dsThieu.isEmpty()) {
-                                GUI.HoTro.ThongBaoDiemDanh.hienThi(dsThieu);
+                                javax.swing.Timer delayTimer = new javax.swing.Timer(800, e -> {
+                                    GUI.HoTro.ThongBaoDiemDanh.hienThi(dsThieu); // ← activeWindow lúc này vẫn là DangNhapUi!
+                                });
+                                delayTimer.setRepeats(false);
+                                delayTimer.start();
                             }
 
                             String maNV = ketQua[0];

@@ -9,12 +9,14 @@ import java.awt.event.MouseMotionAdapter;
 
 public class ThongBaoNoi extends JDialog {
 
-    private Point initialClick; // Kéo thả
+    private Point initialClick;
 
-    public ThongBaoNoi(String tieuDe, String thongBao) {
-        super((Frame) null, false);
+    // SỬA LẠI CONSTRUCTOR: Nhận Window làm owner để không bị đè
+    public ThongBaoNoi(Window owner, String tieuDe, String thongBao) {
+        super(owner, Dialog.ModalityType.MODELESS);
         setUndecorated(true);
         setAlwaysOnTop(true);
+        setFocusableWindowState(false); // Không giật chuột của người dùng
         setBackground(new Color(0, 0, 0, 0)); 
 
         JPanel pnlMain = new JPanel(new BorderLayout(15, 0)) {
@@ -30,7 +32,6 @@ public class ThongBaoNoi extends JDialog {
         pnlMain.setOpaque(false);
         pnlMain.setBorder(new EmptyBorder(15, 20, 15, 20));
 
-        // KÉO THẢ
         pnlMain.addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent e) { initialClick = e.getPoint(); }
         });
@@ -92,15 +93,23 @@ public class ThongBaoNoi extends JDialog {
         setContentPane(pnlMain);
         pack();
 
-        // GÓC DƯỚI BÊN TRÁI
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        setLocation(20, screenSize.height - getHeight() - 50); 
+        // SỬA LẠI TỌA ĐỘ: Trừ đi kích thước Taskbar để không bị che
+        Rectangle bounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        setLocation(20, bounds.height - getHeight() - 20); 
     }
 
     public static void hienThi(String tieuDe, String thongBao) {
         SwingUtilities.invokeLater(() -> {
-            ThongBaoNoi toast = new ThongBaoNoi(tieuDe, thongBao);
+            // TUYỆT CHIÊU: Bắt Frame đang hiển thị làm Owner
+            Window activeWin = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+            
+            ThongBaoNoi toast = new ThongBaoNoi(activeWin, tieuDe, thongBao);
             toast.setVisible(true);
+            
+            // Tặng kèm tính năng tự động biến mất sau 4 giây
+            Timer autoClose = new Timer(4000, e -> toast.dispose());
+            autoClose.setRepeats(false);
+            autoClose.start();
         });
     }
 }

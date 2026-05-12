@@ -15,6 +15,10 @@ public class HoaDon {
     private BigDecimal KhachDua;
     private BigDecimal TienThua;
     private String GhiChu;
+    
+    // THÊM 2 TRƯỜNG MỚI
+    private Boolean TraHang; 
+    private String LyDoTraHang;
 
     private HoaDon(ThoXayHoaDon builder) {
         this.MaHD = builder.maHD;
@@ -28,9 +32,13 @@ public class HoaDon {
         this.KhachDua = builder.khachDua;
         this.TienThua = builder.tienThua;
         this.GhiChu = builder.ghiChu;
+        this.TraHang = builder.traHang; // Cập nhật
+        this.LyDoTraHang = builder.lyDoTraHang; // Cập nhật
     }
 
     public HoaDon() {}
+    
+    // Getters & Setters cũ...
     public String getMaHD() { return MaHD; }
     public void setMaHD(String maHD) { MaHD = maHD; }
     public LocalDateTime getNgayTao() { return NgayTao; }
@@ -54,6 +62,12 @@ public class HoaDon {
     public String getGhiChu() { return GhiChu; }
     public void setGhiChu(String ghiChu) { GhiChu = ghiChu; }
 
+    // GETTERS & SETTERS MỚI
+    public Boolean getTraHang() { return TraHang; }
+    public void setTraHang(Boolean traHang) { TraHang = traHang; }
+    public String getLyDoTraHang() { return LyDoTraHang; }
+    public void setLyDoTraHang(String lyDoTraHang) { LyDoTraHang = lyDoTraHang; }
+
     public static class ThoXayHoaDon {
         private String maHD;
         private LocalDateTime ngayTao;
@@ -66,6 +80,10 @@ public class HoaDon {
         private BigDecimal khachDua;
         private BigDecimal tienThua;
         private String ghiChu;
+        
+        // THÊM 2 TRƯỜNG MỚI
+        private Boolean traHang;
+        private String lyDoTraHang;
 
         public ThoXayHoaDon ganMaHD(String maHD) { this.maHD = maHD; return this; }
         public ThoXayHoaDon ganNgayTao(LocalDateTime ngayTao) { this.ngayTao = ngayTao; return this; }
@@ -78,6 +96,10 @@ public class HoaDon {
         public ThoXayHoaDon ganKhachDua(BigDecimal khachDua) { this.khachDua = khachDua; return this; }
         public ThoXayHoaDon ganTienThua(BigDecimal tienThua) { this.tienThua = tienThua; return this; }
         public ThoXayHoaDon ganGhiChu(String ghiChu) { this.ghiChu = ghiChu; return this; }
+
+        // BUILDER MỚI
+        public ThoXayHoaDon ganTraHang(Boolean traHang) { this.traHang = traHang; return this; }
+        public ThoXayHoaDon ganLyDoTraHang(String lyDoTraHang) { this.lyDoTraHang = lyDoTraHang; return this; }
 
         public HoaDon taoMoi() { return new HoaDon(this); }
     }

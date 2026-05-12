@@ -90,5 +90,10 @@ public class HoaDonLogic {
         if (hd.getPhuongThucTT() == null || hd.getPhuongThucTT().trim().isEmpty()) {
             throw new Exception("Vui lòng chọn Phương thức thanh toán (Tiền mặt/Chuyển khoản)!");
         }
+        if (Boolean.TRUE.equals(hd.getTraHang())) {
+            if (hd.getLyDoTraHang() == null || hd.getLyDoTraHang().trim().isEmpty()) {
+                throw new Exception("Lỗi: Vui lòng nhập Lý do trả hàng!");
+            }
+        }
     }
 }

@@ -38,7 +38,8 @@ public class HoaDonDAO {
         BigDecimal khachDua = rs.getBigDecimal("KhachDua");
         BigDecimal tienThua = rs.getBigDecimal("TienThua");
         String ghiChu = rs.getString("GhiChu");
-
+        boolean traHang = rs.getBoolean("TraHang");
+        String lyDoTraHang = rs.getString("LyDoTraHang");
         return new HoaDon.ThoXayHoaDon()
                 .ganMaHD(maHD)
                 .ganNgayTao(ngayTao)
@@ -51,6 +52,8 @@ public class HoaDonDAO {
                 .ganKhachDua(khachDua)
                 .ganTienThua(tienThua)
                 .ganGhiChu(ghiChu)
+                .ganTraHang(traHang)           // Cập nhật
+                .ganLyDoTraHang(lyDoTraHang)
                 .taoMoi();
     }
 
@@ -80,8 +83,8 @@ public class HoaDonDAO {
     // 2. THÊM HÓA ĐƠN
     // ==============================
     public boolean themHoaDon(HoaDon hd) {
-        String sql = "INSERT INTO HoaDon (MaHD, NgayTao, MaKH, MaNV, ThanhTien, TongGiamGia, TruTichDiem, PhuongThucTT, KhachDua, TienThua, GhiChu) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO HoaDon (MaHD, NgayTao, MaKH, MaNV, ThanhTien, TongGiamGia, TruTichDiem, PhuongThucTT, KhachDua, TienThua, GhiChu, TraHang, LyDoTraHang) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         try (
             Connection con = ConnectDB.getInstance().getConnection();
@@ -113,6 +116,8 @@ public class HoaDonDAO {
             pstmt.setBigDecimal(9, hd.getKhachDua());
             pstmt.setBigDecimal(10, hd.getTienThua());
             pstmt.setString(11, hd.getGhiChu());
+            pstmt.setBoolean(12, hd.getTraHang() != null ? hd.getTraHang() : false);
+            pstmt.setString(13, hd.getLyDoTraHang());
 
             return pstmt.executeUpdate() > 0;
             
