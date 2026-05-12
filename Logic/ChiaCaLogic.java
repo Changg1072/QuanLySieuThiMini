@@ -490,7 +490,7 @@ public class ChiaCaLogic {
         return ketQua.isEmpty() ? null : ketQua;
     }
     // ========================================================
-    // KIỂM TRA ĐIỀU KIỆN THANH TOÁN (Có đứng đúng máy/ca không)
+    // KIỂM TRA ĐIỀU KIỆN THANH TOÁN (Đã đồng bộ Logic Ca Qua Đêm)
     // ========================================================
     public boolean kiemTraNhanVienDangTrongCa(String maNV) {
         try {
@@ -502,13 +502,32 @@ public class ChiaCaLogic {
             List<Data.LoaiCa> dsLoaiCa = lcLogic.layDanhSachLoaiCa();
             String maCaHienTai = null;
 
+            // ==========================================
+            // 🔥 ĐÃ FIX: Đồng bộ logic thời gian với Check-in
+            // ==========================================
             for (Data.LoaiCa lc : dsLoaiCa) {
-                if (bayGio.isAfter(lc.getGioBatDau()) && bayGio.isBefore(lc.getGioKetThuc())) {
+                java.time.LocalTime batDau = lc.getGioBatDau();
+                java.time.LocalTime ketThuc = lc.getGioKetThuc();
+                
+                // Trừ đi 60 phút để khớp với logic cho phép vào ca sớm
+                java.time.LocalTime batDauChoPhep = batDau.minusMinutes(60); 
+
+                boolean trongCa = false;
+                if (batDauChoPhep.isBefore(ketThuc)) {
+                    // Ca bình thường
+                    trongCa = !bayGio.isBefore(batDauChoPhep) && !bayGio.isAfter(ketThuc);
+                } else { 
+                    // Ca qua đêm
+                    trongCa = !bayGio.isBefore(batDauChoPhep) || !bayGio.isAfter(ketThuc);
+                }
+
+                if (trongCa) {
                     maCaHienTai = lc.getMaLoaiCa();
                     break;
                 }
             }
 
+            // Nếu không quét được mã ca nào khớp giờ thì báo lỗi
             if (maCaHienTai == null) return false;
 
             // Kiểm tra nhân viên này có lịch hôm nay và đang ở trạng thái Đang làm việc không
