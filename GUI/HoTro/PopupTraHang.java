@@ -217,9 +217,27 @@ public class PopupTraHang extends JDialog {
     }
 
     // ==========================================
-    // LOGIC XỬ LÝ TRẢ HÀNG & CHUYỂN SANG ĐỔI HÀNG
+    // LOGIC XỬ LÝ TRẢ HÀNG (ĐÃ THÊM CHECK CA LÀM)
     // ==========================================
     private void xuLyTraHang() {
+        // --- 🛡️ BƯỚC BẢO MẬT: KIỂM TRA CA LÀM VIỆC ---
+        try {
+            // Lấy mã nhân viên đang đăng nhập từ hệ thống (Ví dụ: "NV001")
+            // Bạn có thể lấy từ biến static hoặc session của bạn
+            String maNVHienTai = "NV001"; 
+
+            Logic.ChiaCaLogic ccLogic = new Logic.ChiaCaLogic(); //
+            if (!ccLogic.kiemTraNhanVienDangTrongCa(maNVHienTai)) { //
+                GUI.HoTro.TienIchGiaoDien.hienThiThongBao(this, 
+                    "BẠN KHÔNG TRONG CA LÀM VIỆC!\n" +
+                    "Vui lòng điểm danh 'Có mặt' trước khi thực hiện trả hàng.", "ERROR"); //
+                return; 
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        // ----------------------------------------------
+
         List<String> dsLyDo = new ArrayList<>();
         String homNay = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
@@ -233,18 +251,16 @@ public class PopupTraHang extends JDialog {
 
         String lyDoGop = dsLyDo.isEmpty() ? "Khách trả toàn bộ đơn_" + homNay : String.join(" + ", dsLyDo);
 
-        // TÍNH TỔNG TIỀN CỦA HÓA ĐƠN CŨ ĐỂ ÉP ĐIỀU KIỆN ĐỔI HÀNG
         BigDecimal tongTienCu = BigDecimal.ZERO;
         for (ChiTietHoaDon ct : dsChiTiet) {
             tongTienCu = tongTienCu.add(ct.getThanhTienSanPham());
         }
         final BigDecimal finalTongTienCu = tongTienCu;
 
-        // GỌI XUỐNG DB - CHẠY TRANSACTION
         SwingWorker<Void, Void> worker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
-                // Hủy đơn và trả lại kho
+                // Sử dụng Transaction để hủy đơn và trả kho an toàn
                 Dao.TruyVanSieuTocDAO.getInstance().xuLyTraHangToanBoSieuToc(maHD, lyDoGop, dsChiTiet);
                 return null;
             }
@@ -253,23 +269,15 @@ public class PopupTraHang extends JDialog {
             protected void done() {
                 try {
                     get();
-                    dongPopup(); // Đóng giao diện mờ
-
-                    // 1. Cập nhật UI Đơn hàng để thẻ hóa đơn chuyển sang Đỏ "ĐÃ TRẢ HÀNG"
+                    dongPopup();
                     parentUi.taiDuLieuTuDatabase();
 
-                    // 2. TÌM ĐÚNG GIAO DIỆN BÁN HÀNG ĐANG CHẠY ĐỂ ĐẨY DỮ LIỆU
                     Window topFrame = SwingUtilities.getWindowAncestor(parentUi);
                     GUI.BanHangUi banHangUiThucTe = timManHinhBanHang((Container) topFrame);
 
                     if (banHangUiThucTe != null) {
-                        // Kích hoạt nhét toàn bộ món cũ vào giỏ mới
                         banHangUiThucTe.kichHoatCheDoDoiHang(dsChiTiet, finalTongTienCu);
-                        
-                        // Thông báo cho nhân viên biết
                         GUI.HoTro.TienIchGiaoDien.hienThiThongBao(topFrame, "Đã hủy đơn cũ! Vui lòng chọn món để ĐỔI HÀNG.", "SUCCESS");
-
-                        // 3. 🔥 ĐÂY LÀ PHÉP THUẬT: Tự động lật trang sang Bán Hàng luôn!
                         tuDongChuyenTabBanHang((Container) topFrame);
                     }
 
@@ -280,7 +288,6 @@ public class PopupTraHang extends JDialog {
         };
         worker.execute();
     }
-
     // ==========================================
     // CÁC HÀM HỖ TRỢ TÌM KIẾM GIAO DIỆN (ĐỆ QUY)
     // ==========================================
