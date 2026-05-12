@@ -2,6 +2,8 @@ package GUI;
 
 import GUI.HoTro.*;
 import Data.SanPham;
+import Data.ChiTietHoaDon;
+import Dao.SanPhamDAO;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -18,6 +20,11 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
     private JPanel pnlDanhSachMon; 
     
     private JLabel lblTongTien, lblTongSL;
+    
+    // === 🔥 TRẠNG THÁI ĐỔI HÀNG ===
+    private boolean isCheDoDoiHang = false;
+    private BigDecimal tongTienHoaDonCu = BigDecimal.ZERO;
+    private JLabel lblThongBaoDoiHang; // Label hiển thị cảnh báo đỏ khi đổi hàng
     
     private class ChiTietGio {
         SanPham sp;
@@ -37,22 +44,33 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
         add(pnlDanhSachSP, BorderLayout.CENTER);
     }
 
-    // --- THÊM HÀM NÀY ĐỂ ADMIN TRUY CẬP LỌC DỮ LIỆU ---
     public DanhSachSPUi getPnlDanhSachSP() {
         return this.pnlDanhSachSP;
     }
 
     private void taoGioHang() {
         pnlGioHang = new JPanel(new BorderLayout());
-        pnlGioHang.setBackground(Color.WHITE); // Đổi màu giỏ hàng cho sáng
+        pnlGioHang.setBackground(Color.WHITE); 
         pnlGioHang.setPreferredSize(new Dimension(420, 0)); 
         pnlGioHang.setBorder(BorderFactory.createMatteBorder(0, 2, 0, 0, new Color(200, 200, 200)));
 
+        JPanel pnlHeader = new JPanel(new BorderLayout());
+        pnlHeader.setBackground(Color.WHITE);
+        
         JLabel lblTitle = new JLabel("🛒 GIỎ HÀNG CỦA BẠN", SwingConstants.CENTER);
         lblTitle.setFont(new Font("Calibri", Font.BOLD, 22)); 
         lblTitle.setForeground(new Color(15, 23, 42)); 
-        lblTitle.setBorder(new EmptyBorder(20, 10, 20, 10));
-        pnlGioHang.add(lblTitle, BorderLayout.NORTH);
+        lblTitle.setBorder(new EmptyBorder(20, 10, 10, 10));
+        pnlHeader.add(lblTitle, BorderLayout.NORTH);
+
+        // Label thông báo khi đang trong chế độ đổi hàng
+        lblThongBaoDoiHang = new JLabel("", SwingConstants.CENTER);
+        lblThongBaoDoiHang.setFont(new Font("Calibri", Font.ITALIC, 14));
+        lblThongBaoDoiHang.setForeground(new Color(239, 68, 68)); // Màu đỏ cảnh báo
+        lblThongBaoDoiHang.setBorder(new EmptyBorder(0, 10, 10, 10));
+        pnlHeader.add(lblThongBaoDoiHang, BorderLayout.SOUTH);
+
+        pnlGioHang.add(pnlHeader, BorderLayout.NORTH);
 
         pnlDanhSachMon = new JPanel();
         pnlDanhSachMon.setLayout(new BoxLayout(pnlDanhSachMon, BoxLayout.Y_AXIS));
@@ -113,6 +131,16 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
                 TienIchGiaoDien.hienThiThongBao(this, "Giỏ hàng đang trống, hãy chọn món trước!", "WARNING");
                 return;
             }
+            
+            // 🔥 LOGIC CHẶN THANH TOÁN NẾU ĐANG ĐỔI HÀNG MÀ TIỀN CHƯA ĐẠT CHUẨN
+            if (isCheDoDoiHang) {
+                BigDecimal tongMoi = layTongTienGioHang();
+                if (tongMoi.compareTo(tongTienHoaDonCu) < 0) {
+                    TienIchGiaoDien.hienThiThongBao(this, "LỖI ĐỔI HÀNG:\nTổng tiền giỏ hàng mới (" + DinhDangUtil.dinhDangTien(tongMoi) + ") \nphải LỚN HƠN HOẶC BẰNG hóa đơn cũ (" + DinhDangUtil.dinhDangTien(tongTienHoaDonCu) + ")!", "ERROR");
+                    return;
+                }
+            }
+
             if (hanhDongThanhToan != null) {
                 hanhDongThanhToan.run();
             }
@@ -194,6 +222,7 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
             btnTru.addActionListener(e -> {
                 DanhSachSPUi.TheSanPham card = pnlDanhSachSP.getTheSanPham(ma);
                 if (card != null) card.congTruTuGioHang(-1);
+                else capNhatGioHang(sp, -1, null); // Dự phòng nếu ko tìm thấy card
             });
 
             JLabel lblQty = new JLabel(String.valueOf(sl), SwingConstants.CENTER);
@@ -208,6 +237,7 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
             btnCong.addActionListener(e -> {
                 DanhSachSPUi.TheSanPham card = pnlDanhSachSP.getTheSanPham(ma);
                 if (card != null) card.congTruTuGioHang(1);
+                else capNhatGioHang(sp, 1, null);
             });
 
             NutBoGoc btnXoa = new NutBoGoc("X");
@@ -218,6 +248,7 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
             btnXoa.addActionListener(e -> {
                 DanhSachSPUi.TheSanPham card = pnlDanhSachSP.getTheSanPham(ma);
                 if (card != null) card.xoaKhoiGioHang();
+                else capNhatGioHang(sp, -sl, null);
             });
 
             pnlRight.add(btnTru);
@@ -234,22 +265,33 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
         lblTongSL.setText(String.valueOf(tongSl));
         lblTongTien.setText(DinhDangUtil.dinhDangTien(tongTien));
 
+        // Nếu đang đổi hàng mà chưa đủ tiền, hiện chữ màu đỏ cảnh báo ở Tổng tiền
+        if (isCheDoDoiHang && tongTien.compareTo(tongTienHoaDonCu) < 0) {
+            lblTongTien.setForeground(new Color(239, 68, 68)); // Đỏ
+        } else {
+            lblTongTien.setForeground(new Color(34, 197, 94)); // Xanh lá
+        }
+
         pnlDanhSachMon.revalidate();
         pnlDanhSachMon.repaint();
 
-        if (gioHangData.isEmpty()) {
+        if (gioHangData.isEmpty() && !isCheDoDoiHang) {
             anGioHang();
         }
     }
 
     private void xuLyHuyGioHang() {
-        TienIchGiaoDien.hienThiXacNhan(this, "Bạn có chắc muốn xóa sạch giỏ hàng không?", () -> {
+        TienIchGiaoDien.hienThiXacNhan(this, "Bạn có chắc muốn xóa sạch giỏ hàng (Hủy đổi hàng) không?", () -> {
             lamMoiGioHang();
         });
     }
 
     public void lamMoiGioHang() {
         gioHangData.clear(); 
+        isCheDoDoiHang = false;
+        tongTienHoaDonCu = BigDecimal.ZERO;
+        lblThongBaoDoiHang.setText(""); // Xóa cảnh báo
+
         renderLaiDanhSachMon(); 
         for (Component comp : pnlDanhSachSP.layDanhSachTheSP()) {
             if (comp instanceof DanhSachSPUi.TheSanPham) {
@@ -304,5 +346,42 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
             tong = tong.add(thanhTien);
         }
         return tong;
+    }
+
+    // ====================================================================
+    // 🔥 TUYỆT CHIÊU ĐỔI HÀNG: ĐẨY DỮ LIỆU TỪ HÓA ĐƠN CŨ VÀO GIỎ MỚI
+    // ====================================================================
+    public void kichHoatCheDoDoiHang(java.util.List<ChiTietHoaDon> dsChiTietCu, BigDecimal tongTienCu) {
+        lamMoiGioHang(); // Xóa sạch giỏ hiện tại trước
+        this.isCheDoDoiHang = true;
+        this.tongTienHoaDonCu = tongTienCu;
+
+        // Cập nhật giao diện cảnh báo
+        lblThongBaoDoiHang.setText("<html><center>ĐANG ĐỔI HÀNG<br>Yêu cầu giỏ hàng mới >= " + DinhDangUtil.dinhDangTien(tongTienCu) + "</center></html>");
+
+        // Bê sản phẩm cũ vào giỏ
+        for (ChiTietHoaDon ct : dsChiTietCu) {
+            SanPham sp = SanPhamDAO.getInstance().laySanPhamTheoMa(ct.getMaSp());
+            if (sp != null) {
+                ChiTietGio item = new ChiTietGio(sp, ct.getSoLuong());
+                gioHangData.put(sp.getMaSP(), item);
+                
+                // ĐÃ XÓA ĐOẠN GỌI CARD BỊ LỖI Ở ĐÂY!
+            }
+        }
+
+        // Bật panel giỏ hàng lên ngay lập tức
+        if (pnlGioHang.getParent() == null) {
+            this.add(pnlGioHang, BorderLayout.EAST);
+            this.revalidate();
+        }
+        renderLaiDanhSachMon();
+    }
+    public boolean isCheDoDoiHang() {
+        return this.isCheDoDoiHang;
+    }
+
+    public BigDecimal getTongTienHoaDonCu() {
+        return this.tongTienHoaDonCu;
     }
 }

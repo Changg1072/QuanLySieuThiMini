@@ -639,9 +639,14 @@ public class TrangADMIN extends JFrame {
 
     private void setupHanhDongBanHang() {
         banHangUi.setHanhDongThanhToan(() -> {
-            Object[][] dsMon    = banHangUi.layDuLieuGioHang();
+            Object[][] dsSanPham = banHangUi.layDuLieuGioHang();
             BigDecimal tongTien = banHangUi.layTongTienGioHang();
-            thanhToanUi.nhanDuLieuTuGioHang(dsMon, tongTien);
+            thanhToanUi.nhanDuLieuTuGioHang(
+                dsSanPham, 
+                tongTien, 
+                banHangUi.isCheDoDoiHang(),       // Lấy cờ đổi hàng
+                banHangUi.getTongTienHoaDonCu()   // Lấy số tiền bill cũ
+            );
             cardLayout.show(pnlCards, "THANH_TOAN");
         });
         thanhToanUi.setHanhDongQuayLai(

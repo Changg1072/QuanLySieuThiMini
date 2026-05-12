@@ -223,16 +223,17 @@ public class TruyVanSieuTocDAO {
                     while (rs.next()) {
                         Timestamp ngaySQL = rs.getTimestamp("NgayTao");
                         HoaDon hd = new HoaDon.ThoXayHoaDon()
-                            .ganMaHD(rs.getString("MaHD"))
-                            .ganNgayTao(ngaySQL != null ? ngaySQL.toLocalDateTime() : null)
-                            .ganMaKH(rs.getString("MaKH"))
-                            .ganMaNV(rs.getString("MaNV"))
-                            .ganPhuongThucTT(rs.getString("PhuongThucTT"))
-                            .ganTongGiamGia(rs.getBigDecimal("TongGiamGia"))
-                            .ganKhachDua(rs.getBigDecimal("KhachDua"))
-                            .ganTienThua(rs.getBigDecimal("TienThua"))
-                            .ganThanhTien(rs.getBigDecimal("ThanhTien"))
-                            .taoMoi();
+                        .ganMaHD(rs.getString("MaHD"))
+                        .ganNgayTao(ngaySQL != null ? ngaySQL.toLocalDateTime() : null)
+                        .ganMaKH(rs.getString("MaKH"))
+                        .ganMaNV(rs.getString("MaNV"))
+                        .ganPhuongThucTT(rs.getString("PhuongThucTT"))
+                        .ganTongGiamGia(rs.getBigDecimal("TongGiamGia"))
+                        .ganKhachDua(rs.getBigDecimal("KhachDua"))
+                        .ganTienThua(rs.getBigDecimal("TienThua"))
+                        .ganThanhTien(rs.getBigDecimal("ThanhTien"))
+                        .ganTraHang(rs.getBoolean("TraHang")) // 🔥 PHẢI CÓ DÒNG NÀY THÌ UI MỚI NHẬN ĐƯỢC TRUE/FALSE
+                        .taoMoi();
                         dto.dsHoaDon.add(hd);
                     }
                 }
@@ -488,5 +489,48 @@ public class TruyVanSieuTocDAO {
             System.err.println("🔥 [SieuTocDAO] Lỗi tải dữ liệu Nhập Hàng: " + e.getMessage());
         }
         return dto;
+    }
+    // =========================================================================
+    // THÊM VÀO: TruyVanSieuTocDAO.java
+    // 9. HOÀN TRẢ HÀNG (TRANSACTION) 🚀
+    // =========================================================================
+    public void xuLyTraHangToanBoSieuToc(String maHD, String lyDoGop, List<Data.ChiTietHoaDon> dsChiTiet) throws Exception {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) throw new Exception("Không thể kết nối CSDL!");
+
+        PreparedStatement psHD = null;
+        PreparedStatement psTonKho = null;
+
+        try {
+            con.setAutoCommit(false); // BẮT ĐẦU TRANSACTION
+
+            // 1. Cập nhật hóa đơn thành Đã Trả Hàng & Lưu lý do
+            String sqlHD = "UPDATE HoaDon SET TraHang = 1, LyDoTraHang = ? WHERE MaHD = ?";
+            psHD = con.prepareStatement(sqlHD);
+            psHD.setString(1, lyDoGop);
+            psHD.setString(2, maHD);
+            psHD.executeUpdate();
+
+            // 2. Rollback Tồn Kho chính xác theo Lô
+            String sqlKho = "UPDATE ChiTietLoHang SET SoLuongTon = SoLuongTon + ? WHERE MaLoHang = ? AND MaSP = ?";
+            psTonKho = con.prepareStatement(sqlKho);
+            for (Data.ChiTietHoaDon ct : dsChiTiet) {
+                psTonKho.setInt(1, ct.getSoLuong());
+                psTonKho.setString(2, ct.getMaLoHang()); // ĐÚNG LÔ HÀNG ĐÃ XUẤT
+                psTonKho.setString(3, ct.getMaSp());
+                psTonKho.addBatch();
+            }
+            psTonKho.executeBatch(); // Chạy batch cực nhanh
+
+            con.commit(); // THÀNH CÔNG -> LƯU
+
+        } catch (Exception e) {
+            con.rollback(); // LỖI -> HỦY BỎ TẤT CẢ
+            throw new Exception("Lỗi hoàn trả: " + e.getMessage());
+        } finally {
+            con.setAutoCommit(true);
+            if (psHD != null) psHD.close();
+            if (psTonKho != null) psTonKho.close();
+        }
     }
 }

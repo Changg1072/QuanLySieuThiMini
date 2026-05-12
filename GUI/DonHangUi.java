@@ -65,7 +65,7 @@ public class DonHangUi extends JPanel {
         tabPanel.setBackground(COLOR_CARD_BG);
         tabPanel.setBorder(new EmptyBorder(10, 10, 0, 10));
 
-        String[] tabs = {"Tất cả", "Đã Chỉnh Sửa", "Khách Vãng Lai", "Khách Vip", "Khách Vàng", "Khách Bạc", "Khách Không Hạng"};
+        String[] tabs = {"Tất cả", "Trả Hàng", "Khách Vãng Lai", "Khách Vip", "Khách Vàng", "Khách Bạc", "Khách Không Hạng"};
         for (String tabName : tabs) {
             JLabel lblTab = createTabLabel(tabName);
             tabLabels.add(lblTab);
@@ -215,7 +215,7 @@ public class DonHangUi extends JPanel {
                     String[] khInfo = data.mapKhachHang.get(hd.getMaKH());
                     String tenKH = (khInfo != null) ? khInfo[0] : "Khách Vãng Lai";
                     String hangKH = (khInfo != null && khInfo[1] != null) ? khInfo[1] : "Không hạng";
-                    String trangThaiThat = "Hoàn thành"; 
+                    String trangThaiThat = (hd.getTraHang() != null && hd.getTraHang()) ? "Đã trả hàng" : "Hoàn thành";
 
                     boolean hopLeNgay = true;
                     if (finalNgayCanLoc != null) {
@@ -230,7 +230,7 @@ public class DonHangUi extends JPanel {
                     boolean hopLeTab = false;
                     switch(boLocHienTai) {
                         case "Tất cả": hopLeTab = true; break;
-                        case "Đã Chỉnh Sửa": hopLeTab = trangThaiThat.equals("Đã sửa đổi"); break;
+                        case "Trả Hàng": hopLeTab = trangThaiThat.equals("Đã trả hàng"); break;
                         case "Khách Vãng Lai": hopLeTab = hangKH.equals("Không hạng") && tenKH.equals("Khách Vãng Lai"); break;
                         case "Khách Vip": hopLeTab = hangKH.equals("Vip"); break;
                         case "Khách Vàng": hopLeTab = hangKH.equals("Vàng"); break;
@@ -289,6 +289,8 @@ public class DonHangUi extends JPanel {
                             centerPanel.add(card);
                             centerPanel.add(Box.createRigidArea(new Dimension(0, 15)));
                         }
+                        // 🔥 ĐÃ FIX: Thêm lò xo hấp thụ khoảng trắng thừa, đẩy mọi thứ lên sát Top
+                        centerPanel.add(Box.createVerticalGlue()); 
                     }
                     centerPanel.revalidate();
                     centerPanel.repaint();
@@ -299,12 +301,33 @@ public class DonHangUi extends JPanel {
     }
 
     private JPanel createOrderCard(DonHangModel order) {
-        TheBongDo card = new TheBongDo(12); 
+        TheBongDo card = new TheBongDo(15) {
+            @Override
+            public Dimension getMaximumSize() {
+                return new Dimension(1200, getPreferredSize().height);
+            }
+        };
         card.setLayout(new BorderLayout());
         card.setBackground(COLOR_CARD_BG);
-        card.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(COLOR_BORDER), new EmptyBorder(5, 5, 5, 5)));
+        card.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(COLOR_BORDER, 1), new EmptyBorder(5, 5, 5, 5)));
         card.setMaximumSize(new Dimension(1200, Integer.MAX_VALUE));
 
+        card.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                card.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(COLOR_PRIMARY, 2), new EmptyBorder(4, 4, 4, 4)));
+                card.setBackground(new Color(255, 250, 248)); 
+            }
+            @Override
+            public void mouseExited(MouseEvent e) {
+                card.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(COLOR_BORDER, 1), new EmptyBorder(5, 5, 5, 5)));
+                card.setBackground(COLOR_CARD_BG);
+            }
+        });
+
+        // =====================================
+        // 1. HEADER PANEL
+        // =====================================
         JPanel headerPanel = new JPanel();
         headerPanel.setLayout(new BoxLayout(headerPanel, BoxLayout.Y_AXIS));
         headerPanel.setOpaque(false);
@@ -318,7 +341,13 @@ public class DonHangUi extends JPanel {
 
         JLabel lblStatus = new JLabel(order.status.toUpperCase());
         lblStatus.setFont(new Font("Calibri", Font.BOLD, 14));
-        lblStatus.setForeground(COLOR_PRIMARY); 
+        
+        // 🔥 IN ĐẬM CHỮ MÀU ĐỎ CẢNH BÁO
+        if (order.status.equalsIgnoreCase("Đã trả hàng")) {
+            lblStatus.setForeground(new Color(220, 53, 69)); // Màu đỏ
+        } else {
+            lblStatus.setForeground(COLOR_PRIMARY); // Màu cam mặc định
+        }
 
         row1.add(lblMaHD, BorderLayout.WEST);
         row1.add(lblStatus, BorderLayout.EAST);
@@ -340,6 +369,9 @@ public class DonHangUi extends JPanel {
 
         headerPanel.add(row1); headerPanel.add(row2);
 
+        // =====================================
+        // 2. BODY PANEL (Danh sách SP)
+        // =====================================
         JPanel bodyPanel = new JPanel();
         bodyPanel.setLayout(new BoxLayout(bodyPanel, BoxLayout.Y_AXIS));
         bodyPanel.setOpaque(false);
@@ -353,7 +385,9 @@ public class DonHangUi extends JPanel {
                 hiddenPanel.setOpaque(false);
                 hiddenPanel.setVisible(false); 
 
-                for (int i = 1; i < order.items.size(); i++) hiddenPanel.add(createProductItem(order.items.get(i)));
+                for (int i = 1; i < order.items.size(); i++) {
+                    hiddenPanel.add(createProductItem(order.items.get(i)));
+                }
 
                 JLabel lblToggle = new JLabel("Xem thêm " + (order.items.size() - 1) + " sản phẩm ˅");
                 lblToggle.setFont(new Font("Calibri", Font.PLAIN, 14));
@@ -376,16 +410,126 @@ public class DonHangUi extends JPanel {
             }
         }
 
+        // =====================================
+        // 3. FOOTER PANEL (NẰM NGANG)
+        // =====================================
         JPanel footerPanel = new JPanel(new BorderLayout());
         footerPanel.setOpaque(false);
         footerPanel.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, COLOR_BORDER), new EmptyBorder(15, 15, 15, 15)));
 
+        JPanel westFooter = new JPanel();
+        westFooter.setLayout(new BoxLayout(westFooter, BoxLayout.X_AXIS)); 
+        westFooter.setOpaque(false);
+
+        NutBoGoc btnChiTiet = new NutBoGoc("👁 Chi Tiết");
+        btnChiTiet.setColorBackground(new Color(38, 170, 153)); 
+        btnChiTiet.setPreferredSize(new Dimension(130, 35)); 
+        btnChiTiet.setMaximumSize(new Dimension(130, 35));
+
+        NutBoGoc btnTraHang = new NutBoGoc("↩ Trả Hàng");
+        btnTraHang.setPreferredSize(new Dimension(130, 35)); 
+        btnTraHang.setMaximumSize(new Dimension(130, 35));
+
         JLabel lblPaymentMethod = new JLabel("💳 Thanh toán: " + order.phuongThucTT);
         lblPaymentMethod.setFont(new Font("Calibri", Font.PLAIN, 14));
         lblPaymentMethod.setForeground(COLOR_TEXT_SUB);
-        lblPaymentMethod.setVerticalAlignment(SwingConstants.BOTTOM);
-        footerPanel.add(lblPaymentMethod, BorderLayout.WEST);
 
+        btnChiTiet.setAlignmentY(Component.CENTER_ALIGNMENT);
+        btnTraHang.setAlignmentY(Component.CENTER_ALIGNMENT);
+        lblPaymentMethod.setAlignmentY(Component.CENTER_ALIGNMENT);
+
+        long soNgayCachBiet = 0;
+        try {
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+            java.time.LocalDate ngayLap = java.time.LocalDate.parse(order.ngayTao, formatter);
+            soNgayCachBiet = java.time.temporal.ChronoUnit.DAYS.between(ngayLap, java.time.LocalDate.now());
+        } catch (Exception ex) {
+            soNgayCachBiet = 999; 
+        }
+
+        if (soNgayCachBiet > 7 || order.status.equalsIgnoreCase("Đã hủy") 
+            || order.status.equalsIgnoreCase("Đã sửa đổi") 
+            || order.status.equalsIgnoreCase("Đã trả hàng")) { 
+            
+            btnTraHang.setEnabled(false);
+            btnTraHang.setColorBackground(new Color(200, 200, 200)); 
+            btnTraHang.setToolTipText("Hóa đơn đã quá hạn hoặc không thể trả hàng nữa.");
+            
+            if (order.status.equalsIgnoreCase("Đã trả hàng")) {
+                btnTraHang.setText("Đã Khóa"); 
+            }
+        } else {
+            btnTraHang.setColorBackground(COLOR_PRIMARY); 
+            btnTraHang.addActionListener(e -> {
+                JFrame topFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
+                java.util.List<Data.ChiTietHoaDon> dsCt = Dao.TruyVanSieuTocDAO.getInstance().loadToanBoDuLieuDonHang().mapChiTietHD.get(order.maHD);
+                new GUI.HoTro.PopupTraHang(topFrame, this, order.maHD, dsCt);
+            });
+        }
+
+        btnChiTiet.addActionListener(e -> {
+            Window topFrame = SwingUtilities.getWindowAncestor(this);
+            JDialog dialog = new JDialog(topFrame, "Chi tiết hóa đơn", Dialog.ModalityType.APPLICATION_MODAL);
+            dialog.setUndecorated(true);
+            dialog.setBackground(new Color(0, 0, 0, 0)); 
+            
+            java.util.List<Data.ChiTietHoaDon> dsCt = Dao.TruyVanSieuTocDAO.getInstance().loadToanBoDuLieuDonHang().mapChiTietHD.get(order.maHD);
+            
+            Object[][] items = new Object[dsCt.size()][5];
+            for (int i = 0; i < dsCt.size(); i++) {
+                Data.ChiTietHoaDon ct = dsCt.get(i);
+                String tenSP = Dao.SanPhamDAO.getInstance().laySanPhamTheoMa(ct.getMaSp()).getTenSP();
+                
+                items[i][0] = tenSP;
+                items[i][1] = ""; 
+                items[i][2] = ct.getSoLuong();
+                items[i][3] = ct.getDonGia();
+                items[i][4] = ct.getThanhTienSanPham();
+            }
+            
+            ChiTietHoaDonUi chiTietUi = new ChiTietHoaDonUi();
+            chiTietUi.setPreferredSize(new Dimension(650, 800));
+            boolean isTienMat = order.phuongThucTT.equalsIgnoreCase("Tiền mặt");
+            chiTietUi.setDuLieuHoaDon(
+                order.maHD, order.tenNhanVien, order.customerName, order.customerTier, 
+                order.khachDua, items, order.tongGiamGia, new java.math.BigDecimal("0"), 0, isTienMat
+            );
+            
+            JPanel pnlContainer = new JPanel(new BorderLayout());
+            pnlContainer.setOpaque(false);
+            pnlContainer.add(chiTietUi, BorderLayout.CENTER);
+            
+            NutBoGoc btnDong = new NutBoGoc("Đóng");
+            btnDong.setColorBackground(new Color(220, 53, 69)); 
+            btnDong.addActionListener(closeEvent -> dialog.dispose());
+            
+            JPanel pnlDong = new JPanel(new FlowLayout(FlowLayout.CENTER));
+            pnlDong.setOpaque(false);
+            pnlDong.setBorder(new EmptyBorder(15, 0, 0, 0));
+            pnlDong.add(btnDong);
+            
+            pnlContainer.add(pnlDong, BorderLayout.SOUTH);
+            
+            JPanel pnlGlass = new JPanel(new GridBagLayout());
+            pnlGlass.setBackground(new Color(0, 0, 0, 150)); 
+            pnlGlass.setBorder(new EmptyBorder(20, 20, 20, 20));
+            pnlGlass.add(pnlContainer);
+            
+            dialog.setContentPane(pnlGlass);
+            dialog.setSize(topFrame.getSize()); 
+            dialog.setLocationRelativeTo(topFrame);
+            dialog.setVisible(true);
+        });
+
+        westFooter.add(btnChiTiet);
+        westFooter.add(Box.createRigidArea(new Dimension(15, 0))); 
+        westFooter.add(btnTraHang);
+        westFooter.add(Box.createRigidArea(new Dimension(25, 0))); 
+        westFooter.add(lblPaymentMethod);
+        
+        footerPanel.add(westFooter, BorderLayout.WEST);
+
+        // --- Góc phải: Bảng thống kê tiền bạc ---
         JPanel eastFooter = new JPanel();
         eastFooter.setLayout(new BoxLayout(eastFooter, BoxLayout.Y_AXIS));
         eastFooter.setOpaque(false);
@@ -414,7 +558,6 @@ public class DonHangUi extends JPanel {
 
         return card;
     }
-
     private void addSummaryRow(JPanel panel, String label, String value, Color valColor, Font valFont, GridBagConstraints gbc, int row) {
         gbc.gridy = row; gbc.gridx = 0; gbc.weightx = 1.0;
         JLabel lbl = new JLabel(label); lbl.setFont(new Font("Calibri", Font.PLAIN, 14)); lbl.setForeground(COLOR_TEXT_SUB); panel.add(lbl, gbc);
