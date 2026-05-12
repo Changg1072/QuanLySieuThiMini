@@ -122,4 +122,9 @@ public class ChiTietLoHangLogic {
             throw new Exception("Từ chối nhập kho: Sản phẩm này đã hết hạn sử dụng!");
         }
     }
+
+    public List<ChiTietLoHang> layChiTietTheoMaSP(String maSP) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'layChiTietTheoMaSP'");
+    }
 }

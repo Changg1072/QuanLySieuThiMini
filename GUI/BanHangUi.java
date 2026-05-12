@@ -31,7 +31,7 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
         setLayout(new BorderLayout());
         setBackground(DanhSachSPUi.BG_MAIN);
 
-        pnlDanhSachSP = new DanhSachSPUi(this);
+        pnlDanhSachSP = new DanhSachSPUi(this, DanhSachSPUi.UIMode.BAN_HANG);
         taoGioHang();
 
         add(pnlDanhSachSP, BorderLayout.CENTER);
@@ -264,7 +264,7 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
         if (pnlDanhSachSP != null) {
             this.remove(pnlDanhSachSP);
         }
-        pnlDanhSachSP = new DanhSachSPUi(this); 
+        pnlDanhSachSP = new DanhSachSPUi(this, DanhSachSPUi.UIMode.BAN_HANG);
         this.add(pnlDanhSachSP, BorderLayout.CENTER);
         this.revalidate();
         this.repaint();

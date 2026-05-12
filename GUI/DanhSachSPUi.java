@@ -29,6 +29,16 @@ public class DanhSachSPUi extends JPanel {
     private JTable tableSP;
     private DefaultTableModel tableModel;
 
+    // 🔥 THÊM CỜ (MODE) ĐỂ PHÂN BIỆT GIAO DIỆN
+    public enum UIMode {
+        BAN_HANG,   // Hiện nút MUA
+        QUAN_LY     // Hiện nút CHI TIẾT
+    }
+    private UIMode currentMode;
+    public DanhSachSPUi(CallBackGioHang callback) {
+        // Gọi ngầm định sang constructor mới với chế độ BAN_HANG
+        this(callback, UIMode.BAN_HANG); 
+    }   
     // 🔥 Cache dữ liệu siêu tốc tại chỗ (Lấy từ TruyVanSieuTocDAO)
     private TruyVanSieuTocDAO.DuLieuBanHangDTO dataBanHangCache;
 
@@ -39,8 +49,11 @@ public class DanhSachSPUi extends JPanel {
         void capNhatGioHang(SanPham sp, int soLuongThayDoi, TheSanPham card);
     }
 
-    public DanhSachSPUi(CallBackGioHang callback) {
+    // 🔥 Sửa Constructor nhận thêm tham số UIMode
+    public DanhSachSPUi(CallBackGioHang callback, UIMode mode) {
         this.gioHangCallback = callback;
+        this.currentMode = (mode != null) ? mode : UIMode.BAN_HANG; // Mặc định là bán hàng nếu không truyền
+        
         setLayout(new BorderLayout());
         setBackground(BG_MAIN);
 
@@ -109,7 +122,7 @@ public class DanhSachSPUi extends JPanel {
         tableSP.getColumnModel().getColumn(2).setPreferredWidth(120);
         tableSP.getColumnModel().getColumn(3).setPreferredWidth(100);
         tableSP.getColumnModel().getColumn(4).setPreferredWidth(140);
-        tableSP.getColumnModel().getColumn(5).setPreferredWidth(120);
+        tableSP.getColumnModel().getColumn(5).setPreferredWidth(130);
 
         setupTableRenderers();
 
@@ -207,7 +220,7 @@ public class DanhSachSPUi extends JPanel {
         SwingWorker<Void, Void> worker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
-                // Chỉ đi qua DB 1 LẦN DUY NHẤT để lấy trọn bộ Sản Phẩm + Tồn Kho[cite: 25]
+                // Chỉ đi qua DB 1 LẦN DUY NHẤT để lấy trọn bộ Sản Phẩm + Tồn Kho
                 dataBanHangCache = TruyVanSieuTocDAO.getInstance().loadToanBoSanPhamBanHang();
                 return null;
             }
@@ -284,7 +297,6 @@ public class DanhSachSPUi extends JPanel {
 
         String trangThai = "Đang giao dịch";
         if (tonKho == 0) trangThai = "Hết Tồn Kho";
-        // Bổ sung logic Hết HSD tại đây nếu cần thiết trong tương lai
 
         Object[] rowData = {
                 icon,
@@ -335,18 +347,20 @@ public class DanhSachSPUi extends JPanel {
     }
 
     // ==========================================
-    // NÚT MUA TRONG BẢNG
+    // 🔥 CỘT HÀNH ĐỘNG (THAY ĐỔI THEO MODE)
     // ==========================================
     class ButtonActionRenderer extends JPanel implements TableCellRenderer {
-        private NutBoGoc btnMua;
+        private NutBoGoc btnAction;
         
         public ButtonActionRenderer() {
             setLayout(new FlowLayout(FlowLayout.CENTER, 0, 15));
             setOpaque(true);
-            btnMua = new NutBoGoc("MUA");
-            btnMua.setFont(new Font("Segoe UI", Font.BOLD, 13));
-            btnMua.setPreferredSize(new Dimension(80, 30));
-            add(btnMua);
+            
+            // Nếu Mode BÁN HÀNG -> Nút MUA. Ngược lại -> Nút CHI TIẾT
+            btnAction = new NutBoGoc(currentMode == UIMode.BAN_HANG ? "MUA" : "CHI TIẾT");
+            btnAction.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            btnAction.setPreferredSize(new Dimension(110, 32));
+            add(btnAction);
         }
         
         @Override
@@ -356,12 +370,18 @@ public class DanhSachSPUi extends JPanel {
 
             if (value instanceof TheSanPham) {
                 TheSanPham wrapper = (TheSanPham) value;
-                if (wrapper.tonMax == 0) {
-                    btnMua.setColorBackground(new Color(203, 213, 225));
-                    btnMua.setEnabled(false);
+                if (currentMode == UIMode.BAN_HANG) {
+                    if (wrapper.tonMax == 0) {
+                        btnAction.setColorBackground(new Color(203, 213, 225)); // Xám khóa
+                        btnAction.setEnabled(false);
+                    } else {
+                        btnAction.setColorBackground(new Color(34, 197, 94)); // Xanh lá
+                        btnAction.setEnabled(true);
+                    }
                 } else {
-                    btnMua.setColorBackground(new Color(34, 197, 94));
-                    btnMua.setEnabled(true);
+                    // Mode Quản Lý - Luôn hiển thị màu Xanh mint premium
+                    btnAction.setColorBackground(new Color(14, 165, 233));
+                    btnAction.setEnabled(true);
                 }
             }
             return this;
@@ -370,36 +390,49 @@ public class DanhSachSPUi extends JPanel {
 
     class ButtonActionEditor extends DefaultCellEditor {
         private JPanel pnl;
-        private NutBoGoc btnMua;
+        private NutBoGoc btnAction;
         private TheSanPham currentWrapper;
 
         public ButtonActionEditor(JCheckBox checkBox) {
             super(checkBox);
             pnl = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 15));
             pnl.setOpaque(true);
-            btnMua = new NutBoGoc("MUA");
-            btnMua.setFont(new Font("Segoe UI", Font.BOLD, 13));
-            btnMua.setPreferredSize(new Dimension(80, 30));
-            pnl.add(btnMua);
+            btnAction = new NutBoGoc(currentMode == UIMode.BAN_HANG ? "MUA" : "CHI TIẾT");
+            btnAction.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            btnAction.setPreferredSize(new Dimension(110, 32));
+            pnl.add(btnAction);
 
-            btnMua.addActionListener(e -> {
-                if (currentWrapper != null && currentWrapper.tonMax > 0) {
-                    currentWrapper.thayDoiSoLuong(1);
+            btnAction.addActionListener(e -> {
+                if (currentWrapper != null) {
+                    if (currentMode == UIMode.BAN_HANG) {
+                        if (currentWrapper.tonMax > 0) {
+                            currentWrapper.thayDoiSoLuong(1);
+                        }
+                    } else {
+                        // GỌI COMPONENT CHI TIẾT SẢN PHẨM Ở ĐÂY
+                        ChiTietSanPham.showModal(DanhSachSPUi.this, currentWrapper.sp, currentWrapper.tonMax);
+                    }
                     fireEditingStopped();
                 }
             });
         }
+        
         @Override
         public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
             pnl.setBackground(table.getSelectionBackground());
             if (value instanceof TheSanPham) {
                 currentWrapper = (TheSanPham) value;
-                if (currentWrapper.tonMax == 0) {
-                    btnMua.setColorBackground(new Color(203, 213, 225));
-                    btnMua.setEnabled(false);
+                if (currentMode == UIMode.BAN_HANG) {
+                    if (currentWrapper.tonMax == 0) {
+                        btnAction.setColorBackground(new Color(203, 213, 225));
+                        btnAction.setEnabled(false);
+                    } else {
+                        btnAction.setColorBackground(new Color(34, 197, 94));
+                        btnAction.setEnabled(true);
+                    }
                 } else {
-                    btnMua.setColorBackground(new Color(34, 197, 94));
-                    btnMua.setEnabled(true);
+                    btnAction.setColorBackground(new Color(14, 165, 233));
+                    btnAction.setEnabled(true);
                 }
             }
             return pnl;

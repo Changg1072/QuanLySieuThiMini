@@ -1,4 +1,4 @@
-package GUI;
+package GUI.HoTro;
 
 import Data.NhanVien;
 import GUI.HoTro.TienIchGiaoDien;
@@ -33,8 +33,10 @@ public class SuaNhanVienDialog extends JDialog {
     private Color cardDark = new Color(30, 41, 59);     // Nền Card Modal
     private Color borderNormal = new Color(51, 65, 85); // Viền xám tối
     private Color borderFocus = new Color(59, 130, 246);// Viền xanh focus
-    private Color textPrimary = new Color(248, 250, 252);
-    private Color textSecondary = new Color(148, 163, 184);
+    
+    // 🔥 ĐÃ SỬA: Chữ trắng tinh và xám sáng hơn để nổi bật trên nền tối
+    private Color textPrimary = Color.WHITE;
+    private Color textSecondary = new Color(203, 213, 225);
 
     // --- Animation ---
     private float opacity = 0f;
@@ -127,17 +129,19 @@ public class SuaNhanVienDialog extends JDialog {
             }
         };
         pnlCard.setOpaque(false);
-        pnlCard.setPreferredSize(new Dimension(660, 460)); // Chỉnh lại khung gọn gàng
-        pnlCard.setBorder(new EmptyBorder(25, 30, 25, 30));
+        // 🔥 ĐÃ SỬA: Nới form to ra một chút để chứa font chữ bự
+        pnlCard.setPreferredSize(new Dimension(720, 520)); 
+        pnlCard.setBorder(new EmptyBorder(30, 35, 30, 35));
 
         // --- 1. HEADER ---
         JLabel lblTitle = new JLabel("Chỉnh sửa nhân viên");
-        lblTitle.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(20f));
+        // 🔥 ĐÃ SỬA: Tăng title lên size 24
+        lblTitle.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(24f));
         lblTitle.setForeground(textPrimary);
-        lblTitle.setBorder(new EmptyBorder(0, 0, 10, 0));
+        lblTitle.setBorder(new EmptyBorder(0, 0, 15, 0));
 
         // --- 2. FORM (LAYOUT 2 CỘT COMPACT) ---
-        JPanel pnlForm = new JPanel(new GridLayout(3, 2, 20, 18)); 
+        JPanel pnlForm = new JPanel(new GridLayout(3, 2, 25, 20)); 
         pnlForm.setOpaque(false);
 
         txtMaNV = new FormGroup("Mã Nhân Viên", false);
@@ -151,9 +155,9 @@ public class SuaNhanVienDialog extends JDialog {
         pnlForm.add(txtSDT);     pnlForm.add(new JLabel("")); // Cột cuối trống
 
         // --- 3. BUTTONS ---
-        JPanel pnlBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        JPanel pnlBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         pnlBtns.setOpaque(false);
-        pnlBtns.setBorder(new EmptyBorder(10, 0, 0, 0));
+        pnlBtns.setBorder(new EmptyBorder(15, 0, 0, 0));
 
         btnHuy = new ReactButton("Hủy bỏ", new Color(71, 85, 105)); // Xám
         btnHuy.addActionListener(e -> closeWithAnimation());
@@ -187,11 +191,12 @@ public class SuaNhanVienDialog extends JDialog {
         private boolean isFocus = false;
 
         public FormGroup(String labelTitle, boolean editable) {
-            setLayout(new BorderLayout(0, 4));
+            setLayout(new BorderLayout(0, 6)); // Tăng khoảng cách title và ô nhập
             setOpaque(false);
 
             JLabel lbl = new JLabel(labelTitle);
-            lbl.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(12.5f));
+            // 🔥 ĐÃ SỬA: Đổi Label thành FONT_DAM (Đậm) và tăng size lên 15f
+            lbl.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(15f));
             lbl.setForeground(textSecondary);
             
             txt = new JTextField() {
@@ -218,17 +223,19 @@ public class SuaNhanVienDialog extends JDialog {
                     super.paintComponent(g);
                 }
             };
-            txt.setPreferredSize(new Dimension(0, 42)); 
+            // 🔥 ĐÃ SỬA: Tăng chiều cao ô nhập từ 42 lên 48
+            txt.setPreferredSize(new Dimension(0, 48)); 
             txt.setOpaque(false);
             txt.setBorder(new EmptyBorder(0, 15, 0, 15)); 
-            txt.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(13.5f));
+            // 🔥 ĐÃ SỬA: Tăng size chữ trong ô nhập lên 16f
+            txt.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(16f));
             txt.setCaretColor(textPrimary);
             
-            // 🚀 BẮT BỆNH: Khóa triệt để Focus & làm xám chữ nếu không cho sửa
             txt.setEditable(editable);
             if (!editable) {
-                txt.setFocusable(false); // Chặn click vào hiện con trỏ
-                txt.setForeground(textSecondary); // Đổi màu xám mờ
+                txt.setFocusable(false);
+                // 🔥 ĐÃ SỬA: Cho chữ phần khóa sáng hơn một chút để dễ đọc
+                txt.setForeground(new Color(170, 180, 195)); 
             } else {
                 txt.setForeground(textPrimary);
             }
@@ -239,7 +246,7 @@ public class SuaNhanVienDialog extends JDialog {
             });
 
             lblError = new JLabel(" ");
-            lblError.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(11f));
+            lblError.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(12f));
             lblError.setForeground(new Color(239, 68, 68)); 
 
             add(lbl, BorderLayout.NORTH);
@@ -255,16 +262,17 @@ public class SuaNhanVienDialog extends JDialog {
     }
 
     // =====================================================================
-    // 🔽 COMPONENT: MORDEN COMBOBOX (Bản Fix - Trong suốt hoàn hảo)
+    // 🔽 COMPONENT: MORDEN COMBOBOX 
     // =====================================================================
     private class ComboGroup extends JPanel {
         private JComboBox<String> cb;
         public ComboGroup(String labelTitle, String[] items) {
-            setLayout(new BorderLayout(0, 4));
+            setLayout(new BorderLayout(0, 6));
             setOpaque(false);
 
             JLabel lbl = new JLabel(labelTitle);
-            lbl.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(12.5f));
+            // 🔥 ĐÃ SỬA: Label đậm và to hơn
+            lbl.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(15f));
             lbl.setForeground(textSecondary);
 
             cb = new JComboBox<>(items) {
@@ -279,23 +287,21 @@ public class SuaNhanVienDialog extends JDialog {
                     super.paintComponent(g);
                 }
             };
-            cb.setPreferredSize(new Dimension(0, 42)); 
+            // 🔥 ĐÃ SỬA: Tăng chiều cao và font size
+            cb.setPreferredSize(new Dimension(0, 48)); 
             cb.setOpaque(false);
             cb.setBackground(new Color(0,0,0,0)); 
             cb.setForeground(textPrimary);
-            cb.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(13.5f));
+            cb.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(16f));
             cb.setBorder(new EmptyBorder(0, 15, 0, 15));
             cb.setFocusable(false);
             
-            // 🚀 BẮT BỆNH: Cấm hệ điều hành vẽ cái nền trắng bóc đằng sau chữ!
             cb.setUI(new javax.swing.plaf.basic.BasicComboBoxUI() {
                 @Override
-                public void paintCurrentValueBackground(Graphics g, Rectangle bounds, boolean hasFocus) {
-                    // Bỏ trống để KHÔNG VẼ nền mặc định
-                }
+                public void paintCurrentValueBackground(Graphics g, Rectangle bounds, boolean hasFocus) {}
                 @Override protected JButton createArrowButton() {
                     JButton btn = new JButton("▼");
-                    btn.setFont(new Font("Arial", Font.PLAIN, 10));
+                    btn.setFont(new Font("Arial", Font.PLAIN, 12)); // Tăng mũi tên
                     btn.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 10));
                     btn.setContentAreaFilled(false);
                     btn.setForeground(textSecondary);
@@ -308,13 +314,13 @@ public class SuaNhanVienDialog extends JDialog {
                 @Override
                 public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
                     JLabel l = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                    l.setBorder(new EmptyBorder(8, 10, 8, 10));
+                    l.setBorder(new EmptyBorder(10, 10, 10, 10)); // Nới item list rộng ra
+                    // 🔥 ĐÃ SỬA: Chữ dropdown list to và rõ
+                    l.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(15f));
                     if (index == -1) {
-                        // 🚀 Khi dropdown đóng lại -> Chữ phải trong suốt để nổi bật trên nền đen
                         l.setOpaque(false);
                         l.setForeground(textPrimary);
                     } else {
-                        // Khi dropdown xổ ra
                         l.setOpaque(true);
                         if (isSelected) {
                             l.setBackground(borderFocus);
@@ -340,18 +346,19 @@ public class SuaNhanVienDialog extends JDialog {
     }
 
     // =====================================================================
-    // 🔘 COMPONENT: REACT BUTTON (Bản Fix - Gọi đúng màu Background)
+    // 🔘 COMPONENT: REACT BUTTON
     // =====================================================================
     private class ReactButton extends JButton {
         private float scaleBtn = 1.0f;
         
         public ReactButton(String text, Color baseColor) {
             super(text); 
-            // 🚀 BẮT BỆNH: Lúc trước tớ quên gọi hàm setBackground!!!
             setBackground(baseColor); 
             
             setContentAreaFilled(false); setBorderPainted(false); setFocusPainted(false);
-            setPreferredSize(new Dimension(120, 42)); setCursor(new Cursor(Cursor.HAND_CURSOR));
+            // 🔥 ĐÃ SỬA: Nút to hơn cho cân xứng form
+            setPreferredSize(new Dimension(140, 46)); 
+            setCursor(new Cursor(Cursor.HAND_CURSOR));
             
             addMouseListener(new MouseAdapter() {
                 public void mousePressed(MouseEvent e) { animate(0.95f); }
@@ -378,12 +385,14 @@ public class SuaNhanVienDialog extends JDialog {
             g2.setColor(bg); g2.fillRoundRect(0, 0, w, h, 8, 8);
             
             g2.setColor(Color.WHITE);
-            g2.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(13f));
+            // 🔥 ĐÃ SỬA: Chữ trên nút to rõ
+            g2.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(15f));
             FontMetrics fm = g2.getFontMetrics();
             g2.drawString(getText(), (w-fm.stringWidth(getText()))/2, (h+fm.getAscent()-fm.getDescent())/2);
             g2.dispose();
         }
     }
+    
     // =====================================================================
     // ⚙️ LOGIC XỬ LÝ (Validate Realtime & Phím tắt)
     // =====================================================================
@@ -421,7 +430,6 @@ public class SuaNhanVienDialog extends JDialog {
             if (luongMoi.compareTo(BigDecimal.ZERO) <= 0) throw new Exception();
         } catch (Exception e) { txtLuong.setError("Phải > 0"); return; }
 
-        // 🔒 XÁC NHẬN BẢO MẬT ADMIN
         AdminAuthDialog auth = new AdminAuthDialog(this);
         auth.setVisible(true);
         if (!auth.isAuthenticated()) return;
@@ -452,18 +460,18 @@ public class SuaNhanVienDialog extends JDialog {
     public boolean isSuccess() { return isSuccess; }
 
     // =====================================================================
-    // 🔐 MINI POPUP AUTH ADMIN (Cực gọn)
+    // 🔐 MINI POPUP AUTH ADMIN 
     // =====================================================================
     private class AdminAuthDialog extends JDialog {
         private boolean authenticated = false;
-        private JPasswordField txtPass;  // ← Dùng JPasswordField trực tiếp
+        private JPasswordField txtPass;  
 
         public AdminAuthDialog(JDialog parent) {
             super(parent, true);
             setUndecorated(true);
             setBackground(new Color(0, 0, 0, 0));
 
-            JPanel pnl = new JPanel(new BorderLayout(0, 10)) {
+            JPanel pnl = new JPanel(new BorderLayout(0, 12)) {
                 @Override protected void paintComponent(Graphics g) {
                     Graphics2D g2 = (Graphics2D) g;
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -473,14 +481,14 @@ public class SuaNhanVienDialog extends JDialog {
                     g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 15, 15);
                 }
             };
-            pnl.setBorder(new EmptyBorder(15, 20, 15, 20));
+            pnl.setBorder(new EmptyBorder(20, 25, 20, 25));
             pnl.setOpaque(false);
 
             JLabel lbl = new JLabel("🔑 Xác nhận mật khẩu ADMIN", SwingConstants.CENTER);
             lbl.setForeground(new Color(239, 68, 68));
-            lbl.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(14f));
+            // 🔥 ĐÃ SỬA: Chữ tiêu đề auth to hơn
+            lbl.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(16f));
 
-            // ✅ JPasswordField custom vẽ tay giống FormGroup
             txtPass = new JPasswordField() {
                 @Override protected void paintComponent(Graphics g) {
                     Graphics2D g2 = (Graphics2D) g.create();
@@ -494,22 +502,25 @@ public class SuaNhanVienDialog extends JDialog {
                     super.paintComponent(g);
                 }
             };
-            txtPass.setPreferredSize(new Dimension(260, 42));
+            // 🔥 ĐÃ SỬA: Kéo rộng và cao thêm ô nhập password
+            txtPass.setPreferredSize(new Dimension(280, 48));
             txtPass.setOpaque(false);
             txtPass.setBorder(new EmptyBorder(0, 15, 0, 15));
-            txtPass.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(13.5f));
+            // 🔥 ĐÃ SỬA: Chữ pass to
+            txtPass.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(16f));
             txtPass.setForeground(textPrimary);
             txtPass.setCaretColor(textPrimary);
             txtPass.setEchoChar('●');
 
             JLabel lblError = new JLabel(" ");
-            lblError.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(11f));
+            lblError.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(12f));
             lblError.setForeground(new Color(239, 68, 68));
 
-            JPanel pnlField = new JPanel(new BorderLayout(0, 4));
+            JPanel pnlField = new JPanel(new BorderLayout(0, 6));
             pnlField.setOpaque(false);
             JLabel lblTitle = new JLabel("Mật khẩu Admin");
-            lblTitle.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(12.5f));
+            // 🔥 ĐÃ SỬA: Label pass to và đậm
+            lblTitle.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(14.5f));
             lblTitle.setForeground(textSecondary);
             pnlField.add(lblTitle, BorderLayout.NORTH);
             pnlField.add(txtPass, BorderLayout.CENTER);
@@ -518,7 +529,6 @@ public class SuaNhanVienDialog extends JDialog {
             JPanel btns = new JPanel(new FlowLayout(FlowLayout.CENTER));
             btns.setOpaque(false);
 
-            // ✅ Nút Hủy để thoát khi nhập sai
             ReactButton btnHuyAuth = new ReactButton("Hủy", new Color(71, 85, 105));
             btnHuyAuth.addActionListener(e -> dispose());
 
@@ -533,23 +543,16 @@ public class SuaNhanVienDialog extends JDialog {
             pnl.add(btns, BorderLayout.SOUTH);
 
             setContentPane(pnl);
-            setSize(320, 185);
+            // 🔥 ĐÃ SỬA: Kéo to nguyên cái Dialog Auth
+            setSize(360, 220);
             setLocationRelativeTo(parent);
 
-            // ✅ Focus vào ô mật khẩu ngay khi mở
             SwingUtilities.invokeLater(() -> txtPass.requestFocusInWindow());
 
-            // Key bindings
-            pnl.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
-            .put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "auth");
-            pnl.getActionMap().put("auth", new AbstractAction() {
-                public void actionPerformed(ActionEvent e) { verify(lblError); }
-            });
-            pnl.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
-            .put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "closeAuth");
-            pnl.getActionMap().put("closeAuth", new AbstractAction() {
-                public void actionPerformed(ActionEvent e) { dispose(); }
-            });
+            pnl.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "auth");
+            pnl.getActionMap().put("auth", new AbstractAction() { public void actionPerformed(ActionEvent e) { verify(lblError); } });
+            pnl.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "closeAuth");
+            pnl.getActionMap().put("closeAuth", new AbstractAction() { public void actionPerformed(ActionEvent e) { dispose(); } });
         }
 
         private void verify(JLabel lblError) {
@@ -560,8 +563,8 @@ public class SuaNhanVienDialog extends JDialog {
                     dispose();
                 } else {
                     lblError.setText("Mật khẩu sai!");
-                    txtPass.setText("");                    // ✅ Xóa để nhập lại
-                    txtPass.requestFocusInWindow();         // ✅ Focus lại ô nhập
+                    txtPass.setText("");                    
+                    txtPass.requestFocusInWindow();         
                 }
             } catch (Exception e) {
                 lblError.setText("Mật khẩu sai!");
@@ -569,7 +572,6 @@ public class SuaNhanVienDialog extends JDialog {
                 txtPass.requestFocusInWindow();
             }
         }
-
         public boolean isAuthenticated() { return authenticated; }
     }
 }

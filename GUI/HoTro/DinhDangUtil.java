@@ -1,6 +1,7 @@
 package GUI.HoTro;
 
 import java.math.BigDecimal;
+import java.text.DecimalFormat;
 import java.text.Normalizer;
 import java.text.NumberFormat;
 import java.util.Locale;
@@ -37,10 +38,10 @@ public class DinhDangUtil {
 
     // ================== FORMAT ==================
     public static String dinhDangTien(BigDecimal tien) {
-        if (tien == null) {
-            return "0 ₫";
-        }
-        return getFormatter().format(tien) + " ₫";
+        if (tien == null) return "0 đ";
+        DecimalFormat df = new DecimalFormat("#,###");
+        // Sửa ký hiệu ₫ (đặc biệt) thành chữ đ (thường)
+        return df.format(tien) + " đ"; 
     }
 
     public static String dinhDangSo(BigDecimal so) {

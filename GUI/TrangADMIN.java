@@ -46,6 +46,8 @@ public class TrangADMIN extends JFrame {
     private DonHangUi    donHangUi   = null;
     private DanhSachKhUi khachHangUi = null;
     private DanhSachNvUi danhSachNvUi = null;
+    private QuanLyNhapHangModule nhapHangModuleUi = null;
+    private DanhSachSPUi quanLySpUi = null;
     // ===================== KHAI BÁO BIẾN LƯU TRỮ DỮ LIỆU TẢI TRƯỚC =====================
     private final String maNhanVien;
     private final String tenNhanVien;
@@ -152,6 +154,9 @@ public class TrangADMIN extends JFrame {
     // =========================================================
     //  PHẦN 2 — MENU CHÍNH
     // =========================================================
+    // =========================================================
+    //  PHẦN 2 — MENU CHÍNH
+    // =========================================================
     private JPanel taoMenuChinh() {
         JPanel pnl = new JPanel();
         pnl.setLayout(new BoxLayout(pnl, BoxLayout.Y_AXIS));
@@ -168,15 +173,54 @@ public class TrangADMIN extends JFrame {
             taoMucDropdown("Thống kê",   "THONG_KE")
         ));
 
-        pnl.add(taoNhomMenuHover("  Quản lý",
-            taoMucDropdown("Sản phẩm",     "SAN_PHAM"),
-            taoMucDropdown("Giảm giá",     "GIAM_GIA"),
-            taoMucDropdown("Nhà cung cấp", "NHA_CUNG_CAP"),
-            taoMucDropdown("Đơn hàng",     "DON_HANG"), 
-            taoMucDropdown("Khách hàng",   "KHACH_HANG"),
-            taoMucDropdown("Nhân viên",    "NHAN_VIEN"),
-            taoMucDropdown("Ca làm",       "CA_LAM")
-        ));
+        // 🔥 XÂY DỰNG MENU "QUẢN LÝ" THỦ CÔNG ĐỂ CÓ SUB-MENU SẢN PHẨM 🔥
+        JPopupMenu popupQuanLy = taoPopupDark();
+
+        // --- Bắt đầu Sub-menu (Cấp 2) cho Sản phẩm ---
+        JMenu menuSanPham = taoJMenuDark("Sản phẩm   ›");
+        
+        // 🌟 CHIÊU THỨC: ÉP JMENU NHẬN SỰ KIỆN CLICK CHUỘT
+        menuSanPham.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                // Nếu người dùng click chuột trái trực tiếp vào chữ "Sản phẩm"
+                if (SwingUtilities.isLeftMouseButton(e)) {
+                    chuyenTrangSanPhamAdmin("ALL"); // Tải toàn bộ sản phẩm
+                    popupQuanLy.setVisible(false);  // Ẩn menu xổ xuống cho gọn
+                }
+            }
+        });
+
+        JMenuItem itemTatCa = taoMenuItemDark("Tất cả sản phẩm");
+        itemTatCa.addActionListener(e -> {
+            chuyenTrangSanPhamAdmin("ALL");
+            popupQuanLy.setVisible(false); // Ẩn menu sau khi chọn
+        });
+        menuSanPham.add(itemTatCa);
+        menuSanPham.addSeparator();
+
+        if (this.dsLoaiSP != null) {
+            for (Data.LoaiSP loai : this.dsLoaiSP) {
+                JMenuItem itemLoai = taoMenuItemDark(loai.getTenLoai());
+                itemLoai.addActionListener(e -> {
+                    chuyenTrangSanPhamAdmin(loai.getMaLoai()); // Tải sản phẩm theo mã loại
+                    popupQuanLy.setVisible(false); // Ẩn menu sau khi chọn
+                });
+                menuSanPham.add(itemLoai);
+            }
+        }
+        popupQuanLy.add(menuSanPham);
+        // --- Kết thúc Sub-menu Sản phẩm ---
+
+        // Thêm các mục khác vào popup Quản lý như bình thường
+        popupQuanLy.add(taoMenuItemTuButton(taoMucDropdown("Giảm giá",     "GIAM_GIA")));
+        popupQuanLy.add(taoMenuItemTuButton(taoMucDropdown("Nhập hàng",    "NHAP_HANG_MODULE")));
+        popupQuanLy.add(taoMenuItemTuButton(taoMucDropdown("Đơn hàng",     "DON_HANG")));
+        popupQuanLy.add(taoMenuItemTuButton(taoMucDropdown("Khách hàng",   "KHACH_HANG")));
+        popupQuanLy.add(taoMenuItemTuButton(taoMucDropdown("Nhân viên",    "NHAN_VIEN")));
+        popupQuanLy.add(taoMenuItemTuButton(taoMucDropdown("Ca làm",       "CA_LAM")));
+
+        pnl.add(taoSidebarItemVoiPopup("  Quản lý", popupQuanLy));
 
         pnl.add(taoNhomMenuHover("  Hệ thống",
             taoMucDropdown("Tài khoản", "TAI_KHOAN")
@@ -346,6 +390,14 @@ public class TrangADMIN extends JFrame {
                 case "TAI_KHOAN":
                     if (taiKhoanUi == null) { taiKhoanUi = new TaiKhoanUi(maNhanVien); pnlCards.add(taiKhoanUi, "TAI_KHOAN"); }
                     break;
+                case "NHAP_HANG_MODULE":
+                    if (nhapHangModuleUi == null) {
+                        nhapHangModuleUi = new QuanLyNhapHangModule(); 
+                        pnlCards.add(nhapHangModuleUi, "NHAP_HANG_MODULE"); 
+                        pnlCards.revalidate();
+                        pnlCards.repaint();
+                    }
+                    break;
                 case "DON_HANG":
                     if (donHangUi == null) { 
                         // Truyền Cache cho DonHangUi để chạy với tốc độ ánh sáng! ⚡
@@ -378,6 +430,18 @@ public class TrangADMIN extends JFrame {
                         pnlCards.repaint();
                     }
                     break;
+                case "SAN_PHAM":
+                    if (quanLySpUi == null) {
+                        // Khởi tạo với mode QUAN_LY (Hiện nút Chi tiết)
+                        quanLySpUi = new DanhSachSPUi(null, DanhSachSPUi.UIMode.QUAN_LY);
+                        pnlCards.add(quanLySpUi, "SAN_PHAM");
+                        pnlCards.revalidate();
+                        pnlCards.repaint();
+                    } else {
+                        // Nạp lại dữ liệu cho mới nhất mỗi khi bấm vào tab
+                        quanLySpUi.taiDuLieuBanHangSieuToc("ALL");
+                    }
+                    break;
             }
             cardLayout.show(pnlCards, cardName);
         });
@@ -399,6 +463,9 @@ public class TrangADMIN extends JFrame {
 
     // =========================================================
     //  TẠO SIDEBAR ITEM + GẮN POPUP HOVER
+    // =========================================================
+    // =========================================================
+    //  TẠO SIDEBAR ITEM + GẮN POPUP HOVER (ĐÃ FIX LỖI CLICK SUB-MENU)
     // =========================================================
     private JPanel taoSidebarItemVoiPopup(String tenMuc, JPopupMenu popup) {
         JPanel wrapper = new JPanel(new BorderLayout());
@@ -422,19 +489,33 @@ public class TrangADMIN extends JFrame {
             }
         });
 
-        popup.addMouseListener(new MouseAdapter() {
-            @Override public void mouseEntered(MouseEvent e) { timerHide.stop(); }
-            @Override public void mouseExited(MouseEvent e)  { timerHide.start(); }
-        });
-        for (Component c : popup.getComponents()) {
-            c.addMouseListener(new MouseAdapter() {
-                @Override public void mouseEntered(MouseEvent e) { timerHide.stop(); }
-                @Override public void mouseExited(MouseEvent e)  { timerHide.start(); }
-            });
-        }
+        // 🔥 Đã thay bằng hàm đệ quy: Gắn sự kiện "giữ cửa" cho mọi menu con
+        ganSuKienHoverChoMenu(popup, timerHide);
 
         wrapper.add(btnHeader, BorderLayout.CENTER);
         return wrapper;
+    }
+
+    // 🔥 HÀM ĐỆ QUY GIÚP GIỮ POPUP KHÔNG BỊ TẮT KHI RÊ CHUỘT VÀO MENU CON
+    private void ganSuKienHoverChoMenu(Component comp, Timer timerHide) {
+        // 1. Gắn sự kiện dừng timer cho Component hiện tại
+        comp.addMouseListener(new MouseAdapter() {
+            @Override public void mouseEntered(MouseEvent e) { timerHide.stop(); }
+            @Override public void mouseExited(MouseEvent e)  { timerHide.start(); }
+        });
+
+        // 2. Nếu nó là Container chứa nhiều mục bên trong, thì chui vào gắn cho từng mục
+        if (comp instanceof Container) {
+            for (Component c : ((Container) comp).getComponents()) {
+                ganSuKienHoverChoMenu(c, timerHide);
+            }
+        }
+        
+        // 3. QUAN TRỌNG NHẤT: Nếu nó là JMenu (Menu đa cấp chứa Sub-menu) 
+        // -> Phải kéo luôn cái Popup xổ ra của nó vào danh sách "bảo vệ"
+        if (comp instanceof JMenu) {
+            ganSuKienHoverChoMenu(((JMenu) comp).getPopupMenu(), timerHide);
+        }
     }
 
     private Timer[] creatHoverTimers(JButton anchor, JPopupMenu popup) {
@@ -568,7 +649,55 @@ public class TrangADMIN extends JFrame {
         thanhToanUi.setHanhDongThanhToanThanhCong(
             () -> { banHangUi.lamMoiToanBoBanHang(); cardLayout.show(pnlCards, "BAN_HANG"); });
     }
+    // =========================================================
+    //  CÁC HÀM HỖ TRỢ MENU ĐA CẤP (SUB-MENU)
+    // =========================================================
+    
+    // 1. Tạo JMenu (Menu có chứa menu con bên trong) với giao diện Dark
+    private JMenu taoJMenuDark(String text) {
+        JMenu menu = new JMenu(text);
+        menu.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        menu.setForeground(CLR_TEXT_PRIMARY);
+        menu.setBackground(new Color(40, 42, 46));
+        menu.setOpaque(true);
+        menu.setPreferredSize(new Dimension(200, 34));
+        menu.setBorder(new EmptyBorder(0, 18, 0, 16));
+        menu.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        
+        // CSS cho cái popup xổ ra từ JMenu
+        menu.getPopupMenu().setBackground(new Color(40, 42, 46));
+        menu.getPopupMenu().setBorder(BorderFactory.createLineBorder(CLR_SEPARATOR, 1));
+        
+        // Hiệu ứng Hover
+        menu.addChangeListener(e -> {
+            if (menu.isSelected()) {
+                menu.setBackground(CLR_HOVER);
+                menu.setForeground(Color.WHITE);
+            } else {
+                menu.setBackground(new Color(40, 42, 46));
+                menu.setForeground(CLR_TEXT_PRIMARY);
+            }
+        });
+        return menu;
+    }
 
+    // 2. Ép kiểu Button thành JMenuItem để nhét chung vào Popup Quản lý
+    private JMenuItem taoMenuItemTuButton(JButton btn) {
+        JMenuItem item = taoMenuItemDark(btn.getText());
+        item.addActionListener(e -> btn.doClick());
+        return item;
+    }
+
+    // 3. Hàm logic: Khởi tạo/Chuyển trang và Tải dữ liệu siêu tốc theo loại
+    private void chuyenTrangSanPhamAdmin(String maLoai) {
+        if (quanLySpUi == null) {
+            quanLySpUi = new DanhSachSPUi(null, DanhSachSPUi.UIMode.QUAN_LY);
+            pnlCards.add(quanLySpUi, "SAN_PHAM");
+        }
+        cardLayout.show(pnlCards, "SAN_PHAM");
+        // Bắn tín hiệu tải dữ liệu siêu tốc của DanhSachSPUi
+        quanLySpUi.taiDuLieuBanHangSieuToc(maLoai); 
+    }
     // =========================================================
     //  PANEL GIỮ CHỖ
     // =========================================================

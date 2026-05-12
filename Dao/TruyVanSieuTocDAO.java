@@ -395,4 +395,98 @@ public class TruyVanSieuTocDAO {
         }
         return list;
     }
+    // =========================================================================
+    // 8. TẢI DỮ LIỆU NHẬP HÀNG SIÊU TỐC (Trị dứt điểm N+1 Query) 🚀🚀🚀
+    // =========================================================================
+    public static class DuLieuNhapHangDTO {
+        public List<Data.LoHang> dsLoHang = new ArrayList<>();
+        public Map<String, String> mapTenNcc = new HashMap<>(); // MaNCC -> TenNCC
+        public Map<String, Integer> mapTongSoLuong = new HashMap<>(); // MaLoHang -> Tổng SP
+        public Map<String, List<Data.ChiTietLoHang>> mapChiTiet = new HashMap<>(); // MaLoHang -> Danh sách Chi tiết
+        public Map<String, String> mapTenSp = new HashMap<>(); // MaSP -> TenSP
+    }
+
+    public DuLieuNhapHangDTO loadDuLieuNhapHangSieuToc() {
+        DuLieuNhapHangDTO dto = new DuLieuNhapHangDTO();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return dto;
+
+        // Chạy 4 lệnh SQL gom chung vào 1 mẻ để tiết kiệm 99% thời gian giao tiếp DB
+        String sql = "SELECT * FROM LoHang; " +
+                     "SELECT MaNCC, TenNCC FROM NhaCungCap; " +
+                     "SELECT * FROM ChiTietLoHang; " +
+                     "SELECT MaSP, TenSP FROM SanPham;";
+
+        try (Statement st = con.createStatement()) {
+            boolean hasResults = st.execute(sql);
+            
+            // 📦 RS 1: Danh sách Lô Hàng
+            if (hasResults) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        Data.LoHang lh = new Data.LoHang();
+                        /* ⚠️ LƯU Ý: Nếu class LoHang của bạn dùng ThoXayLoHang (Builder Pattern)
+                           thì hãy sửa lại đoạn này cho khớp nhé. Dưới đây là cách set cơ bản: */
+                        lh.setMaLoHang(rs.getString("MaLoHang"));
+                        lh.setMaNCC(rs.getString("MaNCC"));
+                        
+                        java.sql.Date ngayNhap = rs.getDate("NgayNhapKho");
+                        if (ngayNhap != null) lh.setNgayNhapKho(ngayNhap.toLocalDate());
+                        
+                        lh.setThanhTien(rs.getBigDecimal("ThanhTien"));
+                        dto.dsLoHang.add(lh);
+                    }
+                }
+            }
+            
+            // 📦 RS 2: Map Tên Nhà Cung Cấp
+            if (st.getMoreResults()) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        dto.mapTenNcc.put(rs.getString("MaNCC"), rs.getString("TenNCC"));
+                    }
+                }
+            }
+            
+            // 📦 RS 3: Map Chi Tiết Lô Hàng & Tính Tổng Số Lượng
+            if (st.getMoreResults()) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        Data.ChiTietLoHang ct = new Data.ChiTietLoHang();
+                        String maLo = rs.getString("MaLoHang");
+                        ct.setMaLoHang(maLo);
+                        ct.setMaSP(rs.getString("MaSP"));
+                        ct.setSoLuongNhap(rs.getInt("SoLuongNhap"));
+                        ct.setGiaNhap(rs.getBigDecimal("GiaNhap"));
+                        
+                        java.sql.Date nsx = rs.getDate("NSX");
+                        if (nsx != null) ct.setNSX(nsx.toLocalDate());
+                        
+                        java.sql.Date hsd = rs.getDate("HSD");
+                        if (hsd != null) ct.setHSD(hsd.toLocalDate());
+                        
+                        // Phân loại chi tiết vào đúng mã Lô
+                        dto.mapChiTiet.putIfAbsent(maLo, new ArrayList<>());
+                        dto.mapChiTiet.get(maLo).add(ct);
+                        
+                        // Cộng dồn vào Map Tổng Số Lượng
+                        dto.mapTongSoLuong.put(maLo, dto.mapTongSoLuong.getOrDefault(maLo, 0) + ct.getSoLuongNhap());
+                    }
+                }
+            }
+            
+            // 📦 RS 4: Map Tên Sản Phẩm
+            if (st.getMoreResults()) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        dto.mapTenSp.put(rs.getString("MaSP"), rs.getString("TenSP"));
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            System.err.println("🔥 [SieuTocDAO] Lỗi tải dữ liệu Nhập Hàng: " + e.getMessage());
+        }
+        return dto;
+    }
 }

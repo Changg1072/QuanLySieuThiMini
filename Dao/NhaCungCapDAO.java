@@ -27,8 +27,11 @@ public class NhaCungCapDAO {
         List<NhaCungCap> dsNhaCungCap = new ArrayList<>();
         String sql = "SELECT * FROM NhaCungCap";
 
+        // Kéo ống nước ra ngoài để không bị Java tự đóng
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return dsNhaCungCap;
+
         try (
-            Connection con = ConnectDB.getInstance().getConnection();
             PreparedStatement pstmt = con.prepareStatement(sql); 
             ResultSet rs = pstmt.executeQuery()
         ) {
@@ -45,12 +48,13 @@ public class NhaCungCapDAO {
     // 2. THÊM MỘT NHÀ CUNG CẤP MỚI
     // ==============================
     public boolean themNhaCungCap(NhaCungCap ncc) {
-        String sql = "INSERT INTO NhaCungCap(MaNCC, TenNCC, SDT, Email, DiaChi) VALUES (?, ?, ?, ?, ?)";
+        // 🔥 Đã thêm cột TrangThai với giá trị mặc định là 'Đang hợp tác'
+        String sql = "INSERT INTO NhaCungCap(MaNCC, TenNCC, SDT, Email, DiaChi, TrangThai) VALUES (?, ?, ?, ?, ?, N'Đang hợp tác')";
 
-        try (
-            Connection con = ConnectDB.getInstance().getConnection();
-            PreparedStatement pstmt = con.prepareStatement(sql)
-        ) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return false;
+
+        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
             pstmt.setString(1, ncc.getMaNCC());
             pstmt.setString(2, ncc.getTenNCC());
             pstmt.setString(3, ncc.getSDT());
@@ -71,10 +75,10 @@ public class NhaCungCapDAO {
     public boolean suaNhaCungCap(NhaCungCap ncc) {
         String sql = "UPDATE NhaCungCap SET TenNCC = ?, SDT = ?, Email = ?, DiaChi = ? WHERE MaNCC = ?";
 
-        try (
-            Connection con = ConnectDB.getInstance().getConnection();
-            PreparedStatement pstmt = con.prepareStatement(sql)
-        ) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return false;
+
+        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
             pstmt.setString(1, ncc.getTenNCC());
             pstmt.setString(2, ncc.getSDT());
             pstmt.setString(3, ncc.getEmail());
@@ -90,15 +94,16 @@ public class NhaCungCapDAO {
     }
 
     // ==============================
-    // 4. XÓA NHÀ CUNG CẤP
+    // 4. XÓA NHÀ CUNG CẤP (XÓA MỀM)
     // ==============================
     public boolean xoaNhaCungCap(String maNCC) {
-        String sql = "DELETE FROM NhaCungCap WHERE MaNCC = ?";
+        // 🔥 THAY VÌ DELETE, TA DÙNG UPDATE ĐỂ GIỮ LẠI LỊCH SỬ KẾT NỐI KHÓA NGOẠI
+        String sql = "UPDATE NhaCungCap SET TrangThai = N'Ngừng hợp tác' WHERE MaNCC = ?";
 
-        try (
-            Connection con = ConnectDB.getInstance().getConnection();
-            PreparedStatement pstmt = con.prepareStatement(sql)
-        ) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return false;
+
+        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
             pstmt.setString(1, maNCC);
             return pstmt.executeUpdate() > 0;
 
@@ -108,26 +113,26 @@ public class NhaCungCapDAO {
         return false;
     }
 
- // ==============================
-    // 5.HÀM TỐI ƯU: LẤY NHÀ CUNG CẤP THEO TÊN
+    // ==============================
+    // 5. LẤY NHÀ CUNG CẤP THEO TÊN
     // ==============================
     public NhaCungCap layNhaCungCapTheoTen(String tenNCC) {
         String sql = "SELECT * FROM NhaCungCap WHERE TenNCC = ?";
         
-        try (
-            Connection con = ConnectDB.getInstance().getConnection();
-            PreparedStatement pstmt = con.prepareStatement(sql)
-        ) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return null;
+
+        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
             pstmt.setString(1, tenNCC);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    return mapResultSetToNhaCungCap(rs); // Moi thằng đó lên
+                    return mapResultSetToNhaCungCap(rs);
                 }
             }
         } catch (SQLException e) { 
             logError("layNhaCungCapTheoTen", e); 
         }
-        return null; // Không ai xài thì trả về null
+        return null; 
     }
 
     // ==============================
@@ -136,10 +141,10 @@ public class NhaCungCapDAO {
     public boolean kiemTraTrungMaNCC(String maNCC) {
         String sql = "SELECT COUNT(*) FROM NhaCungCap WHERE MaNCC = ?";
         
-        try (
-            Connection con = ConnectDB.getInstance().getConnection();
-            PreparedStatement pstmt = con.prepareStatement(sql)
-        ) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return false;
+
+        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
             pstmt.setString(1, maNCC);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) return rs.getInt(1) > 0;
@@ -156,10 +161,10 @@ public class NhaCungCapDAO {
     public NhaCungCap layNhaCungCapTheoMa(String maNCC) {
         String sql = "SELECT * FROM NhaCungCap WHERE MaNCC = ?";
         
-        try (
-            Connection con = ConnectDB.getInstance().getConnection();
-            PreparedStatement pstmt = con.prepareStatement(sql)
-        ) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return null;
+
+        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
             pstmt.setString(1, maNCC);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -173,9 +178,8 @@ public class NhaCungCapDAO {
     }
 
     // =========================================================
-    // CÁC HÀM HỖ TRỢ (HELPER METHODS) - ĐƯỢC GIẤU XUỐNG CUỐI
+    // HELPER: MAP RESULTSET → OBJECT
     // =========================================================
-
     private NhaCungCap mapResultSetToNhaCungCap(ResultSet rs) throws SQLException {
         return new NhaCungCap.ThoXayNhaCungCap()
                 .ganMaNCC(rs.getString("MaNCC"))
@@ -183,6 +187,7 @@ public class NhaCungCapDAO {
                 .ganSDT(rs.getString("SDT"))
                 .ganEmail(rs.getString("Email"))
                 .ganDiaChi(rs.getString("DiaChi"))
+                .ganTrangThai(rs.getString("TrangThai")) // 🔥 Đã hứng cột Trạng Thái từ DB lên Model
                 .taoMoi();
     }
 

@@ -579,7 +579,9 @@ public class DanhSachKhUi extends JPanel {
                 btn.putClientProperty("active", item.equals(items.get(0)));
                 btn.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(12.5f));
                 btn.setForeground(item.equals(items.get(0)) ? Color.WHITE : TienIchGiaoDien.MAU_CHU_PHU);
-                btn.setContentAreaFilled(false); btn.setBorderPainted(false); btn.setBorder(new EmptyBorder(8, 16, 8, 16)); btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                btn.setContentAreaFilled(false); btn.setBorderPainted(false); 
+                btn.setFocusPainted(false);
+                btn.setBorder(new EmptyBorder(8, 16, 8, 16)); btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
                 btn.addActionListener(e -> { setActiveTab(item); onSelect.accept(item); });
                 btns.add(btn); add(btn);
             }

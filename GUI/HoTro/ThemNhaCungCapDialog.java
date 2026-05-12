@@ -1,7 +1,6 @@
 package GUI.HoTro;
 
-import Data.NhanVien;
-import Data.TaiKhoan;
+import Data.NhaCungCap;
 import Logic.TaoMaTuDongLogic;
 
 import javax.swing.*;
@@ -13,21 +12,15 @@ import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.ConvolveOp;
 import java.awt.image.Kernel;
-import java.math.BigDecimal;
-import java.text.DecimalFormat;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 
-public class ThemNhanVienDialog extends JDialog {
+public class ThemNhaCungCapDialog extends JDialog {
 
     private boolean isSuccess = false;
-    private NhanVien nhanVienMoi;
-    private TaiKhoan taiKhoanMoi;
+    private NhaCungCap nhaCungCapMoi;
 
     // --- UI Components ---
     private JPanel pnlCard;
-    private FormGroup txtMaNV, txtHoTen, txtSDT, txtLuong, txtNgayVao;
-    private ComboGroup cbChucVu;
+    private FormGroup txtMaNCC, txtTenNCC, txtSDT, txtEmail, txtDiaChi;
     private ReactButton btnTao, btnHuy;
 
     // --- Theme Colors ---
@@ -43,12 +36,11 @@ public class ThemNhanVienDialog extends JDialog {
     private float scale = 0.95f;
     private BufferedImage blurredBackground;
 
-    public ThemNhanVienDialog(Window parent) {
-        super(parent, "Tạo Nhân Viên Mới", ModalityType.APPLICATION_MODAL);
+    public ThemNhaCungCapDialog(Window parent) {
+        super(parent, "Tạo Nhà Cung Cấp Mới", ModalityType.APPLICATION_MODAL);
         setUndecorated(true);
         setBackground(new Color(0, 0, 0, 0)); 
         
-        // 🔥 FIX LỖI TỐI MÀN: Ép Modal phủ kín cửa sổ cha
         if (parent != null) {
             setBounds(parent.getBounds());
         } else {
@@ -90,7 +82,6 @@ public class ThemNhanVienDialog extends JDialog {
     }
 
     private void initUI() {
-        // 🔥 FIX LỖI TỐI MÀN: Dùng RootPanel để vẽ nền đen mờ thay vì override paint()
         JPanel rootPanel = new JPanel(new GridBagLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
@@ -137,8 +128,8 @@ public class ThemNhanVienDialog extends JDialog {
         pnlCard.setPreferredSize(new Dimension(720, 520)); 
         pnlCard.setBorder(new EmptyBorder(30, 35, 30, 35));
 
-        JLabel lblTitle = new JLabel("Tạo nhân viên mới");
-        // 🔥 ÉP CỨNG FONT BOLD CHO TIÊU ĐỀ
+        JLabel lblTitle = new JLabel("Tạo nhà cung cấp mới");
+        // 🔥 ĐÃ ĐỒNG BỘ: Ép cứng Font.BOLD
         lblTitle.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(Font.BOLD, 24f));
         lblTitle.setForeground(textPrimary);
         lblTitle.setBorder(new EmptyBorder(0, 0, 15, 0));
@@ -146,16 +137,17 @@ public class ThemNhanVienDialog extends JDialog {
         JPanel pnlForm = new JPanel(new GridLayout(3, 2, 25, 20)); 
         pnlForm.setOpaque(false);
 
-        txtMaNV = new FormGroup("Mã Nhân Viên", false);
-        cbChucVu = new ComboGroup("Chức Vụ", new String[]{"Thu Ngân", "ADMIN"});
-        txtHoTen = new FormGroup("Họ và Tên", true);
-        txtLuong = new FormGroup("Lương / Giờ (VNĐ)", true);
+        txtMaNCC = new FormGroup("Mã Nhà Cung Cấp", false);
+        txtTenNCC = new FormGroup("Tên Nhà Cung Cấp", true);
         txtSDT = new FormGroup("Số Điện Thoại", true);
-        txtNgayVao = new FormGroup("Ngày vào làm", false);
+        txtEmail = new FormGroup("Email Liên Hệ", true);
+        txtDiaChi = new FormGroup("Địa Chỉ", true);
+        
+        JPanel pnlEmpty = new JPanel(); pnlEmpty.setOpaque(false);
 
-        pnlForm.add(txtMaNV);    pnlForm.add(cbChucVu);
-        pnlForm.add(txtHoTen);   pnlForm.add(txtLuong);
-        pnlForm.add(txtSDT);     pnlForm.add(txtNgayVao); 
+        pnlForm.add(txtMaNCC);    pnlForm.add(txtTenNCC);
+        pnlForm.add(txtSDT);      pnlForm.add(txtEmail);
+        pnlForm.add(txtDiaChi);   pnlForm.add(pnlEmpty); 
 
         JPanel pnlBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         pnlBtns.setOpaque(false);
@@ -164,8 +156,8 @@ public class ThemNhanVienDialog extends JDialog {
         btnHuy = new ReactButton("Hủy bỏ", new Color(71, 85, 105));
         btnHuy.addActionListener(e -> closeWithAnimation());
 
-        btnTao = new ReactButton("+ Tạo nhân viên", new Color(37, 99, 235));
-        btnTao.addActionListener(e -> handleTaoNhanVien());
+        btnTao = new ReactButton("+ Tạo mới", new Color(37, 99, 235));
+        btnTao.addActionListener(e -> handleTaoNhaCungCap());
 
         pnlBtns.add(btnHuy); pnlBtns.add(btnTao);
 
@@ -177,8 +169,7 @@ public class ThemNhanVienDialog extends JDialog {
     }
 
     private void setupAutoData() {
-        txtMaNV.setText(TaoMaTuDongLogic.taoMaNhanVien());
-        txtNgayVao.setText(LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        txtMaNCC.setText(TaoMaTuDongLogic.taoMaNhaCungCap());
     }
 
     private class FormGroup extends JPanel {
@@ -191,7 +182,7 @@ public class ThemNhanVienDialog extends JDialog {
             setOpaque(false);
 
             JLabel lbl = new JLabel(labelTitle);
-            // 🔥 ÉP CỨNG FONT BOLD CHO NHÃN ĐỂ KHÔNG BỊ MỎNG
+            // 🔥 ĐÃ ĐỒNG BỘ: Ép cứng Font.BOLD
             lbl.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(Font.BOLD, 15f));
             lbl.setForeground(textSecondary);
             
@@ -239,6 +230,7 @@ public class ThemNhanVienDialog extends JDialog {
             });
 
             lblError = new JLabel(" ");
+            // 🔥 ĐÃ ĐỒNG BỘ: Ép cứng Font.BOLD
             lblError.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(Font.BOLD, 13.5f));
             lblError.setForeground(new Color(255, 99, 103)); 
 
@@ -252,83 +244,6 @@ public class ThemNhanVienDialog extends JDialog {
         public void setError(String msg) { lblError.setText(msg); txt.repaint(); }
         public void clearError() { lblError.setText(" "); txt.repaint(); }
         public JTextField getField() { return txt; }
-    }
-
-    private class ComboGroup extends JPanel {
-        private JComboBox<String> cb;
-        public ComboGroup(String labelTitle, String[] items) {
-            setLayout(new BorderLayout(0, 6));
-            setOpaque(false);
-
-            JLabel lbl = new JLabel(labelTitle);
-            lbl.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(Font.BOLD, 15f));
-            lbl.setForeground(textSecondary);
-
-            cb = new JComboBox<>(items) {
-                @Override protected void paintComponent(Graphics g) {
-                    Graphics2D g2 = (Graphics2D) g.create();
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(bgDark);
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                    g2.setColor(borderNormal);
-                    g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 8, 8);
-                    g2.dispose();
-                    super.paintComponent(g);
-                }
-            };
-            cb.setPreferredSize(new Dimension(0, 48)); 
-            cb.setOpaque(false);
-            cb.setBackground(new Color(0,0,0,0)); 
-            cb.setForeground(textPrimary);
-            cb.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(16f));
-            cb.setBorder(new EmptyBorder(0, 15, 0, 15));
-            cb.setFocusable(false);
-            
-            cb.setUI(new javax.swing.plaf.basic.BasicComboBoxUI() {
-                @Override
-                public void paintCurrentValueBackground(Graphics g, Rectangle bounds, boolean hasFocus) {}
-                @Override protected JButton createArrowButton() {
-                    JButton btn = new JButton("▼");
-                    btn.setFont(new Font("Arial", Font.PLAIN, 12)); 
-                    btn.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 10));
-                    btn.setContentAreaFilled(false);
-                    btn.setForeground(textSecondary);
-                    btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                    return btn;
-                }
-            });
-
-            cb.setRenderer(new DefaultListCellRenderer() {
-                @Override
-                public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                    JLabel l = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                    l.setBorder(new EmptyBorder(10, 10, 10, 10)); 
-                    l.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(15f));
-                    if (index == -1) {
-                        l.setOpaque(false);
-                        l.setForeground(textPrimary);
-                    } else {
-                        l.setOpaque(true);
-                        if (isSelected) {
-                            l.setBackground(borderFocus);
-                            l.setForeground(Color.WHITE);
-                        } else {
-                            l.setBackground(cardDark);
-                            l.setForeground(textPrimary);
-                        }
-                    }
-                    return l;
-                }
-            });
-
-            JLabel lblDummy = new JLabel(" ");
-            lblDummy.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(11f));
-
-            add(lbl, BorderLayout.NORTH);
-            add(cb, BorderLayout.CENTER);
-            add(lblDummy, BorderLayout.SOUTH);
-        }
-        public Object getSelectedItem() { return cb.getSelectedItem(); }
     }
 
     private class ReactButton extends JButton {
@@ -366,6 +281,7 @@ public class ThemNhanVienDialog extends JDialog {
             g2.setColor(bg); g2.fillRoundRect(0, 0, w, h, 8, 8);
             
             g2.setColor(Color.WHITE);
+            // 🔥 ĐÃ ĐỒNG BỘ: Ép cứng Font.BOLD
             g2.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(Font.BOLD, 15f));
             FontMetrics fm = g2.getFontMetrics();
             g2.drawString(getText(), (w-fm.stringWidth(getText()))/2, (h+fm.getAscent()-fm.getDescent())/2);
@@ -384,83 +300,32 @@ public class ThemNhanVienDialog extends JDialog {
                 else txtSDT.clearError();
             }
         });
-
-        txtLuong.getField().getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) { check(); }
-            public void removeUpdate(DocumentEvent e) { check(); }
-            public void changedUpdate(DocumentEvent e) { check(); }
-            private void check() {
-                String val = txtLuong.getText().replace(",", "");
-                if (!val.isEmpty() && !val.matches("\\d+")) {
-                    txtLuong.setError("Lương chỉ được nhập số!");
-                } else {
-                    txtLuong.clearError();
-                }
-            }
-        });
-
-        txtLuong.getField().addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusLost(FocusEvent e) {
-                try {
-                    String raw = txtLuong.getText().replaceAll("[^\\d]", "");
-                    if (!raw.isEmpty()) {
-                        long val = Long.parseLong(raw);
-                        DecimalFormat df = new DecimalFormat("#,###");
-                        txtLuong.setText(df.format(val));
-                        txtLuong.clearError();
-                    }
-                } catch (Exception ex) {
-                    if (!txtLuong.getText().isEmpty()) txtLuong.setError("Định dạng lỗi");
-                }
-            }
-        });
     }
 
     private void setupKeyBindings() {
         pnlCard.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "close");
         pnlCard.getActionMap().put("close", new AbstractAction() { public void actionPerformed(ActionEvent e) { closeWithAnimation(); } });
         pnlCard.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "save");
-        pnlCard.getActionMap().put("save", new AbstractAction() { public void actionPerformed(ActionEvent e) { handleTaoNhanVien(); } });
+        pnlCard.getActionMap().put("save", new AbstractAction() { public void actionPerformed(ActionEvent e) { handleTaoNhaCungCap(); } });
     }
 
-    private void handleTaoNhanVien() {
-        txtHoTen.clearError(); txtSDT.clearError(); txtLuong.clearError();
+    private void handleTaoNhaCungCap() {
+        txtTenNCC.clearError(); txtSDT.clearError(); txtEmail.clearError(); txtDiaChi.clearError();
         boolean valid = true;
-
-        if (txtHoTen.getText().trim().isEmpty()) { txtHoTen.setError("Bắt buộc"); valid = false; }
-        if (!txtSDT.getText().matches("^0\\d{9}$")) { txtSDT.setError("Sai định dạng"); valid = false; }
-        
-        BigDecimal luongGio = BigDecimal.ZERO;
-        try {
-            String rawLuong = txtLuong.getText().replaceAll("[^\\d]", ""); 
-            if (rawLuong.isEmpty()) throw new Exception();
-            double luongVal = Double.parseDouble(rawLuong);
-            if (luongVal <= 0) throw new Exception();
-            luongGio = new BigDecimal(rawLuong);
-        } catch (Exception e) {
-            txtLuong.setError("Phải lớn hơn 0");
-            valid = false;
-        }
-
+        if (txtTenNCC.getText().trim().isEmpty()) { txtTenNCC.setError("Vui lòng nhập tên NCC!"); valid = false; }
+        String sdt = txtSDT.getText().trim();
+        if (!sdt.matches("^0\\d{9}$")) { txtSDT.setError("SĐT gồm 10 số, bắt đầu là 0"); valid = false; }
+        String email = txtEmail.getText().trim();
+        if (email.isEmpty() || !email.contains("@")) { txtEmail.setError("Email không hợp lệ!"); valid = false; }
+        if (txtDiaChi.getText().trim().isEmpty()) { txtDiaChi.setError("Vui lòng nhập địa chỉ!"); valid = false; }
         if (!valid) return;
 
-        String maNVRaw = txtMaNV.getText().trim();
-
-        nhanVienMoi = new NhanVien.ThoXayNhanVien()
-                .ganMaNV(maNVRaw)
-                .ganHoTen(txtHoTen.getText().trim())
-                .ganSDT(txtSDT.getText().trim())
-                .ganChucVu(cbChucVu.getSelectedItem().toString())
-                .ganLuongGio(luongGio)
-                .ganNgayVaoLam(LocalDate.now())
-                .ganTrangThai("Đang Làm Việc")
-                .taoMoi();
-
-        taiKhoanMoi = new TaiKhoan.ThoXayTaiKhoan()
-                .ganMaNV(maNVRaw)
-                .ganTaiKhoan(maNVRaw)
-                .ganMatKhau("123456") 
+        nhaCungCapMoi = new NhaCungCap.ThoXayNhaCungCap()
+                .ganMaNCC(txtMaNCC.getText().trim())
+                .ganTenNCC(txtTenNCC.getText().trim())
+                .ganSDT(sdt)
+                .ganEmail(email)
+                .ganDiaChi(txtDiaChi.getText().trim())
                 .taoMoi();
 
         isSuccess = true;
@@ -476,6 +341,5 @@ public class ThemNhanVienDialog extends JDialog {
     }
 
     public boolean isSuccess() { return isSuccess; }
-    public NhanVien getNhanVienMoi() { return nhanVienMoi; }
-    public TaiKhoan getTaiKhoanMoi() { return taiKhoanMoi; }
+    public NhaCungCap getNhaCungCapMoi() { return nhaCungCapMoi; }
 }
