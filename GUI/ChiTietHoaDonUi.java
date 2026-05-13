@@ -118,14 +118,14 @@ public class ChiTietHoaDonUi extends TheBongDo {
         rightRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
 
      // ĐÃ FIX: Tăng bề ngang cột Tên lên 290 để ăn gian hết phần khoảng trống mới nới ra
-        tblChiTiet.getColumnModel().getColumn(0).setPreferredWidth(290); 
-        tblChiTiet.getColumnModel().getColumn(1).setPreferredWidth(40);  
+        tblChiTiet.getColumnModel().getColumn(0).setPreferredWidth(250); // Cột Tên SP (giảm đi 1 chút)
+        tblChiTiet.getColumnModel().getColumn(1).setPreferredWidth(40);
         tblChiTiet.getColumnModel().getColumn(1).setCellRenderer(centerRenderer);
-        tblChiTiet.getColumnModel().getColumn(2).setPreferredWidth(90);  
+        tblChiTiet.getColumnModel().getColumn(2).setPreferredWidth(90);
         tblChiTiet.getColumnModel().getColumn(2).setCellRenderer(rightRenderer);
-        tblChiTiet.getColumnModel().getColumn(3).setPreferredWidth(80);  
+        tblChiTiet.getColumnModel().getColumn(3).setPreferredWidth(120);
         tblChiTiet.getColumnModel().getColumn(3).setCellRenderer(rightRenderer);
-        tblChiTiet.getColumnModel().getColumn(4).setPreferredWidth(100); 
+        tblChiTiet.getColumnModel().getColumn(4).setPreferredWidth(100);
         tblChiTiet.getColumnModel().getColumn(4).setCellRenderer(rightRenderer);
         
         JScrollPane scroll = new JScrollPane(tblChiTiet);
@@ -279,16 +279,29 @@ public class ChiTietHoaDonUi extends TheBongDo {
             int sl = (int) item[2];
             BigDecimal thanhTienSP = (BigDecimal) item[4];
             
-            BigDecimal tongGiaGocSP = donGia.multiply(new BigDecimal(sl));
-            BigDecimal giamGiaSP = tongGiaGocSP.subtract(thanhTienSP);
-            if (giamGiaSP.compareTo(BigDecimal.ZERO) < 0) giamGiaSP = BigDecimal.ZERO;
+            // Xử lý hiển thị cột Giảm giá
+            String giamGiaHienThi = "0 đ";
+            
+            // Nếu dữ liệu đẩy từ BanHangUi sang (mảng có độ dài > 7) -> Lấy chuỗi đã format sẵn
+            if (item.length > 7 && item[7] != null) {
+                giamGiaHienThi = item[7].toString();
+            } else {
+                // Fallback dự phòng: Tự tính toán lại nếu chạy bằng hàm main() (dữ liệu giả)
+                BigDecimal tongGiaGocSP = donGia.multiply(new BigDecimal(sl));
+                BigDecimal giamGiaSP = tongGiaGocSP.subtract(thanhTienSP);
+                if (giamGiaSP.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal phanTram = giamGiaSP.multiply(new BigDecimal("100"))
+                                                   .divide(tongGiaGocSP, 0, java.math.RoundingMode.HALF_UP);
+                    giamGiaHienThi = DinhDangUtil.dinhDangSo(giamGiaSP) + " đ (" + phanTram + "%)";
+                }
+            }
 
             model.addRow(new Object[]{ 
                 item[0], 
                 sl, 
-                DinhDangUtil.dinhDangSo(donGia), 
-                DinhDangUtil.dinhDangSo(giamGiaSP), 
-                DinhDangUtil.dinhDangSo(thanhTienSP) 
+                DinhDangUtil.dinhDangSo(donGia) + " đ",  // Cột Đơn giá (Giá thực tế gốc)
+                giamGiaHienThi,                          // Cột Giảm giá (Tiền giảm kèm %)
+                DinhDangUtil.dinhDangSo(thanhTienSP) + " đ" // Cột Thành tiền (Sau khi giảm)
             });
             tongSL += sl;
             tongTienHang = tongTienHang.add(thanhTienSP);

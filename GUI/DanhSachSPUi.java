@@ -15,6 +15,7 @@ import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.awt.event.*;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -76,25 +77,72 @@ public class DanhSachSPUi extends JPanel {
     }
 
     private JPanel taoMainContent() {
-        JPanel pnlTopBar = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 15));
+        JPanel pnlTopBar = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 20));
         pnlTopBar.setBackground(BG_MAIN);
 
-        txtTimKiem = new TheBongDo.RoundedTextField("Tìm kiếm sản phẩm theo tên...", 30);
+        // --- FIX THANH TÌM KIẾM: LIỀN KHỐI & BỎ VIỀN LỖI ---
+        JPanel pnlSearchWrapper = new JPanel(new BorderLayout(10, 0));
+        pnlSearchWrapper.setBackground(Color.WHITE);
+        pnlSearchWrapper.setPreferredSize(new Dimension(650, 45));
+        
+        // 1. Chỉ dùng 1 viền bo góc duy nhất ở lớp ngoài cùng
+        pnlSearchWrapper.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(226, 232, 240), 1),
+            new EmptyBorder(0, 15, 0, 15)
+        ));
+
+        // 2. Fix lỗi icon ô vuông (Dùng chữ thường hoặc icon an toàn)
+        JLabel lblIcon = new JLabel("TÌM KIẾM"); 
+        lblIcon.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblIcon.setForeground(new Color(148, 163, 184)); 
+        // (Nếu bạn có file ảnh kính lúp, có thể thay bằng: new JLabel(new ImageIcon("duong-dan/kinhlup.png")))
+
+        // 3. Dùng JTextField nguyên thủy, tắt viền, tắt nền để nó "hòa tan" vào Wrapper
+        JTextField txtTimKiem = new JTextField("Nhập tên hoặc mã sản phẩm...");
+        txtTimKiem.setBorder(null);
+        txtTimKiem.setBackground(Color.WHITE);
         txtTimKiem.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-        txtTimKiem.setPreferredSize(new Dimension(600, 45));
+        txtTimKiem.setForeground(new Color(148, 163, 184)); // Màu chữ mờ cho Placeholder
+        
+        // 4. Sự kiện giả làm Placeholder mượt mà
+        txtTimKiem.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                if (txtTimKiem.getText().equals("Nhập tên hoặc mã sản phẩm...")) {
+                    txtTimKiem.setText("");
+                    txtTimKiem.setForeground(new Color(30, 41, 59)); // Chữ đậm lên khi gõ
+                }
+            }
+            @Override
+            public void focusLost(FocusEvent e) {
+                if (txtTimKiem.getText().isEmpty()) {
+                    txtTimKiem.setText("Nhập tên hoặc mã sản phẩm...");
+                    txtTimKiem.setForeground(new Color(148, 163, 184)); // Chữ mờ đi khi bỏ chuột
+                }
+            }
+        });
+
+        // 5. Sự kiện gõ tới đâu lọc tới đó
         txtTimKiem.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
-                thucHienTimKiem(txtTimKiem.getText());
+                String txt = txtTimKiem.getText();
+                if (!txt.equals("Nhập tên hoặc mã sản phẩm...")) {
+                    thucHienTimKiem(txt);
+                }
             }
         });
-        pnlTopBar.add(txtTimKiem);
 
-        String[] columns = {"Hình ảnh", "Tên sản phẩm", "Loại", "Tồn kho", "Trạng thái", "Hành động"};
+        pnlSearchWrapper.add(lblIcon, BorderLayout.WEST);
+        pnlSearchWrapper.add(txtTimKiem, BorderLayout.CENTER);
+        pnlTopBar.add(pnlSearchWrapper);
+
+        // --- Khúc dưới giữ nguyên ---
+        String[] columns = {"Hình ảnh", "Tên sản phẩm", "Loại", "Tồn kho", "Giá bán", "Trạng thái", "Hành động"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return column == 5; 
+                return column == 6; 
             }
         };
 
@@ -108,7 +156,7 @@ public class DanhSachSPUi extends JPanel {
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(tableModel);
         tableSP.setRowSorter(sorter);
         sorter.setSortable(0, false); 
-        sorter.setSortable(5, false); 
+        sorter.setSortable(6, false); // Cập nhật lại cột không sort
 
         JTableHeader header = tableSP.getTableHeader();
         header.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -117,12 +165,14 @@ public class DanhSachSPUi extends JPanel {
         header.setPreferredSize(new Dimension(0, 40));
         ((DefaultTableCellRenderer) header.getDefaultRenderer()).setHorizontalAlignment(SwingConstants.CENTER);
 
+        // --- Cập nhật lại độ rộng các cột cho vừa vặn ---
         tableSP.getColumnModel().getColumn(0).setPreferredWidth(80);
-        tableSP.getColumnModel().getColumn(1).setPreferredWidth(250);
-        tableSP.getColumnModel().getColumn(2).setPreferredWidth(120);
-        tableSP.getColumnModel().getColumn(3).setPreferredWidth(100);
-        tableSP.getColumnModel().getColumn(4).setPreferredWidth(140);
-        tableSP.getColumnModel().getColumn(5).setPreferredWidth(130);
+        tableSP.getColumnModel().getColumn(1).setPreferredWidth(200);
+        tableSP.getColumnModel().getColumn(2).setPreferredWidth(100);
+        tableSP.getColumnModel().getColumn(3).setPreferredWidth(80);
+        tableSP.getColumnModel().getColumn(4).setPreferredWidth(110); // Cột Giá Bán mới
+        tableSP.getColumnModel().getColumn(5).setPreferredWidth(120); // Trạng thái
+        tableSP.getColumnModel().getColumn(6).setPreferredWidth(130); // Hành động
 
         setupTableRenderers();
 
@@ -183,7 +233,43 @@ public class DanhSachSPUi extends JPanel {
             }
         });
 
+        // ... (phần render cột 0, 1, 2, 3 giữ nguyên) ...
+
+        // --- 🚀 RENDER CỘT 4: GIÁ BÁN (HIỂN THỊ HTML GẠCH NGANG) ---
         tableSP.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                lbl.setHorizontalAlignment(CENTER);
+                
+                // 1. CHỐT CỨNG FONT SIZE 14 CHO TOÀN BỘ CỘT NÀY
+                lbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+                if (!isSelected) lbl.setBackground(row % 2 == 0 ? Color.WHITE : new Color(248, 250, 252));
+                else lbl.setBackground(new Color(224, 242, 254));
+
+                if (value instanceof TheSanPham) {
+                    TheSanPham wrapper = (TheSanPham) value;
+                    if (wrapper.phanTramGiam > 0) {
+                        // 2. Bỏ font-size ở giá mới (để nó tự kế thừa font size 14 ở trên)
+                        // Thêm font-weight:normal cho giá cũ để nó bớt đậm, nhìn tinh tế hơn
+                        String htmlGia = "<html><div style='text-align: center;'>" 
+                            + "<div style='color:#3b82f6;'>" + GUI.HoTro.DinhDangUtil.dinhDangTien(wrapper.giaThucTe) + "</div>"
+                            + "<div style='color:#94a3b8; font-size:10px; font-weight:normal; text-decoration:line-through;'>" + GUI.HoTro.DinhDangUtil.dinhDangTien(wrapper.sp.getGiaBan()) + "</div>"
+                            + "</div></html>";
+                        lbl.setText(htmlGia);
+                    } else {
+                        // Không giảm giá thì in màu đen bình thường
+                        lbl.setText(GUI.HoTro.DinhDangUtil.dinhDangTien(wrapper.sp.getGiaBan()));
+                        lbl.setForeground(new Color(15, 23, 42));
+                    }
+                }
+                return lbl;
+            }
+        });
+
+        // --- RENDER CỘT 5: TRẠNG THÁI ---
+        tableSP.getColumnModel().getColumn(5).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 JPanel pnl = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 15));
@@ -207,30 +293,47 @@ public class DanhSachSPUi extends JPanel {
             }
         });
 
-        tableSP.getColumnModel().getColumn(5).setCellRenderer(new ButtonActionRenderer());
-        tableSP.getColumnModel().getColumn(5).setCellEditor(new ButtonActionEditor(new JCheckBox()));
+        // --- RENDER CỘT 6: HÀNH ĐỘNG (NÚT MUA) ---
+        tableSP.getColumnModel().getColumn(6).setCellRenderer(new ButtonActionRenderer());
+        tableSP.getColumnModel().getColumn(6).setCellEditor(new ButtonActionEditor(new JCheckBox()));
     }
-
     // =======================================================
     // 🔥 LOAD DỮ LIỆU SIÊU TỐC TỪ ĐỘNG CƠ TURBO
     // =======================================================
     public void taiDuLieuBanHangSieuToc(String maLoai) {
-        if (txtTimKiem != null) txtTimKiem.setText("");
-        
-        SwingWorker<Void, Void> worker = new SwingWorker<>() {
-            @Override
-            protected Void doInBackground() throws Exception {
-                // Chỉ đi qua DB 1 LẦN DUY NHẤT để lấy trọn bộ Sản Phẩm + Tồn Kho
-                dataBanHangCache = TruyVanSieuTocDAO.getInstance().loadToanBoSanPhamBanHang();
-                return null;
-            }
+        tableModel.setRowCount(0);
+        mapSanPham.clear(); // Xóa sạch mapping cũ trước khi tải mới
 
-            @Override
-            protected void done() {
-                loadDuLieuSanPham(maLoai);
+        // 1. Tải dữ liệu siêu tốc và NẠP VÀO CACHE để thanh tìm kiếm sử dụng
+        dataBanHangCache = TruyVanSieuTocDAO.getInstance().loadToanBoSanPhamBanHang();
+        
+        if (dataBanHangCache == null || dataBanHangCache.dsSanPham == null) return;
+
+        // 2. Lọc danh sách theo mã loại (Nếu là "ALL" thì lấy toàn bộ)
+        List<SanPham> dsLoc = new ArrayList<>();
+        for (SanPham sp : dataBanHangCache.dsSanPham) {
+            if (maLoai.equals("ALL") || sp.getMaLoai().equals(maLoai)) {
+                dsLoc.add(sp);
             }
-        };
-        worker.execute();
+        }
+
+        // 3. Sắp xếp thông minh: Sản phẩm còn tồn kho đẩy lên trên, hết hàng đẩy xuống cuối
+        dsLoc.sort((a, b) -> {
+            int tonA = dataBanHangCache.mapTonKho.getOrDefault(a.getMaSP(), 0);
+            int tonB = dataBanHangCache.mapTonKho.getOrDefault(b.getMaSP(), 0);
+            int scoreA = tonA > 0 ? 0 : 1;
+            int scoreB = tonB > 0 ? 0 : 1;
+            return Integer.compare(scoreA, scoreB);
+        });
+
+        // 4. Dùng hàm themDongVaoBang để đẩy ĐẦY ĐỦ 7 CỘT dữ liệu vào giao diện
+        for (SanPham sp : dsLoc) {
+            themDongVaoBang(sp);
+        }
+        
+        // Yêu cầu bảng vẽ lại
+        tableSP.revalidate();
+        tableSP.repaint();
     }
 
     // Đẩy data từ Cache (RAM) lên bảng UI
@@ -290,7 +393,18 @@ public class DanhSachSPUi extends JPanel {
     private void themDongVaoBang(SanPham sp) {
         int tonKho = dataBanHangCache.mapTonKho.getOrDefault(sp.getMaSP(), 0);
         
-        TheSanPham wrapper = new TheSanPham(sp, tonKho);
+        // --- 🚀 LẤY DỮ LIỆU GIẢM GIÁ TỪ CACHE SIÊU TỐC ---
+        int phanTram = dataBanHangCache.mapGiamGia != null ? dataBanHangCache.mapGiamGia.getOrDefault(sp.getMaSP(), 0) : 0;
+        
+        BigDecimal giaGoc = sp.getGiaBan();
+        BigDecimal giaThucTe = giaGoc;
+        if (phanTram > 0) {
+            BigDecimal tienGiam = giaGoc.multiply(new BigDecimal(phanTram)).divide(new BigDecimal(100));
+            giaThucTe = giaGoc.subtract(tienGiam);
+        }
+
+        // Tạo wrapper chứa thông tin giá để đưa vào Bảng
+        TheSanPham wrapper = new TheSanPham(sp, tonKho, giaThucTe, phanTram);
         mapSanPham.put(sp.getMaSP(), wrapper);
 
         ImageIcon icon = QuanLyAnh.layIconAnh(sp.getLinkHinhAnh(), 40, 40);
@@ -303,8 +417,9 @@ public class DanhSachSPUi extends JPanel {
                 sp.getTenSP(),
                 sp.getMaLoai(),
                 tonKho,
+                wrapper, // Truyền wrapper vào cột thứ 4 (Giá bán) để Renderer tự phân tích vẽ HTML
                 trangThai,
-                wrapper 
+                wrapper  // Truyền wrapper vào cột thứ 6 (Nút hành động)
         };
         tableModel.addRow(rowData);
     }
@@ -324,10 +439,17 @@ public class DanhSachSPUi extends JPanel {
         public SanPham sp;
         private int soLuongMua = 0;
         public int tonMax;
+        
+        // --- NÂNG CẤP: LƯU TRỮ GIÁ THỰC TẾ VÀ % GIẢM ĐỂ VẼ LÊN UI ---
+        public BigDecimal giaThucTe; 
+        public int phanTramGiam;
 
-        public TheSanPham(SanPham sp, int tonMax) {
+        // --- Cập nhật Constructor nhận thêm Giá Thực Tế và % Giảm ---
+        public TheSanPham(SanPham sp, int tonMax, BigDecimal giaThucTe, int phanTramGiam) {
             this.sp = sp;
             this.tonMax = tonMax;
+            this.giaThucTe = giaThucTe;
+            this.phanTramGiam = phanTramGiam;
         }
 
         public void thayDoiSoLuong(int delta) {
@@ -344,6 +466,7 @@ public class DanhSachSPUi extends JPanel {
         public void congTruTuGioHang(int delta) { thayDoiSoLuong(delta); }
         public void xoaKhoiGioHang() { thayDoiSoLuong(-soLuongMua); }
         public void resetTrangThai() { soLuongMua = 0; }
+        public int getSoLuongMua() { return soLuongMua; } // Hàm phụ trợ lấy số lượng
     }
 
     // ==========================================

@@ -29,7 +29,13 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
     private class ChiTietGio {
         SanPham sp;
         int soLuong;
-        public ChiTietGio(SanPham sp, int sl) { this.sp = sp; this.soLuong = sl; }
+        BigDecimal giaThucTe; // 🔥 Thêm giá thực tế (sau khi giảm)
+        
+        public ChiTietGio(SanPham sp, int sl, BigDecimal giaThucTe) { 
+            this.sp = sp; 
+            this.soLuong = sl; 
+            this.giaThucTe = giaThucTe;
+        }
     }
     
     private Map<String, ChiTietGio> gioHangData = new HashMap<>();
@@ -163,8 +169,18 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
         }
 
         String maSP = sp.getMaSP();
-        ChiTietGio item = gioHangData.getOrDefault(maSP, new ChiTietGio(sp, 0));
+        
+        // 🔥 Lấy giá thực tế từ thẻ sản phẩm, nếu không có thẻ thì mặc định lấy giá gốc
+        BigDecimal giaDangBan = (card != null) ? card.giaThucTe : sp.getGiaBan();
+        
+        // Truyền giaDangBan vào constructor
+        ChiTietGio item = gioHangData.getOrDefault(maSP, new ChiTietGio(sp, 0, giaDangBan));
         item.soLuong += soLuongThayDoi;
+        
+        // Cập nhật lại giá nhỡ chương trình giảm giá có thay đổi
+        if (card != null) {
+            item.giaThucTe = card.giaThucTe; 
+        }
 
         if (item.soLuong <= 0) {
             gioHangData.remove(maSP);
@@ -185,7 +201,7 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
             ChiTietGio item = entry.getValue();
             SanPham sp = item.sp;
             int sl = item.soLuong;
-            BigDecimal thanhTien = sp.getGiaBan().multiply(new BigDecimal(sl));
+            BigDecimal thanhTien = item.giaThucTe.multiply(new BigDecimal(sl));
 
             tongSl += sl;
             tongTien = tongTien.add(thanhTien);
@@ -225,9 +241,70 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
                 else capNhatGioHang(sp, -1, null); // Dự phòng nếu ko tìm thấy card
             });
 
-            JLabel lblQty = new JLabel(String.valueOf(sl), SwingConstants.CENTER);
-            lblQty.setFont(new Font("Calibri", Font.BOLD, 17)); 
-            lblQty.setPreferredSize(new Dimension(25, 25));
+            JTextField txtQty = new JTextField(String.valueOf(sl));
+            txtQty.setFont(new Font("Calibri", Font.BOLD, 17));
+            txtQty.setHorizontalAlignment(JTextField.CENTER);
+            txtQty.setPreferredSize(new Dimension(45, 28)); // Kích thước vừa vặn
+            txtQty.setBorder(null);
+            txtQty.setBackground(Color.WHITE);
+            
+            // Xử lý logic khi nhập số mới
+            java.util.function.Consumer<String> capNhatSoLuongTuGhi = (text) -> {
+                try {
+                    int soLuongMoi = Integer.parseInt(text.trim());
+                    
+                    if (soLuongMoi < 0) {
+                        txtQty.setText(String.valueOf(sl)); // Khôi phục lại số cũ
+                        TienIchGiaoDien.hienThiThongBao(BanHangUi.this, "Số lượng không hợp lệ!", "ERROR");
+                        return;
+                    }
+                    
+                    // Nếu không thay đổi gì thì bỏ qua
+                    if (soLuongMoi == sl) return; 
+
+                    // Nếu gõ 0 thì xóa luôn khỏi giỏ
+                    if (soLuongMoi == 0) {
+                        DanhSachSPUi.TheSanPham card = pnlDanhSachSP.getTheSanPham(ma);
+                        if (card != null) card.xoaKhoiGioHang();
+                        else capNhatGioHang(sp, -sl, null);
+                        return;
+                    }
+
+                    // Tính độ chênh lệch để cộng/trừ
+                    int chenhLech = soLuongMoi - sl;
+                    DanhSachSPUi.TheSanPham card = pnlDanhSachSP.getTheSanPham(ma);
+                    
+                    if (card != null) {
+                        if (card.getSoLuongMua() + chenhLech > card.tonMax) {
+                            txtQty.setText(String.valueOf(sl)); // Khôi phục
+                            TienIchGiaoDien.hienThiThongBao(BanHangUi.this, "Chỉ còn " + card.tonMax + " sản phẩm trong kho!", "WARNING");
+                            return;
+                        }
+                        card.congTruTuGioHang(chenhLech);
+                    } else {
+                        capNhatGioHang(sp, chenhLech, null);
+                    }
+
+                } catch (NumberFormatException ex) {
+                    txtQty.setText(String.valueOf(sl)); // Khôi phục nếu gõ chữ
+                    TienIchGiaoDien.hienThiThongBao(BanHangUi.this, "Vui lòng chỉ gõ số nguyên!", "WARNING");
+                }
+            };
+
+            // Lưu thay đổi khi nhấn phím Enter
+            txtQty.addActionListener(e -> capNhatSoLuongTuGhi.accept(txtQty.getText()));
+
+            // Lưu thay đổi khi click chuột ra chỗ khác (mất focus)
+            txtQty.addFocusListener(new java.awt.event.FocusAdapter() {
+                @Override
+                public void focusLost(java.awt.event.FocusEvent e) {
+                    capNhatSoLuongTuGhi.accept(txtQty.getText());
+                }
+                @Override
+                public void focusGained(java.awt.event.FocusEvent e) {
+                    txtQty.selectAll(); // Tự động bôi đen để gõ đè số mới luôn
+                }
+            });
 
             NutBoGoc btnCong = new NutBoGoc("+");
             btnCong.setFont(new Font("Calibri", Font.BOLD, 17)); 
@@ -252,7 +329,7 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
             });
 
             pnlRight.add(btnTru);
-            pnlRight.add(lblQty);
+            pnlRight.add(txtQty);
             pnlRight.add(btnCong);
             pnlRight.add(btnXoa);
 
@@ -325,15 +402,41 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
     }
 
     public Object[][] layDuLieuGioHang() {
-        Object[][] data = new Object[gioHangData.size()][6]; 
+        // Tăng kích thước mảng lên 8 cột để chứa thêm % giảm giá
+        Object[][] data = new Object[gioHangData.size()][8]; 
         int i = 0;
         for (ChiTietGio item : gioHangData.values()) {
             data[i][0] = item.sp.getTenSP();
             data[i][1] = item.sp.getDonViTinh(); 
             data[i][2] = item.soLuong;
-            data[i][3] = item.sp.getGiaBan();
-            data[i][4] = item.sp.getGiaBan().multiply(new BigDecimal(item.soLuong));
+            
+            // Cột 3: Đơn giá GỐC (Giá thật)
+            BigDecimal giaGoc = item.sp.getGiaBan();
+            data[i][3] = giaGoc;
+            
+            // Cột 4: Thành tiền (Giá đã giảm * Số lượng)
+            data[i][4] = item.giaThucTe.multiply(new BigDecimal(item.soLuong));
+            
             data[i][5] = item.sp.getMaSP(); 
+            
+            // Cột 6: Giá thực tế (Dự phòng nếu cần tính toán thêm)
+            data[i][6] = item.giaThucTe;
+            
+            // Cột 7: Xử lý chuỗi hiển thị cột "Giảm giá" = Tiền giảm + (% giảm)
+            BigDecimal tienGiamMotSP = giaGoc.subtract(item.giaThucTe);
+            if (tienGiamMotSP.compareTo(BigDecimal.ZERO) > 0) {
+                // Tính % giảm
+                BigDecimal phanTram = tienGiamMotSP.multiply(new BigDecimal("100"))
+                                                   .divide(giaGoc, 0, java.math.RoundingMode.HALF_UP);
+                
+                // Tổng tiền giảm của dòng = Tiền giảm 1 SP * Số lượng
+                BigDecimal tongTienGiam = tienGiamMotSP.multiply(new BigDecimal(item.soLuong));
+                
+                // Kết quả hiển thị: VD "5.000 đ (10%)"
+                data[i][7] = DinhDangUtil.dinhDangTien(tongTienGiam) + " (" + phanTram + "%)";
+            } else {
+                data[i][7] = "0 đ"; // Không giảm giá
+            }
             i++;
         }
         return data;
@@ -342,7 +445,7 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
     public BigDecimal layTongTienGioHang() {
         BigDecimal tong = BigDecimal.ZERO;
         for (ChiTietGio item : gioHangData.values()) {
-            BigDecimal thanhTien = item.sp.getGiaBan().multiply(new BigDecimal(item.soLuong));
+            BigDecimal thanhTien = item.giaThucTe.multiply(new BigDecimal(item.soLuong));
             tong = tong.add(thanhTien);
         }
         return tong;
@@ -363,7 +466,10 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
         for (ChiTietHoaDon ct : dsChiTietCu) {
             SanPham sp = SanPhamDAO.getInstance().laySanPhamTheoMa(ct.getMaSp());
             if (sp != null) {
-                ChiTietGio item = new ChiTietGio(sp, ct.getSoLuong());
+                DanhSachSPUi.TheSanPham card = pnlDanhSachSP.getTheSanPham(sp.getMaSP());
+                BigDecimal giaHienTai = (card != null) ? card.giaThucTe : sp.getGiaBan();
+                
+                ChiTietGio item = new ChiTietGio(sp, ct.getSoLuong(), giaHienTai);
                 gioHangData.put(sp.getMaSP(), item);
                 
                 // ĐÃ XÓA ĐOẠN GỌI CARD BỊ LỖI Ở ĐÂY!

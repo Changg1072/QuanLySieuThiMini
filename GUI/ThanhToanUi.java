@@ -318,7 +318,15 @@ public class ThanhToanUi extends JPanel {
         btnVuaDu.setArc(5);
         btnVuaDu.setFont(fontDam.deriveFont(15f)); 
         btnVuaDu.addActionListener(e -> {
-            txtTienKhachDua.setText(khachCanTraValue.setScale(0, RoundingMode.HALF_UP).toPlainString());
+            BigDecimal tienGoiY = khachCanTraValue;
+            
+            // Nếu là tiền mặt, làm tròn LÊN hàng nghìn (VD: 39,250 -> 40,000)
+            if (isThanhToanTienMat && tienGoiY.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal ngan = new BigDecimal("1000");
+                tienGoiY = tienGoiY.divide(ngan, 0, RoundingMode.CEILING).multiply(ngan);
+            }
+            
+            txtTienKhachDua.setText(tienGoiY.setScale(0, RoundingMode.HALF_UP).toPlainString());
             txtTienKhachDua.requestFocus();
         });
         pnlTienNhanh.add(btnVuaDu);
@@ -853,7 +861,15 @@ public class ThanhToanUi extends JPanel {
             
             lblKhachCanTra.setText(DinhDangUtil.dinhDangTien(khachCanTraValue));
             if (lblSoTienChuyenKhoan != null) lblSoTienChuyenKhoan.setText(DinhDangUtil.dinhDangTien(khachCanTraValue));
-            if (btnVuaDu != null) btnVuaDu.setText(DinhDangUtil.dinhDangTien(khachCanTraValue));
+            if (btnVuaDu != null) {
+                BigDecimal tienGoiY = khachCanTraValue;
+                // Chỉ làm tròn gợi ý hiển thị nếu đang chọn phương thức Tiền mặt
+                if (isThanhToanTienMat && tienGoiY.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal ngan = new BigDecimal("1000");
+                    tienGoiY = tienGoiY.divide(ngan, 0, RoundingMode.CEILING).multiply(ngan);
+                }
+                btnVuaDu.setText(DinhDangUtil.dinhDangTien(tienGoiY));
+            }
             tinhTienThua(giamGiaHang, giamGiaDiem, khachHangHienTai != null ? diemTuDonHang : 0);
         } finally {
             dangTinhToan = false;

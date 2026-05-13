@@ -43,8 +43,8 @@ public class TruyVanSieuTocDAO {
 
     public static class DuLieuBanHangDTO {
         public List<SanPham> dsSanPham = new ArrayList<>();
-        // Lưu tổng tồn kho khả dụng của từng mã SP
-        public Map<String, Integer> mapTonKho = new HashMap<>(); 
+        public Map<String, Integer> mapTonKho = new HashMap<>();
+        public Map<String, Integer> mapGiamGia = new HashMap<>(); // ← THÊM DÒNG NÀY
     }
 
     // =========================================================================
@@ -337,7 +337,15 @@ public class TruyVanSieuTocDAO {
                     }
                 }
             }
-
+            String sqlGiamGia = "SELECT MaSP, GiamGia FROM GiamGia " +
+                "WHERE TrangThaiGiamGia = N'Đang diễn ra' " +
+                "AND GETDATE() BETWEEN BatDau AND KetThuc AND SoLuongApDung > 0";
+            try (PreparedStatement ps2 = con.prepareStatement(sqlGiamGia);
+                ResultSet rs3 = ps2.executeQuery()) {
+                while (rs3.next()) {
+                    dto.mapGiamGia.put(rs3.getString("MaSP"), rs3.getInt("GiamGia"));
+                }
+            }
         } catch (SQLException e) {
             System.err.println("🔥 [SieuTocDAO] Lỗi tải dữ liệu Bán Hàng: " + e.getMessage());
         }
