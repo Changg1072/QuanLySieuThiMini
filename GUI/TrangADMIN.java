@@ -48,6 +48,7 @@ public class TrangADMIN extends JFrame {
     private DanhSachNvUi danhSachNvUi = null;
     private QuanLyNhapHangModule nhapHangModuleUi = null;
     private DanhSachSPUi quanLySpUi = null;
+    private GiamGiaUI quanLyGiamGiaUi = null;
     // ===================== KHAI BÁO BIẾN LƯU TRỮ DỮ LIỆU TẢI TRƯỚC =====================
     private final String maNhanVien;
     private final String tenNhanVien;
@@ -440,6 +441,16 @@ public class TrangADMIN extends JFrame {
                     } else {
                         // Nạp lại dữ liệu cho mới nhất mỗi khi bấm vào tab
                         quanLySpUi.taiDuLieuBanHangSieuToc("ALL");
+                    }
+                    break;
+                case "GIAM_GIA":
+                    if (quanLyGiamGiaUi == null) {
+                        quanLyGiamGiaUi = new GiamGiaUI();
+                        pnlCards.add(quanLyGiamGiaUi, "GIAM_GIA");
+                        pnlCards.revalidate();
+                        pnlCards.repaint();
+                    } else {
+                        quanLyGiamGiaUi.TaiDanhSachSanPham(); // refresh data mỗi lần mở
                     }
                     break;
             }

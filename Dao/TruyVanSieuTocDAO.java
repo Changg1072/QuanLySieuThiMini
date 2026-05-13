@@ -533,4 +533,89 @@ public class TruyVanSieuTocDAO {
             if (psTonKho != null) psTonKho.close();
         }
     }
+    // =========================================================================
+    // 10. TẢI DỮ LIỆU CHO AI QUÉT KHUYẾN MÃI & BATCH INSERT GIẢM GIÁ 🚀
+    // =========================================================================
+    
+    // Hàm 1: Lấy toàn bộ hàng tồn kho để AI phân tích
+    public List<Object[]> loadDuLieuQuetKhoAISieuToc() {
+        List<Object[]> list = new ArrayList<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return list;
+
+        String sql = "SELECT ct.MaSP, sp.MaLoai, ct.HSD, ct.SoLuongTon, ct.GiaNhap, sp.GiaBan, lh.NgayNhapKho " +
+                     "FROM ChiTietLoHang ct " +
+                     "JOIN SanPham sp ON ct.MaSP = sp.MaSP " +
+                     "JOIN LoHang lh ON ct.MaLoHang = lh.MaLoHang " +
+                     "WHERE ct.SoLuongTon > 0";
+
+        try (PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(new Object[]{
+                    rs.getString("MaSP"), rs.getString("MaLoai"), 
+                    rs.getDate("HSD"), rs.getInt("SoLuongTon"), 
+                    rs.getDouble("GiaNhap"), rs.getDouble("GiaBan"), rs.getDate("NgayNhapKho")
+                });
+            }
+        } catch (SQLException e) {
+            System.err.println("🔥 [SieuTocDAO] Lỗi tải dữ liệu AI quét kho: " + e.getMessage());
+        }
+        return list;
+    }
+
+    // Hàm 2: Lấy danh sách (Set) các SP đang được giảm giá (Tra cứu siêu tốc O(1) trên RAM)
+    public java.util.Set<String> getTapHopSanPhamDangGiamGia() {
+        java.util.Set<String> set = new java.util.HashSet<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return set;
+        
+        String sql = "SELECT DISTINCT MaSP FROM GiamGia WHERE TrangThaiGiamGia = N'Đang diễn ra' AND GETDATE() BETWEEN BatDau AND KetThuc AND SoLuongApDung > 0";
+        try (PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                set.add(rs.getString("MaSP"));
+            }
+        } catch (Exception e) {
+            System.err.println("🔥 [SieuTocDAO] Lỗi tải Set giảm giá: " + e.getMessage());
+        }
+        return set;
+    }
+
+    // Hàm 3: Batch Insert - Lưu hàng nghìn mã giảm giá vào CSDL chỉ mất chưa tới 0.1 giây!
+    public void themGiamGiaHangLoatSieuToc(List<Data.GiamGia> dsGiamGiaMoi) throws Exception {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) throw new Exception("Không thể kết nối CSDL!");
+
+        PreparedStatement psInsert = null;
+        try {
+            con.setAutoCommit(false); // Bật Transaction an toàn
+            
+            String sqlInsert = "INSERT INTO GiamGia (MaGiamGia, MaSP, BatDau, KetThuc, GiamGia, LoaiGiamGia, TrangThaiGiamGia, SoLuongApDung) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            psInsert = con.prepareStatement(sqlInsert);
+            
+            for (Data.GiamGia gg : dsGiamGiaMoi) {
+                psInsert.setString(1, gg.getMaGiamGia());
+                psInsert.setString(2, gg.getMaSP());
+                psInsert.setTimestamp(3, Timestamp.valueOf(gg.getBatDau()));
+                psInsert.setTimestamp(4, Timestamp.valueOf(gg.getKetThuc()));
+                psInsert.setBigDecimal(5, gg.getGiamGia());
+                psInsert.setString(6, gg.getLoaiGiamGia());
+                psInsert.setString(7, gg.getTrangThaiGiamGia());
+                psInsert.setInt(8, gg.getSoLuongApDung());
+                
+                psInsert.addBatch(); // Đưa vào mẻ (Batch) thay vì chạy ngay
+            }
+            
+            psInsert.executeBatch(); // Thực thi cả mẻ 1 lúc
+            con.commit(); // Thành công -> Ký duyệt
+            
+        } catch (Exception e) {
+            con.rollback(); // Lỗi -> Hoàn tác toàn bộ
+            throw new Exception("Lỗi Batch Insert Giảm Giá: " + e.getMessage());
+        } finally {
+            con.setAutoCommit(true);
+            if (psInsert != null) psInsert.close();
+        }
+    }
 }

@@ -1,5 +1,3 @@
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//giảm giá tự động nên để xuống logic
 package Dao;
 
 import java.math.BigDecimal;
@@ -19,9 +17,6 @@ public class GiamGiaDAO {
     public static GiamGiaDAO getInstance() {
         return instance;
     }
-    // =========================================================
-    // CÁC HÀM HỖ TRỢ (HELPER METHODS)
-    // =========================================================
 
     private GiamGia mapResultSetToGiamGia(ResultSet rs) throws SQLException {
         String maGiamGia = rs.getString("MaGiamGia");
@@ -49,18 +44,14 @@ public class GiamGiaDAO {
                 .ganSoLuongApDung(soLuong)
                 .taoMoi();
     }
-    // ==============================
-    // 1. LẤY TOÀN BỘ DANH SÁCH GIẢM GIÁ
-    // ==============================
+
     public List<GiamGia> layDanhSachGiamGia() {
         List<GiamGia> dsGiamGia = new ArrayList<>();
         String sql = "SELECT * FROM GiamGia";
 
-        try (
-            Connection con = ConnectDB.getInstance().getConnection();
-            PreparedStatement pstmt = con.prepareStatement(sql);
-            ResultSet rs = pstmt.executeQuery()
-        ) {
+        try (Connection con = ConnectDB.getInstance().getConnection();
+             PreparedStatement pstmt = con.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
             while (rs.next()) {
                 dsGiamGia.add(mapResultSetToGiamGia(rs));
             }
@@ -70,30 +61,20 @@ public class GiamGiaDAO {
         return dsGiamGia;
     }
 
-    // ==============================
-    // 2. TẠO CHƯƠNG TRÌNH GIẢM GIÁ MỚI
-    // ==============================
     public boolean themGiamGia(GiamGia gg) {
         String sql = "INSERT INTO GiamGia (MaGiamGia, MaSP, BatDau, KetThuc, GiamGia, LoaiGiamGia, TrangThaiGiamGia, SoLuongApDung) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         
-        try (
-            Connection con = ConnectDB.getInstance().getConnection();
-            PreparedStatement pstmt = con.prepareStatement(sql)
-        ) {
+        try (Connection con = ConnectDB.getInstance().getConnection();
+             PreparedStatement pstmt = con.prepareStatement(sql)) {
+            
             pstmt.setString(1, gg.getMaGiamGia());
             pstmt.setString(2, gg.getMaSP());
             
-            if (gg.getBatDau() != null) {
-                pstmt.setTimestamp(3, Timestamp.valueOf(gg.getBatDau()));
-            } else {
-                pstmt.setNull(3, Types.TIMESTAMP);
-            }
+            if (gg.getBatDau() != null) pstmt.setTimestamp(3, Timestamp.valueOf(gg.getBatDau()));
+            else pstmt.setNull(3, Types.TIMESTAMP);
             
-            if (gg.getKetThuc() != null) {
-                pstmt.setTimestamp(4, Timestamp.valueOf(gg.getKetThuc()));
-            } else {
-                pstmt.setNull(4, Types.TIMESTAMP);
-            }
+            if (gg.getKetThuc() != null) pstmt.setTimestamp(4, Timestamp.valueOf(gg.getKetThuc()));
+            else pstmt.setNull(4, Types.TIMESTAMP);
 
             pstmt.setBigDecimal(5, gg.getGiamGia());
             pstmt.setString(6, gg.getLoaiGiamGia());
@@ -108,9 +89,6 @@ public class GiamGiaDAO {
         return false;
     }
 
-    // ==============================
-    // 3. LẤY MỨC GIẢM GIÁ HIỆN TẠI (DÙNG KHI BÁN HÀNG)
-    // ==============================
     public BigDecimal layMucGiamGiaHienTai(String maSP) {
         BigDecimal mucGiamGia = BigDecimal.ZERO;
         String sql = "SELECT GiamGia FROM GiamGia " + 
@@ -119,12 +97,10 @@ public class GiamGiaDAO {
                      "AND GETDATE() BETWEEN BatDau AND KetThuc " + 
                      "AND SoLuongApDung > 0";
 
-        try (
-            Connection con = ConnectDB.getInstance().getConnection();
-            PreparedStatement pstmt = con.prepareStatement(sql)
-        ) {
+        try (Connection con = ConnectDB.getInstance().getConnection();
+             PreparedStatement pstmt = con.prepareStatement(sql)) {
+             
             pstmt.setString(1, maSP);
-
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     mucGiamGia = rs.getBigDecimal("GiamGia");
@@ -136,20 +112,22 @@ public class GiamGiaDAO {
         return mucGiamGia;
     }
 
-    // ==============================
-    // 4. TRỪ SỐ LƯỢNG ÁP DỤNG
-    // ==============================
+    // =========================================================================
+    // HÀM ĐÃ ĐƯỢC NÂNG CẤP: TỰ ĐỘNG KẾT THÚC KHI HẾT SUẤT
+    // =========================================================================
     public boolean truSoLuongGiamGia(String maSP, int soLuongDaMua) {
-        String sql = "UPDATE GiamGia SET SoLuongApDung = SoLuongApDung - ? " + 
+        String sql = "UPDATE GiamGia SET " +
+                     "SoLuongApDung = SoLuongApDung - ?, " +
+                     "TrangThaiGiamGia = CASE WHEN SoLuongApDung - ? <= 0 THEN N'Đã kết thúc' ELSE TrangThaiGiamGia END " + 
                      "WHERE MaSP = ? AND TrangThaiGiamGia = N'Đang diễn ra' AND SoLuongApDung >= ?";
 
-        try (
-            Connection con = ConnectDB.getInstance().getConnection();
-            PreparedStatement pstmt = con.prepareStatement(sql)
-        ) {
+        try (Connection con = ConnectDB.getInstance().getConnection();
+             PreparedStatement pstmt = con.prepareStatement(sql)) {
+             
             pstmt.setInt(1, soLuongDaMua);
-            pstmt.setString(2, maSP);
-            pstmt.setInt(3, soLuongDaMua);
+            pstmt.setInt(2, soLuongDaMua); // Truyền lần 2 cho biểu thức CASE WHEN
+            pstmt.setString(3, maSP);
+            pstmt.setInt(4, soLuongDaMua);
 
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -158,17 +136,13 @@ public class GiamGiaDAO {
         return false;
     }
 
-    // ==============================
-    // 5. HỦY CHƯƠNG TRÌNH GIẢM GIÁ
-    // ==============================
     public boolean huyGiamGia(String maSP) {
         String sql = "UPDATE GiamGia SET TrangThaiGiamGia = N'Đã kết thúc' " + 
                      "WHERE MaSP = ? AND TrangThaiGiamGia = N'Đang diễn ra'";
 
-        try (
-            Connection con = ConnectDB.getInstance().getConnection();
-            PreparedStatement pstmt = con.prepareStatement(sql)
-        ) {
+        try (Connection con = ConnectDB.getInstance().getConnection();
+             PreparedStatement pstmt = con.prepareStatement(sql)) {
+             
             pstmt.setString(1, maSP);
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {

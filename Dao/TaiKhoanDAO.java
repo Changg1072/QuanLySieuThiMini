@@ -34,8 +34,8 @@ public class TaiKhoanDAO {
     // 1. KIỂM TRA ĐĂNG NHẬP (ÉP PHÂN BIỆT HOA THƯỜNG 100%) 🚀
     // ==========================================================
     public String[] kiemTraDangNhap(String tenDangNhapHoacSDT, String matKhau) {
-        // 🔥 ĐÃ CHỈNH SỬA: Lấy thêm Tài Khoản và Mật Khẩu từ DB lên để Java tự kiểm tra
-        String sql = "SELECT NV.MaNV, NV.HoTen, TK.TaiKhoan, TK.MatKhau " +
+        // 🔥 ĐÃ CHỈNH SỬA: Thêm NV.ChucVu vào câu SELECT
+        String sql = "SELECT NV.MaNV, NV.HoTen, NV.ChucVu, TK.TaiKhoan, TK.MatKhau " +
                      "FROM TaiKhoan TK " +
                      "JOIN NhanVien NV ON TK.MaNV = NV.MaNV " +
                      "WHERE (TK.TaiKhoan = ? OR NV.SDT = ?) " +
@@ -48,20 +48,18 @@ public class TaiKhoanDAO {
             ps.setString(1, tenDangNhapHoacSDT);
             ps.setString(2, tenDangNhapHoacSDT);
             
-            // Dùng vòng lặp while để vét hết trường hợp SQL trả về nhiều dòng (ví dụ nv002, NV002)
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String dbTaiKhoan = rs.getString("TaiKhoan");
                     String dbMatKhau = rs.getString("MatKhau");
 
-                    // BƯỚC 1: KIỂM TRA MẬT KHẨU (Bắt buộc khớp chính xác hoa thường)
+                    // BƯỚC 1: KIỂM TRA MẬT KHẨU
                     if (dbMatKhau.equals(matKhau)) {
                         
                         // BƯỚC 2: KIỂM TRA TÀI KHOẢN
-                        // - Nếu nhập SĐT (toàn số) -> Bỏ qua soi hoa/thường, đăng nhập luôn
-                        // - Nếu nhập Tên TK -> Phải khớp chính xác từng ký tự
                         if (tenDangNhapHoacSDT.matches("\\d+") || dbTaiKhoan.equals(tenDangNhapHoacSDT)) {
-                            return new String[]{ rs.getString("MaNV"), rs.getString("HoTen") };
+                            // 🚀 ĐÃ SỬA Ở ĐÂY: Trả về MaNV và ChucVu thay vì HoTen
+                            return new String[]{ rs.getString("MaNV"), rs.getString("ChucVu") };
                         }
                     }
                 }
@@ -70,7 +68,6 @@ public class TaiKhoanDAO {
         } catch (SQLException e) {
             logError("kiemTraDangNhap", e);
         }
-        // Nếu chạy hết vòng lặp mà không return được -> Sai tên TK hoặc Mật khẩu hoa/thường
         return null; 
     }
 
@@ -208,5 +205,67 @@ public class TaiKhoanDAO {
     // ==========================================================
     private void logError(String method, Exception e) {
         System.err.println("[TaiKhoanDAO - " + method + "] ERROR: " + e.getMessage());
+    }
+    // ==========================================================
+    // BỔ SUNG 1: ĐỔI MẬT KHẨU (Dùng cho cả đổi pass và reset pass)
+    // ==========================================================
+    public boolean doiMatKhau(String taiKhoan, String matKhauMoi) {
+        String sql = "UPDATE TaiKhoan SET MatKhau=? WHERE TaiKhoan=?";
+        
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement ps = con.prepareStatement(sql)
+        ) {
+            ps.setString(1, matKhauMoi);
+            ps.setString(2, taiKhoan);
+            
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            logError("doiMatKhau", e);
+        }
+        return false;
+    }
+
+    // ==========================================================
+    // BỔ SUNG 2: KIỂM TRA NHÂN VIÊN ĐÃ CÓ TÀI KHOẢN CHƯA
+    // ==========================================================
+    public boolean kiemTraNhanVienDaCoTaiKhoan(String maNV) {
+        String sql = "SELECT 1 FROM TaiKhoan WHERE MaNV=?";
+        
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement ps = con.prepareStatement(sql)
+        ) {
+            ps.setString(1, maNV);
+            
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next(); // Nếu có data trả về true, ngược lại false
+            }
+        } catch (SQLException e) {
+            logError("kiemTraNhanVienDaCoTaiKhoan", e);
+        }
+        return false;
+    }
+
+    // ==========================================================
+    // BỔ SUNG 3: KIỂM TRA TRÙNG LẶP TÊN TÀI KHOẢN (Sửa lại tên hàm cho khớp Logic)
+    // ==========================================================
+    public boolean kiemTraTaiKhoanDaTonTai(String tenTaiKhoan) {
+        String sql = "SELECT 1 FROM TaiKhoan WHERE TaiKhoan=?";
+        
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement ps = con.prepareStatement(sql)
+        ) {
+            ps.setString(1, tenTaiKhoan);
+            
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            logError("kiemTraTaiKhoanDaTonTai", e);
+        }
+        return false;
     }
 }

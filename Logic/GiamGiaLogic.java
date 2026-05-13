@@ -2,6 +2,11 @@ package Logic;
 
 import Dao.GiamGiaDAO;
 import Data.GiamGia;
+import Logic.KhuyenMai.DiscountEngine;
+import Logic.KhuyenMai.GiamGiaContext;
+import Logic.KhuyenMai.Rules.GioVangRule;
+import Logic.KhuyenMai.Rules.HanSuDungRule;
+import Logic.KhuyenMai.Rules.TonKhoRule;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -67,61 +72,6 @@ public class GiamGiaLogic {
 
         return Math.round(phanTramGiam * 100.0) / 100.0; 
     }
-    // ==============================
-    // THÊM GIẢM GIÁ HÀNG LOẠT (TỰ ĐỘNG BỎ QUA LỖI)
-    // Dùng cho nút "Tính giảm giá tự động tất cả sản phẩm"
-    // ==============================
-    public String themGiamGiaHangLoat(List<GiamGia> danhSachGiamGiaMoi) {
-        if (danhSachGiamGiaMoi == null || danhSachGiamGiaMoi.isEmpty()) {
-            return "Không có dữ liệu giảm giá nào để xử lý!";
-        }
-
-        int soLuongThanhCong = 0;
-        List<String> danhSachMaSPBiLoi = new ArrayList<>();
-
-        for (GiamGia gg : danhSachGiamGiaMoi) {
-            try {
-                kiemTraLoi(gg); // Vẫn check lỗi cơ bản như bình thường
-
-                // BẪY CHỒNG CHÉO: Nếu đang có khuyến mãi -> BỎ QUA (Không throw Exception)
-                BigDecimal dangGiam = dao.layMucGiamGiaHienTai(gg.getMaSP());
-                if (dangGiam != null && dangGiam.compareTo(BigDecimal.ZERO) > 0) {
-                    danhSachMaSPBiLoi.add(gg.getMaSP()); // Ghi sổ đen
-                    continue; // Bỏ qua thằng này, chạy tiếp vòng lặp
-                }
-
-                // Lưu xuống DB
-                boolean thanhCong = dao.themGiamGia(gg);
-                if (thanhCong) {
-                    soLuongThanhCong++;
-                } else {
-                    danhSachMaSPBiLoi.add(gg.getMaSP() + " (Lỗi SQL)");
-                }
-
-            } catch (Exception e) {
-                // Nếu bị lỗi data (thiếu ngày, sai ngày...) -> Ghi sổ đen, không làm sập vòng lặp
-                danhSachMaSPBiLoi.add(gg.getMaSP() + " (" + e.getMessage() + ")");
-            }
-        }
-
-        // TỔNG HỢP KẾT QUẢ TRẢ VỀ CHO GIAO DIỆN HIỂN THỊ 1 LẦN DUY NHẤT
-        StringBuilder ketQua = new StringBuilder();
-        ketQua.append("Cập nhật thành công: ").append(soLuongThanhCong).append(" sản phẩm.\n");
-
-        if (!danhSachMaSPBiLoi.isEmpty()) {
-            ketQua.append("\nĐã bỏ qua ").append(danhSachMaSPBiLoi.size()).append(" sản phẩm bị lỗi hoặc đang có Khuyến mãi khác:\n");
-            // In tối đa 5 mã lỗi để giao diện không bị tràn chữ, nếu nhiều hơn thì hiển thị "..."
-            int maxHienThi = Math.min(5, danhSachMaSPBiLoi.size());
-            for (int i = 0; i < maxHienThi; i++) {
-                ketQua.append("- ").append(danhSachMaSPBiLoi.get(i)).append("\n");
-            }
-            if (danhSachMaSPBiLoi.size() > 5) {
-                ketQua.append("... và ").append(danhSachMaSPBiLoi.size() - 5).append(" sản phẩm khác.");
-            }
-        }
-
-        return ketQua.toString();
-    }
 
     public BigDecimal layMucGiamGiaHienTai(String maSP) throws Exception {
         if (maSP == null || maSP.trim().isEmpty()) {
@@ -177,5 +127,83 @@ public class GiamGiaLogic {
         if (gg.getLoaiGiamGia() == null || gg.getLoaiGiamGia().trim().isEmpty()) {
             throw new Exception("Loại giảm giá không được để trống!");
         }
+    }
+
+    public DiscountEngine.KetQuaGiamGia tinhGiaGiamTuDongSieuThi(
+        String maSP, String maLoai, int tonKho, double giaNhap, double giaBan, 
+        java.time.LocalDate ngayNhap, java.time.LocalDate hsd) {
+        
+        // 1. Tạo Context
+        GiamGiaContext ctx = new GiamGiaContext(maSP, maLoai, tonKho, giaNhap, giaBan, ngayNhap, hsd);
+        
+        // 2. Khởi tạo Engine và nạp các Rules (Nên cấu hình Engine ở constructor để dùng chung)
+        DiscountEngine engine = new DiscountEngine();
+        engine.addRule(new HanSuDungRule());
+        engine.addRule(new GioVangRule());
+        engine.addRule(new TonKhoRule());
+        // engine.addRule(new NgayTonKhoRule()); // Bạn có thể viết thêm Rule này
+        
+        // 3. Chạy thuật toán và trả kết quả
+        return engine.xuLyGiamGia(ctx);
+    }
+
+    // ==============================
+    // THÊM GIẢM GIÁ HÀNG LOẠT (TỐI ƯU SIÊU TỐC) 🚀
+    // ==============================
+    public String themGiamGiaHangLoat(List<GiamGia> danhSachGiamGiaMoi) {
+        if (danhSachGiamGiaMoi == null || danhSachGiamGiaMoi.isEmpty()) {
+            return "Không có dữ liệu giảm giá nào để xử lý!";
+        }
+
+        // 1. Tải SIÊU TỐC danh sách SP ĐANG GIẢM GIÁ lên RAM để kiểm tra O(1) (Né lỗi N+1 Query)
+        java.util.Set<String> dsDangGiam = Dao.TruyVanSieuTocDAO.getInstance().getTapHopSanPhamDangGiamGia();
+        
+        List<GiamGia> danhSachHopLe = new ArrayList<>();
+        List<String> danhSachMaSPBiLoi = new ArrayList<>();
+
+        for (GiamGia gg : danhSachGiamGiaMoi) {
+            try {
+                kiemTraLoi(gg); 
+
+                // Kiểm tra siêu tốc O(1) trong RAM
+                if (dsDangGiam.contains(gg.getMaSP())) {
+                    danhSachMaSPBiLoi.add(gg.getMaSP() + " (Đang có KM khác)");
+                    continue; 
+                }
+
+                danhSachHopLe.add(gg); // Đủ điều kiện -> Đưa vào danh sách chuẩn bị Batch Insert
+
+            } catch (Exception e) {
+                danhSachMaSPBiLoi.add(gg.getMaSP() + " (" + e.getMessage() + ")");
+            }
+        }
+
+        int soLuongThanhCong = 0;
+        if (!danhSachHopLe.isEmpty()) {
+            try {
+                // 2. Đưa toàn bộ danh sách hợp lệ vào "Xe tải" Batch Insert bắn xuống DB
+                Dao.TruyVanSieuTocDAO.getInstance().themGiamGiaHangLoatSieuToc(danhSachHopLe);
+                soLuongThanhCong = danhSachHopLe.size();
+            } catch (Exception e) {
+                return "Lỗi hệ thống khi chèn dữ liệu hàng loạt: " + e.getMessage();
+            }
+        }
+
+        // 3. TỔNG HỢP KẾT QUẢ
+        StringBuilder ketQua = new StringBuilder();
+        ketQua.append("Cập nhật thành công: ").append(soLuongThanhCong).append(" sản phẩm.\n");
+
+        if (!danhSachMaSPBiLoi.isEmpty()) {
+            ketQua.append("\nĐã bỏ qua ").append(danhSachMaSPBiLoi.size()).append(" sản phẩm bị lỗi hoặc đang có Khuyến mãi khác:\n");
+            int maxHienThi = Math.min(5, danhSachMaSPBiLoi.size());
+            for (int i = 0; i < maxHienThi; i++) {
+                ketQua.append("- ").append(danhSachMaSPBiLoi.get(i)).append("\n");
+            }
+            if (danhSachMaSPBiLoi.size() > 5) {
+                ketQua.append("... và ").append(danhSachMaSPBiLoi.size() - 5).append(" sản phẩm khác.");
+            }
+        }
+
+        return ketQua.toString();
     }
 }
