@@ -83,4 +83,8 @@ public class TaoMaTuDongLogic {
         String ngay = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
         return getNextId("ChiaCa", "MaCa", "CA" + ngay + "-", 3);
     }
+    public static String taoMaPhieuTieuHuy() {
+        String ngay = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
+        return getNextId("PhieuTieuHuy", "MaPhieuHuy", "PTH" + ngay + "-", 3);
+    }
 }
