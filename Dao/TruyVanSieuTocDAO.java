@@ -837,4 +837,58 @@ public class TruyVanSieuTocDAO {
         }
         return dto;
     }
+    // =========================================================================
+    // 12. ĐỒNG BỘ KIỂM KÊ KHO GỘP CHUNG (BATCH INSERT + UPDATE TỒN KHO) 🚀
+    // =========================================================================
+    public void dongBoKiemKeGopChungSieuToc(List<Data.KiemKeKho> dsKiemKe) throws Exception {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) throw new Exception("Không thể kết nối máy chủ CSDL!");
+
+        PreparedStatement psLapPhieu = null;
+        PreparedStatement psCanBangKho = null;
+
+        try {
+            con.setAutoCommit(false); // BẮT ĐẦU TRANSACTION
+
+            // 1. Lệnh tạo phiếu kiểm kê (Trạng thái Đã Cân Kho luôn vì mình làm gộp)
+            String sqlLapPhieu = "INSERT INTO KiemKeKho(MaKiemKe, NgayKiemKe, MaNV, MaLoHang, MaSP, SoLuongHeThong, SoLuongThucTe, LyDo, TrangThai) VALUES (?, GETDATE(), ?, ?, ?, ?, ?, ?, N'Đã Cân Kho')";
+            psLapPhieu = con.prepareStatement(sqlLapPhieu);
+
+            // 2. Lệnh đè lại số lượng tồn thực tế vào kho
+            String sqlCanBang = "UPDATE ChiTietLoHang SET SoLuongTon = ? WHERE MaLoHang = ? AND MaSP = ?";
+            psCanBangKho = con.prepareStatement(sqlCanBang);
+
+            for (Data.KiemKeKho kk : dsKiemKe) {
+                // Nạp đạn cho lệnh 1
+                psLapPhieu.setString(1, kk.getMaKiemKe());
+                psLapPhieu.setString(2, kk.getMaNV());
+                psLapPhieu.setString(3, kk.getMaLoHang());
+                psLapPhieu.setString(4, kk.getMaSP());
+                psLapPhieu.setInt(5, kk.getSoLuongHeThong());
+                psLapPhieu.setInt(6, kk.getSoLuongThucTe());
+                psLapPhieu.setString(7, kk.getLyDo());
+                psLapPhieu.addBatch();
+
+                // Nạp đạn cho lệnh 2
+                psCanBangKho.setInt(1, kk.getSoLuongThucTe());
+                psCanBangKho.setString(2, kk.getMaLoHang());
+                psCanBangKho.setString(3, kk.getMaSP());
+                psCanBangKho.addBatch();
+            }
+
+            // 🚀 BẮN MỘT LẦN TOÀN BỘ BATCH
+            psLapPhieu.executeBatch();
+            psCanBangKho.executeBatch();
+
+            con.commit(); // THÀNH CÔNG RỰC RỠ
+
+        } catch (Exception e) {
+            con.rollback(); // CÓ BIẾN LÀ QUAY XE NGAY
+            throw new Exception("Lỗi đồng bộ gộp: " + e.getMessage());
+        } finally {
+            con.setAutoCommit(true);
+            if (psLapPhieu != null) psLapPhieu.close();
+            if (psCanBangKho != null) psCanBangKho.close();
+        }
+    }
 }

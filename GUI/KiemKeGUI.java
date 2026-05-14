@@ -6,6 +6,8 @@ import Data.KiemKeKho;
 import Data.SanPham;
 import Logic.KiemKeLogic;
 import Logic.TaoMaTuDongLogic;
+import GUI.HoTro.TienIchGiaoDien;
+import GUI.HoTro.LoadingUtil;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -71,7 +73,10 @@ public class KiemKeGUI extends JPanel {
     private JLabel lblTienDo;
     private JLabel lblTextChenhLechNho; 
     private JLabel lblBadgeTrangThai;
-
+    private CardLayout cardFooter;
+    private JPanel pnlFooterContainer;
+    private final String CARD_BUTTONS = "BUTTONS";
+    private final String CARD_LOADING = "LOADING";
     private TruyVanSieuTocDAO.DuLieuKiemKeSieuTocDTO duLieuSQL;
     private Map<String, ChiTietKiemKeUI> mapTrangThaiUI = new HashMap<>(); 
     private Map<String, TheSanPhamUI> mapTheSP = new HashMap<>();
@@ -84,6 +89,7 @@ public class KiemKeGUI extends JPanel {
     private String maNhanVienHienTai = "NV001"; 
     private String tenNhanVienHienTai = "Chưa rõ";
     private JLabel lblUserInfo;
+    private JLabel lblTongKiemKeSP;
     public void setNhanVienTruyenVao(String maNV, String tenNV) {
         this.maNhanVienHienTai = maNV;
         this.tenNhanVienHienTai = tenNV;
@@ -177,7 +183,8 @@ public class KiemKeGUI extends JPanel {
                     sapXepSanPham(0); 
                     capNhatProgress();
                 } catch (Exception e) {
-                    JOptionPane.showMessageDialog(null, "Lỗi tải dữ liệu: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    // 🔥 THAY JOPTIONPANE BẰNG TIỆN ÍCH GIAO DIỆN
+                    TienIchGiaoDien.hienThiThongBao(KiemKeGUI.this, "Lỗi tải dữ liệu: " + e.getMessage(), "ERROR");
                 }
             }
         };
@@ -197,7 +204,7 @@ public class KiemKeGUI extends JPanel {
 
         JPanel pnlTitle = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
         pnlTitle.setOpaque(false);
-        JLabel lblIcon = new JLabel("📦");
+        JLabel lblIcon = new JLabel("");
         lblIcon.setFont(new Font("Segoe UI", Font.PLAIN, 32));
         JLabel lblTitle = new JLabel("KIỂM KÊ KHO");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 24));
@@ -309,7 +316,7 @@ public class KiemKeGUI extends JPanel {
         lblAnhSPChiTiet.setPreferredSize(new Dimension(100, 100));
         lblAnhSPChiTiet.setBorder(BorderFactory.createLineBorder(MAU_VIEN));
 
-        JPanel pnlTextInfo = new JPanel(new GridLayout(4, 1, 0, 5));
+        JPanel pnlTextInfo = new JPanel(new GridLayout(5, 1, 0, 5));
         pnlTextInfo.setOpaque(false);
         lblTenSPChiTiet = new JLabel("Vui lòng chọn sản phẩm...");
         lblTenSPChiTiet.setFont(new Font("Segoe UI", Font.BOLD, 24));
@@ -319,6 +326,10 @@ public class KiemKeGUI extends JPanel {
         lblMaSPChiTiet.setFont(new Font("Segoe UI", Font.PLAIN, 15));
         lblMaSPChiTiet.setForeground(MAU_CHU_NHAT);
         
+        lblTongKiemKeSP = new JLabel("Tổng kiểm đếm: -- / --");
+        lblTongKiemKeSP.setFont(new Font("Segoe UI", Font.ITALIC, 14));
+        lblTongKiemKeSP.setForeground(MAU_XANH_PRIMARY);
+
         JPanel pnlChonLo = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         pnlChonLo.setOpaque(false);
         JLabel lblLo = new JLabel("Lô Đang Đếm:  ");
@@ -337,6 +348,7 @@ public class KiemKeGUI extends JPanel {
 
         pnlTextInfo.add(lblTenSPChiTiet);
         pnlTextInfo.add(lblMaSPChiTiet);
+        pnlTextInfo.add(lblTongKiemKeSP);
         pnlTextInfo.add(pnlChonLo);
         
         cardInfo.add(lblAnhSPChiTiet, BorderLayout.WEST);
@@ -525,30 +537,101 @@ public class KiemKeGUI extends JPanel {
     }
 
     private JPanel taoFooter() {
-        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
-        footer.setBackground(MAU_TRANG);
-        footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, MAU_VIEN));
+        cardFooter = new CardLayout();
+        pnlFooterContainer = new JPanel(cardFooter);
+        pnlFooterContainer.setOpaque(false);
 
-        NutBamHienDai btnLichSu = new NutBamHienDai("📅 Xem Lịch Sử", MAU_CHU_NHAT, MAU_TRANG);
-        NutBamHienDai btnLuu = new NutBamHienDai("💾 LƯU LÔ NÀY", MAU_XANH_PRIMARY, MAU_TRANG);
-        NutBamHienDai btnTiepTheo = new NutBamHienDai("Lô Hoặc SP Tiếp Theo ➔", MAU_XANH_PRIMARY, MAU_TRANG);
+        // --- CARD 1: DÀN NÚT BẤM ---
+        JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
+        pnlButtons.setBackground(MAU_TRANG);
+        pnlButtons.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, MAU_VIEN));
+
+        NutBamHienDai btnLichSu = new NutBamHienDai("Xem Lịch Sử", MAU_CHU_NHAT, MAU_TRANG);
+        NutBamHienDai btnLuu = new NutBamHienDai("LƯU LÔ NÀY", MAU_XANH_PRIMARY, MAU_TRANG);
+        NutBamHienDai btnTiepTheo = new NutBamHienDai("Lô Hoặc SP Tiếp Theo", MAU_XANH_PRIMARY, MAU_TRANG);
         btnTiepTheo.setPreferredSize(new Dimension(220, 42)); 
-        
-        NutBamHienDai btnHoanTat = new NutBamHienDai("✔ NỘP KẾT QUẢ KIỂM KÊ", MAU_XANH_LA, MAU_TRANG);
+        NutBamHienDai btnHoanTat = new NutBamHienDai("NỘP KẾT QUẢ KIỂM KÊ", MAU_XANH_LA, MAU_TRANG);
         btnHoanTat.setPreferredSize(new Dimension(280, 42)); 
 
         btnLuu.addActionListener(e -> luuKiemKeLoHienTai());
         btnTiepTheo.addActionListener(e -> chuyenSangLoHoacSanPhamTiepTheo());
         btnHoanTat.addActionListener(e -> dongBoDatabase()); 
 
-        footer.add(btnLichSu);
-        footer.add(btnLuu);
-        footer.add(btnTiepTheo);
-        footer.add(btnHoanTat);
+        pnlButtons.add(btnLichSu);
+        pnlButtons.add(btnLuu);
+        pnlButtons.add(btnTiepTheo);
+        pnlButtons.add(btnHoanTat);
 
-        return footer;
+        // --- CARD 2: ANIMATION LOADING (Giống ThanhToanUi) ---
+        JPanel pnlLoading = new JPanel(new BorderLayout(0, 5));
+        pnlLoading.setBackground(MAU_TRANG);
+        pnlLoading.setBorder(new EmptyBorder(10, 30, 10, 30));
+        
+        JLabel lblLoadingText = new JLabel("HỆ THỐNG ĐANG XỬ LÝ ĐỒNG BỘ DỮ LIỆU...", SwingConstants.CENTER);
+        lblLoadingText.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        lblLoadingText.setForeground(MAU_XANH_PRIMARY);
+
+        JProgressBar progressNopPhieu = new JProgressBar();
+        progressNopPhieu.setIndeterminate(true);
+        progressNopPhieu.setPreferredSize(new Dimension(0, 8)); 
+        progressNopPhieu.setBorder(null);
+        progressNopPhieu.setBackground(MAU_VIEN);
+
+        // Custom UI cho ProgressBar (Hiệu ứng dải màu chạy qua lại)
+        progressNopPhieu.setUI(new javax.swing.plaf.basic.BasicProgressBarUI() {
+            @Override
+            protected void paintIndeterminate(Graphics g, JComponent c) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = c.getWidth(); int h = c.getHeight();
+                g2.setColor(c.getBackground());
+                g2.fillRoundRect(0, 0, w, h, h, h);
+                g2.setColor(MAU_XANH_PRIMARY); 
+                long time = System.currentTimeMillis() / 4; 
+                int x = (int) (time % (w + 150)) - 150;
+                g2.fillRoundRect(x, 0, 120, h, h, h);
+                g2.dispose();
+                c.repaint();
+            }
+        });
+
+        pnlLoading.add(lblLoadingText, BorderLayout.CENTER);
+        pnlLoading.add(progressNopPhieu, BorderLayout.SOUTH);
+
+        // Gom vào Container
+        pnlFooterContainer.add(pnlButtons, CARD_BUTTONS);
+        pnlFooterContainer.add(pnlLoading, CARD_LOADING);
+
+        return pnlFooterContainer;
     }
-
+    private void capNhatTongKiemDeSP() {
+        if (maSPDangChon.isEmpty()) return;
+        
+        int tongTonHT = duLieuSQL.mapTongTonKho.getOrDefault(maSPDangChon, 0);
+        int tongThucTe = 0;
+        
+        // Lấy danh sách các lô của sản phẩm này
+        List<ChiTietLoHang> dsLo = duLieuSQL.mapDanhSachLo.get(maSPDangChon);
+        for (ChiTietLoHang lo : dsLo) {
+            ChiTietKiemKeUI ct = mapTrangThaiUI.get(maSPDangChon + "_" + lo.getMaLoHang());
+            if (ct != null && ct.daKiem) {
+                tongThucTe += ct.soLuongThucTe;
+            } else {
+                // Nếu lô chưa đếm, ta coi như thực tế đang bằng 0 (hoặc có thể cộng dồn theo ý cậu)
+                tongThucTe += 0; 
+            }
+        }
+        
+        lblTongKiemKeSP.setText("Tổng kiểm đếm: " + tongThucTe + " / " + tongTonHT + " (Toàn bộ lô)");
+        
+        // Đổi màu để nhấn mạnh cho nhân viên biết
+        if (tongThucTe == tongTonHT) {
+            lblTongKiemKeSP.setText("⭐ Tổng kiểm đếm: " + tongThucTe + " / " + tongTonHT + " (Khớp tổng kho)");
+            lblTongKiemKeSP.setForeground(MAU_XANH_LA);
+        } else {
+            lblTongKiemKeSP.setForeground(MAU_XANH_PRIMARY);
+        }
+    }
     // ==========================================
     // LOGIC NGHIỆP VỤ & LƯU DB THỰC TẾ
     // ==========================================
@@ -662,6 +745,9 @@ public class KiemKeGUI extends JPanel {
             cboLoHang.setSelectedIndex(-1);
             cboLoHang.setSelectedIndex(0); // → fire ItemListener → hienThiChiTietCuaLoHangDuocChon()
         }
+        
+        // 👉 GỌI Ở ĐÂY NÈ: Cập nhật tổng số lượng kiểm đếm của toàn bộ lô mỗi khi click chọn sản phẩm khác
+        capNhatTongKiemDeSP();
     }
     
     // 🔥 ĐÃ FIX: Hàm này giờ sẽ chắc chắn ép thay đổi số TỒN HỆ THỐNG
@@ -722,6 +808,10 @@ public class KiemKeGUI extends JPanel {
                 lblChenhLech.setText("--");
                 lblTextChenhLechNho.setText("");
                 capNhatTrangThaiUI("Đang chờ nhập...", "i", MAU_VIEN, "CHỜ", MAU_NEN_APP, MAU_CHU_NHAT);
+                
+                // 👉 GỌI Ở ĐÂY NÈ (Cập nhật lại tổng khi ô nhập liệu bị xóa trắng)
+                capNhatTongKiemDeSP(); 
+                
                 return;
             }
 
@@ -747,6 +837,10 @@ public class KiemKeGUI extends JPanel {
                 lblTextChenhLechNho.setForeground(MAU_DO_DAM);
                 capNhatTrangThaiUI("Lô này đang thiếu " + Math.abs(lech), "!", MAU_DO_DAM, "⚠ THIẾU", MAU_DO_NHAT, MAU_DO_DAM);
             }
+            
+            // 👉 VÀ GỌI Ở ĐÂY NỮA NÈ (Cập nhật tổng ngay khi gõ số liệu mới)
+            capNhatTongKiemDeSP();
+
         } catch (NumberFormatException ex) {}
     }
 
@@ -776,10 +870,14 @@ public class KiemKeGUI extends JPanel {
 
     private void luuKiemKeLoHienTai() {
         if (maSPDangChon.isEmpty() || maLoDangChon.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Chọn sản phẩm và Lô hàng trước!"); return;
+            // 🔥 THAY JOPTIONPANE
+            TienIchGiaoDien.hienThiThongBao(this, "Vui lòng chọn sản phẩm và Lô hàng trước!", "WARNING"); 
+            return;
         }
         if (txtKiemDem.getText().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Nhập số lượng đếm!"); return;
+            // 🔥 THAY JOPTIONPANE
+            TienIchGiaoDien.hienThiThongBao(this, "Bạn chưa nhập số lượng đếm thực tế!", "WARNING"); 
+            return;
         }
 
         int tonHT = Integer.parseInt(lblTonHeThong.getText());
@@ -790,7 +888,9 @@ public class KiemKeGUI extends JPanel {
         if (lyDo.equals("Nhập lý do chênh lệch nếu có...")) lyDo = "";
 
         if (lech != 0 && lyDo.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập lý do chênh lệch!"); return;
+            // 🔥 THAY JOPTIONPANE
+            TienIchGiaoDien.hienThiThongBao(this, "Hệ thống phát hiện có chênh lệch.<br>Vui lòng nhập lý do!", "WARNING"); 
+            return;
         }
 
         ChiTietKiemKeUI ct = mapTrangThaiUI.get(maSPDangChon + "_" + maLoDangChon);
@@ -827,7 +927,8 @@ public class KiemKeGUI extends JPanel {
                 }
             }
         }
-        JOptionPane.showMessageDialog(this, "Tuyệt vời! Bạn đã đếm xong toàn bộ TẤT CẢ CÁC LÔ của tất cả Sản Phẩm.\nHãy ấn nút NỘP PHIẾU để đẩy kết quả lên hệ thống.");
+        // 🔥 THAY JOPTIONPANE
+        TienIchGiaoDien.hienThiThongBao(this, "Tuyệt vời! Bạn đã đếm xong toàn bộ TẤT CẢ CÁC LÔ của tất cả Sản Phẩm.<br>Hãy ấn nút <b>NỘP PHIẾU</b> để đẩy kết quả lên hệ thống.", "SUCCESS");
     }
 
     private void capNhatProgress() {
@@ -838,55 +939,87 @@ public class KiemKeGUI extends JPanel {
 
     private void dongBoDatabase() {
         if (tongSoLoDaKiem == 0) {
-            JOptionPane.showMessageDialog(this, "Bạn chưa kiểm đếm bất kỳ lô hàng nào!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+            TienIchGiaoDien.hienThiThongBao(this, "Bạn chưa kiểm đếm bất kỳ lô hàng nào!", "WARNING");
             return;
         }
-        
-        int confirm = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn nộp " + tongSoLoDaKiem + " phiếu kiểm kê lô hàng lên hệ thống không?", "Xác nhận nộp", JOptionPane.YES_NO_OPTION);
-        if (confirm != JOptionPane.YES_OPTION) return;
 
-        KiemKeLogic logic = KiemKeLogic.getInstance(); 
-        int soPhieuLuuThanhCong = 0;
+        TienIchGiaoDien.hienThiXacNhan(this, 
+            "Bạn có chắc chắn muốn nộp " + tongSoLoDaKiem + " phiếu kiểm kê lên hệ thống?", 
+            () -> {
+                // 1. Hiển thị thanh Loading tại Footer
+                cardFooter.show(pnlFooterContainer, CARD_LOADING);
+                setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
 
-        for (Map.Entry<String, ChiTietKiemKeUI> entry : mapTrangThaiUI.entrySet()) {
-            ChiTietKiemKeUI uiData = entry.getValue();
-            if (uiData.daKiem) {
-                try {
-                    String[] parts = entry.getKey().split("_");
-                    String maSP = parts[0];
-                    String maLo = parts[1];
-                    
-                    String maPhieu = TaoMaTuDongLogic.taoMaKiemKe(); 
-                    
-                    int tonHTCuaLo = 0;
-                    List<ChiTietLoHang> dsLo = duLieuSQL.mapDanhSachLo.get(maSP);
-                    for(ChiTietLoHang lo : dsLo) {
-                        if(lo.getMaLoHang().equals(maLo)) tonHTCuaLo = lo.getSoLuongTon();
+                // 2. Chạy xử lý ngầm (SwingWorker)
+                SwingWorker<Void, Void> worker = new SwingWorker<>() {
+                    private List<KiemKeKho> tatCaPhieuChoLuu = new ArrayList<>();
+                    private int soSPSauCung = 0;
+                    private boolean isSuccess = false;
+                    private String errorMsg = "";
+
+                    @Override
+                    protected Void doInBackground() throws Exception {
+                        try {
+                            KiemKeLogic logic = KiemKeLogic.getInstance(); 
+                            Map<String, List<KiemKeKho>> mapGomNhomTheoSP = new HashMap<>();
+
+                            // Gom nhóm & Khởi tạo phiếu (Giữ nguyên logic batch của cậu)
+                            for (Map.Entry<String, ChiTietKiemKeUI> entry : mapTrangThaiUI.entrySet()) {
+                                ChiTietKiemKeUI uiData = entry.getValue();
+                                if (uiData.daKiem) {
+                                    String[] parts = entry.getKey().split("_");
+                                    String maSP = parts[0];
+                                    String maLo = parts[1];
+                                    int tonHTCuaLo = duLieuSQL.mapDanhSachLo.get(maSP).stream()
+                                        .filter(l -> l.getMaLoHang().equals(maLo)).findFirst().get().getSoLuongTon();
+
+                                    KiemKeKho kk = new KiemKeKho.ThoXayKiemKeKho()
+                                        .ganMaKiemKe("CHUA_CO_MA").ganMaNV(maNhanVienHienTai)
+                                        .ganMaLoHang(maLo).ganMaSP(maSP)
+                                        .ganSoLuongHeThong(tonHTCuaLo).ganSoLuongThucTe(uiData.soLuongThucTe)
+                                        .ganLyDo(uiData.lyDo).taoMoi();
+                                    mapGomNhomTheoSP.computeIfAbsent(maSP, k -> new ArrayList<>()).add(kk);
+                                }
+                            }
+
+                            for (List<KiemKeKho> dsPhieu : mapGomNhomTheoSP.values()) {
+                                logic.xuLyBuTruCheoTruocKhiLuu(dsPhieu);
+                                for (KiemKeKho kk : dsPhieu) {
+                                    kk.setMaKiemKe(TaoMaTuDongLogic.taoMaKiemKe());
+                                    if (kk.getLyDo() != null && kk.getLyDo().contains("🔄 Nhận")) soSPSauCung++;
+                                    tatCaPhieuChoLuu.add(kk);
+                                }
+                            }
+
+                            // 🔥 GỌI DAO LƯU SIÊU TỐC (BATCH)
+                            TruyVanSieuTocDAO.getInstance().dongBoKiemKeGopChungSieuToc(tatCaPhieuChoLuu);
+                            isSuccess = true;
+                        } catch (Exception ex) {
+                            errorMsg = ex.getMessage();
+                        }
+                        return null;
                     }
 
-                    KiemKeKho kk = new KiemKeKho.ThoXayKiemKeKho()
-                        .ganMaKiemKe(maPhieu)
-                        .ganNgayKiemKe(LocalDate.now())
-                        .ganMaNV(maNhanVienHienTai)
-                        .ganMaLoHang(maLo)
-                        .ganMaSP(maSP)
-                        .ganSoLuongHeThong(tonHTCuaLo)
-                        .ganSoLuongThucTe(uiData.soLuongThucTe)
-                        .ganLyDo(uiData.lyDo)
-                        .ganTrangThai("Chờ Duyệt")
-                        .taoMoi();
-                    
-                    logic.xuLyKetQuaKiemKe(kk); 
-                    soPhieuLuuThanhCong++;
-                    
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Lỗi khi lưu Lô " + entry.getKey() + ": " + ex.getMessage(), "Lỗi Đồng Bộ", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        }
-        JOptionPane.showMessageDialog(this, "Đã đẩy thành công " + soPhieuLuuThanhCong + " báo cáo kiểm kê lô vào CSDL!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-    }
+                    @Override
+                    protected void done() {
+                        // 3. Xong việc -> Trả lại Footer bình thường
+                        setCursor(Cursor.getDefaultCursor());
+                        cardFooter.show(pnlFooterContainer, CARD_BUTTONS);
 
+                        if (isSuccess) {
+                            String msg = "Đồng bộ thành công " + tatCaPhieuChoLuu.size() + " phiếu!";
+                            if (soSPSauCung > 0) msg += "<br><span style='color:#D97706;'>✨ Đã tự động bù trừ sai sót xếp nhầm lô.</span>";
+                            TienIchGiaoDien.hienThiThongBao(KiemKeGUI.this, msg, "SUCCESS");
+                            taiDuLieuTuDatabase(); // Load lại kho mới
+                        } else {
+                            TienIchGiaoDien.hienThiThongBao(KiemKeGUI.this, "Lỗi: " + errorMsg, "ERROR");
+                        }
+                    }
+                };
+                worker.execute();
+            }
+        );
+    }
     // ==========================================
     // CLASS BỔ TRỢ & CUSTOM COMPONENTS
     // ==========================================
@@ -1000,7 +1133,8 @@ public class KiemKeGUI extends JPanel {
         };
         lbl.setPreferredSize(new Dimension(36, 36));
         lbl.setMinimumSize(new Dimension(36, 36)); 
-        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+        // 🔥 ÉP FONT EMOJI Ở ĐÂY ĐỂ TRÁNH LỖI Ô VUÔNG
+        lbl.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 18));
         lbl.setForeground(fgColor);
         lbl.setOpaque(false);
         return lbl;

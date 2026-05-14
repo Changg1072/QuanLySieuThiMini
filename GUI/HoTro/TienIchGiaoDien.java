@@ -175,6 +175,7 @@ public class TienIchGiaoDien {
     }
 
     // ================== DIALOG (XÁC NHẬN) ==================
+    // ================== DIALOG (XÁC NHẬN) ==================
     public static void hienThiXacNhan(Component parent, String message, Runnable actionConfirm) {
         JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(parent), Dialog.ModalityType.APPLICATION_MODAL);
         dialog.setUndecorated(true);
@@ -192,19 +193,17 @@ public class TienIchGiaoDien {
         JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
         pnlButtons.setOpaque(false);
 
+        // 🔥 NÚT HỦY BỎ: Dùng chung nút bo góc, màu nền xám nhạt, chữ xám đậm, KHÔNG viền focus
+        JButton btnNo = taoNutHienDai("Hủy bỏ", new Color(241, 245, 249)); 
+        btnNo.setForeground(new Color(100, 116, 139));
+        btnNo.addActionListener(e -> dialog.dispose());
+
+        // 🔥 NÚT XÁC NHẬN: Màu xanh chủ đạo
         JButton btnYes = taoNutHienDai("Xác nhận", MAU_CHINH);
         btnYes.addActionListener(e -> {
             dialog.dispose();
             actionConfirm.run();
         });
-
-        JButton btnNo = new JButton("Hủy bỏ");
-        btnNo.setFont(FONT_DAM);
-        btnNo.setForeground(MAU_CHU_PHU);
-        btnNo.setContentAreaFilled(false);
-        btnNo.setBorderPainted(false);
-        btnNo.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btnNo.addActionListener(e -> dialog.dispose());
 
         pnlButtons.add(btnNo);
         pnlButtons.add(btnYes);

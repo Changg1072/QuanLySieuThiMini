@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -236,5 +237,74 @@ public class KiemKeLogic {
             ds.add(lo);
         }
         return ds;
+    }
+    // =========================================================================
+    // 5. THUẬT TOÁN "PHÉP THUẬT BÙ TRỪ LÔ" V2 (RÓT NƯỚC BÙ TRỪ THÔNG MINH) 🪄🌊
+    // =========================================================================
+    
+    public void xuLyBuTruCheoTruocKhiLuu(List<KiemKeKho> dsPhieuKiemKeCuaMotSP) {
+        List<KiemKeKho> dsAm = new ArrayList<>();
+        List<KiemKeKho> dsDuong = new ArrayList<>();
+        Map<KiemKeKho, Integer> mapLechConLai = new HashMap<>();
+
+        // 1. Phân loại Lô Âm (Thiếu) và Lô Dương (Dư)
+        for (KiemKeKho kk : dsPhieuKiemKeCuaMotSP) {
+            int lech = kk.getSoLuongThucTe() - kk.getSoLuongHeThong();
+            if (lech < 0) dsAm.add(kk);
+            else if (lech > 0) dsDuong.add(kk);
+            
+            mapLechConLai.put(kk, lech); // Lưu trữ độ lệch ban đầu
+            
+            // Xóa rác placeholder mặc định của UI để nối chuỗi cho đẹp
+            if ("Nhập lý do chênh lệch nếu có...".equals(kk.getLyDo())) {
+                kk.setLyDo("");
+            }
+        }
+
+        // Nếu không có cả Âm và Dương thì không cần bù trừ chéo
+        if (dsAm.isEmpty() || dsDuong.isEmpty()) return;
+
+        // 2. Thuật toán Rót nước: Lấy dư bù thiếu
+        int i = 0, j = 0;
+        while (i < dsAm.size() && j < dsDuong.size()) {
+            KiemKeKho phieuAm = dsAm.get(i);
+            KiemKeKho phieuDuong = dsDuong.get(j);
+
+            int lechAm = Math.abs(mapLechConLai.get(phieuAm));
+            int lechDuong = mapLechConLai.get(phieuDuong);
+
+            int luongBuTru = Math.min(lechAm, lechDuong);
+
+            // Ghi nhận lịch sử rót nước
+            phieuAm.setLyDo(phieuAm.getLyDo() + "[🔄 Nhận " + luongBuTru + " SP từ Lô " + phieuDuong.getMaLoHang() + "] ");
+            phieuDuong.setLyDo(phieuDuong.getLyDo() + "[🔄 Bù " + luongBuTru + " SP sang Lô " + phieuAm.getMaLoHang() + "] ");
+
+            // Cập nhật lại độ lệch sau khi bù
+            mapLechConLai.put(phieuAm, mapLechConLai.get(phieuAm) + luongBuTru);
+            mapLechConLai.put(phieuDuong, mapLechConLai.get(phieuDuong) - luongBuTru);
+
+            // Lô nào huề rồi thì qua lô tiếp theo
+            if (mapLechConLai.get(phieuAm) == 0) i++;
+            if (mapLechConLai.get(phieuDuong) == 0) j++;
+        }
+
+        // 3. Kết luận cuối cùng cho Kế toán (Vẫn còn dư/thiếu thực sự hay đã huề)
+        for (KiemKeKho kk : dsPhieuKiemKeCuaMotSP) {
+            int lechConLai = mapLechConLai.get(kk);
+            int lechGoc = kk.getSoLuongThucTe() - kk.getSoLuongHeThong();
+            
+            if (lechGoc != 0) { // Chỉ xử lý những lô có lệch lúc đếm
+                String lyDoGocCuaNhanVien = kk.getLyDo().replaceAll("\\[🔄.*?\\] ", "").trim();
+                if (lyDoGocCuaNhanVien.isEmpty()) lyDoGocCuaNhanVien = "Không ghi rõ";
+
+                if (lechConLai < 0) {
+                    kk.setLyDo(kk.getLyDo() + " ⚠ CHỐT: Vẫn THIẾU " + Math.abs(lechConLai) + " SP. (Lý do NV: " + lyDoGocCuaNhanVien + ")");
+                } else if (lechConLai > 0) {
+                    kk.setLyDo(kk.getLyDo() + " ⚠ CHỐT: Vẫn DƯ " + lechConLai + " SP. (Lý do NV: " + lyDoGocCuaNhanVien + ")");
+                } else {
+                    kk.setLyDo(kk.getLyDo() + " ✅ CHỐT: Vừa đủ (Huề kho).");
+                }
+            }
+        }
     }
 }
