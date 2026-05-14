@@ -48,6 +48,7 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
         taoGioHang();
 
         add(pnlDanhSachSP, BorderLayout.CENTER);
+        SwingUtilities.invokeLater(() -> hienThiCanhBaoHeThong());
     }
 
     public DanhSachSPUi getPnlDanhSachSP() {
@@ -450,7 +451,33 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
         }
         return tong;
     }
-
+    private void hienThiCanhBaoHeThong() {
+        new Thread(() -> {
+            try {
+                java.util.List<String> dsCanhBao = Logic.KiemKeLogic.getInstance().quetCanhBaoHeThong();
+                java.util.List<String> dsBatThuong = Logic.KiemKeLogic.getInstance().phatHienBatThuongKiemKe();
+                
+                if (!dsCanhBao.isEmpty() || !dsBatThuong.isEmpty()) {
+                    StringBuilder thongDiep = new StringBuilder("<html><h3>CẢNH BÁO KHO TỰ ĐỘNG:</h3><ul>");
+                    
+                    int count = 0;
+                    // Ưu tiên hiển thị cảnh báo bất thường/lệch kho trước
+                    for (String bt : dsBatThuong) { if(count++ < 3) thongDiep.append("<li><b>").append(bt).append("</b></li>"); }
+                    for (String cb : dsCanhBao)   { if(count++ < 5) thongDiep.append("<li>").append(cb).append("</li>"); }
+                    
+                    if (dsCanhBao.size() + dsBatThuong.size() > 5) {
+                        thongDiep.append("<li><i>... và nhiều cảnh báo khác. Xem tại màn hình Quản lý.</i></li>");
+                    }
+                    thongDiep.append("</ul></html>");
+                    
+                    SwingUtilities.invokeLater(() -> {
+                        // Hiển thị một Dialog nhỏ không chắn tầm nhìn (hoặc dùng JLabel cảnh báo ở Header)
+                        GUI.HoTro.TienIchGiaoDien.hienThiThongBao(this, thongDiep.toString(), "WARNING");
+                    });
+                }
+            } catch (Exception e) { e.printStackTrace(); }
+        }).start();
+    }
     // ====================================================================
     // 🔥 TUYỆT CHIÊU ĐỔI HÀNG: ĐẨY DỮ LIỆU TỪ HÓA ĐƠN CŨ VÀO GIỎ MỚI
     // ====================================================================

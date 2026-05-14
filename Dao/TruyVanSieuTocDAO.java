@@ -767,4 +767,74 @@ public class TruyVanSieuTocDAO {
         }
         return list;
     }
+    // =========================================================================
+    // 11. TẢI DỮ LIỆU KIỂM KÊ KHO SIÊU TỐC (Gom nhóm Tồn Kho theo Sản Phẩm)
+    // =========================================================================
+    public static class DuLieuKiemKeSieuTocDTO {
+        public List<Data.SanPham> dsSanPham = new ArrayList<>();
+        public Map<String, Integer> mapTongTonKho = new HashMap<>(); // MaSP -> Tổng số lượng tồn
+        public Map<String, List<Data.ChiTietLoHang>> mapDanhSachLo = new HashMap<>(); // MaSP -> Danh sách các lô
+    }
+
+    public DuLieuKiemKeSieuTocDTO loadDuLieuKiemKeSieuToc() {
+        DuLieuKiemKeSieuTocDTO dto = new DuLieuKiemKeSieuTocDTO();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return dto;
+
+        // ĐÃ SỬA: BỎ ĐIỀU KIỆN 'WHERE' ĐỂ LẤY TẤT CẢ CÁC LÔ HÀNG BẤT CHẤP TỒN KHO LÀ 0 HAY ĐÃ HẾT HẠN
+        String sql = "SELECT * FROM SanPham; " +
+                     "SELECT MaSP, MaLoHang, SoLuongTon, HSD FROM ChiTietLoHang ORDER BY HSD ASC;";
+
+        try (Statement st = con.createStatement()) {
+            boolean hasResults = st.execute(sql);
+            
+            // 📦 Kết quả 1: Sản phẩm
+            if (hasResults) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        Data.SanPham sp = new Data.SanPham.ThoXaySanPham()
+                            .ganMaSP(rs.getString("MaSP"))
+                            .ganTenSP(rs.getString("TenSP"))
+                            .ganLinkHinhAnh(rs.getString("LinkHinhAnh"))
+                            .ganMaLoai(rs.getString("MaLoai"))
+                            .ganDonViTinh(rs.getString("DonViTinh"))
+                            .taoMoi();
+                        dto.dsSanPham.add(sp);
+                        dto.mapTongTonKho.put(sp.getMaSP(), 0); 
+                        dto.mapDanhSachLo.put(sp.getMaSP(), new ArrayList<>()); // Khởi tạo danh sách lô rỗng
+                    }
+                }
+            }
+            
+            // 📦 Kết quả 2: Chi Tiết Lô Hàng
+            if (st.getMoreResults()) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        String maSP = rs.getString("MaSP");
+                        String maLo = rs.getString("MaLoHang");
+                        int ton = rs.getInt("SoLuongTon");
+                        Date sqlHSD = rs.getDate("HSD");
+                        
+                        Data.ChiTietLoHang ct = new Data.ChiTietLoHang();
+                        ct.setMaSP(maSP);
+                        ct.setMaLoHang(maLo);
+                        ct.setSoLuongTon(ton);
+                        if (sqlHSD != null) ct.setHSD(sqlHSD.toLocalDate());
+                        
+                        // Thêm lô vào danh sách của Sản Phẩm tương ứng
+                        if (dto.mapDanhSachLo.containsKey(maSP)) {
+                            dto.mapDanhSachLo.get(maSP).add(ct);
+                            
+                            // Cộng dồn Tồn Kho tổng
+                            int tongHienTai = dto.mapTongTonKho.get(maSP);
+                            dto.mapTongTonKho.put(maSP, tongHienTai + ton);
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("🔥 [SieuTocDAO] Lỗi tải dữ liệu Kiểm Kê: " + e.getMessage());
+        }
+        return dto;
+    }
 }

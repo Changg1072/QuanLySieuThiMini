@@ -49,7 +49,7 @@ public class TrangADMIN extends JFrame {
     private QuanLyNhapHangModule nhapHangModuleUi = null;
     private DanhSachSPUi quanLySpUi = null;
     
-    // 🔥 ĐÃ SỬA: Dùng QuanLyGiamGiaModule thay vì GiamGiaUI đơn lẻ
+    private KiemKeGUI kiemKeUi = null;
     private QuanLyGiamGiaModule quanLyGiamGiaModuleUi = null; 
     
     // ===================== KHAI BÁO BIẾN LƯU TRỮ DỮ LIỆU TẢI TRƯỚC =====================
@@ -88,11 +88,13 @@ public class TrangADMIN extends JFrame {
 
         pnlCards.add(taoPanelGiuCho("TRANG CHỦ TỔNG QUAN"),            "TRANG_CHU");
         pnlCards.add(taoPanelGiuCho("BÁO CÁO THỐNG KÊ DOANH THU"),     "THONG_KE");
-        pnlCards.add(taoPanelGiuCho("QUẢN LÝ SẢN PHẨM"),               "SAN_PHAM");
-        pnlCards.add(taoPanelGiuCho("QUẢN LÝ CHƯƠNG TRÌNH GIẢM GIÁ"),  "GIAM_GIA");
+        // pnlCards.add(taoPanelGiuCho("QUẢN LÝ SẢN PHẨM"),               "SAN_PHAM");
+        // pnlCards.add(taoPanelGiuCho("QUẢN LÝ CHƯƠNG TRÌNH GIẢM GIÁ"),  "GIAM_GIA");
         pnlCards.add(taoPanelGiuCho("QUẢN LÝ NHÀ CUNG CẤP"),           "NHA_CUNG_CAP");
-        pnlCards.add(taoPanelGiuCho("QUẢN LÝ KHÁCH HÀNG THÀNH VIÊN"),  "KHACH_HANG");
-        pnlCards.add(taoPanelGiuCho("DANH SÁCH NHÂN VIÊN"),            "NHAN_VIEN");
+        // pnlCards.add(taoPanelGiuCho("QUẢN LÝ KHÁCH HÀNG THÀNH VIÊN"),  "KHACH_HANG");
+        
+        // 🔥 ĐÃ TẮT PANEL GIỮ CHỖ CỦA NHÂN VIÊN ĐỂ UI THẬT HIỂN THỊ LÊN
+        // pnlCards.add(taoPanelGiuCho("DANH SÁCH NHÂN VIÊN"),            "NHAN_VIEN");      "NHAN_VIEN");
 
         // ===================== SIDEBAR =====================
         JPanel pnlSidebar = xaySidebar();
@@ -169,9 +171,9 @@ public class TrangADMIN extends JFrame {
         pnl.add(taoSeparatorFull());
         pnl.add(Box.createRigidArea(new Dimension(0, 6)));
 
-        pnl.add(taoNhomMenuHover("  Tổng quan",
-            taoMucDropdown("Trang chủ",  "TRANG_CHU"),
-            taoMucDropdown("Thống kê",   "THONG_KE")
+        pnl.add(taoNhomMenuHover("  Kho & Thống kê",
+            taoMucDropdown("Kiểm kê kho", "KIEM_KE"),
+            taoMucDropdown("Thống kê",    "THONG_KE")
         ));
 
         // 🔥 XÂY DỰNG MENU "QUẢN LÝ" THỦ CÔNG ĐỂ CÓ SUB-MENU SẢN PHẨM 🔥
@@ -440,6 +442,15 @@ public class TrangADMIN extends JFrame {
                     if (quanLyGiamGiaModuleUi == null) {
                         quanLyGiamGiaModuleUi = new QuanLyGiamGiaModule();
                         pnlCards.add(quanLyGiamGiaModuleUi, "GIAM_GIA");
+                        pnlCards.revalidate();
+                        pnlCards.repaint();
+                    }
+                    break;
+                case "KIEM_KE":
+                    if (kiemKeUi == null) {
+                        kiemKeUi = new KiemKeGUI(); 
+                        kiemKeUi.setNhanVienTruyenVao(this.maNhanVien, this.tenNhanVien);
+                        pnlCards.add(kiemKeUi, "KIEM_KE"); 
                         pnlCards.revalidate();
                         pnlCards.repaint();
                     }

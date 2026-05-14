@@ -678,42 +678,89 @@ public class ThanhToanUi extends JPanel {
                     List<Data.ChiTietHoaDon> danhSachChiTiet = new ArrayList<>();
                     Dao.ChiTietLoHangDAO ctLoHangDAO = Dao.ChiTietLoHangDAO.getInstance();
 
+                    // =========================================================
+                    // 🚀 BẮT ĐẦU VÒNG LẶP CHIA NHỎ SẢN PHẨM VÀO TỪNG LÔ THEO FEFO
+                    // =========================================================
                     for (Object[] item : currentItems) {
                         String maSP = item[5].toString(); 
-                        int soLuong = (int) item[2];
+                        int soLuongCanBan = (int) item[2];
                         BigDecimal donGia = (BigDecimal) item[3]; 
-                        BigDecimal thanhTienSP = (BigDecimal) item[4];
+                        BigDecimal thanhTienSP = (BigDecimal) item[4]; // Tổng tiền ban đầu của SP này trên giỏ hàng
                         
-                        String maLoHople = "LH001"; 
-                        List<Object[]> dsLo = ctLoHangDAO.layLichSuNhapTheoSP(maSP); 
-                        if (dsLo != null && !dsLo.isEmpty()) {
-                            for (Object[] lo : dsLo) {
-                                if ((int)lo[5] >= soLuong) { 
-                                    maLoHople = lo[0].toString(); 
-                                    ctLoHangDAO.truSoLuongTon(maLoHople, maSP, soLuong);
-                                    break; 
-                                }
+                        // Lấy danh sách các lô của sản phẩm này
+                        List<Object[]> dsLoRaw = ctLoHangDAO.layLichSuNhapTheoSP(maSP); 
+                        List<Object[]> dsLoHopLe = new ArrayList<>();
+                        
+                        if (dsLoRaw != null) {
+                            for (Object[] lo : dsLoRaw) {
+                                if ((int)lo[5] > 0) dsLoHopLe.add(lo); // Chỉ lấy những lô còn số lượng tồn > 0
                             }
                         }
-                        String maGiamGiaApDung = null;
-                        try {
-                            BigDecimal tongGiaGoc = donGia.multiply(new BigDecimal(soLuong));
-                            if (tongGiaGoc.compareTo(thanhTienSP) > 0) {
+
+                        // Sắp xếp các lô theo Hạn Sử Dụng (FEFO - Cận Date bán trước)
+                        dsLoHopLe.sort((lo1, lo2) -> {
+                            java.time.LocalDate hsd1 = (java.time.LocalDate) lo1[6];
+                            java.time.LocalDate hsd2 = (java.time.LocalDate) lo2[6];
+                            if (hsd1 == null) return 1;
+                            if (hsd2 == null) return -1;
+                            return hsd1.compareTo(hsd2);
+                        });
+
+                        int soLuongConPhaiTru = soLuongCanBan;
+
+                        // Quét từng lô để trừ dần số lượng
+                        for (Object[] lo : dsLoHopLe) {
+                            if (soLuongConPhaiTru <= 0) break; // Đã chẻ xong hàng vào các lô
+
+                            String maLo = lo[0].toString();
+                            int tonKhoCuaLo = (int) lo[5];
+                            
+                            // Lấy số lượng vừa đủ để trừ cho lô này
+                            int soLuongTruLoNay = Math.min(tonKhoCuaLo, soLuongConPhaiTru);
+                            
+                            // Thực hiện trừ tồn kho trong Database luôn
+                            ctLoHangDAO.truSoLuongTon(maLo, maSP, soLuongTruLoNay);
+                            
+                            // Tính toán lại thành tiền và giảm giá cho "phần chẻ nhỏ" này
+                            BigDecimal thanhTienChiaNho = donGia.multiply(new BigDecimal(soLuongTruLoNay));
+                            String maGiamGiaApDung = null;
+                            
+                            try {
                                 Logic.GiamGiaLogic ggLogic = new Logic.GiamGiaLogic();
-                                // Lấy mã giảm giá lên
                                 maGiamGiaApDung = ggLogic.layMaGiamGiaHienTai(maSP);
-                                // Trừ số lượng suất
-                                ggLogic.truSoLuongGiamGia(maSP, soLuong);
+                                if (maGiamGiaApDung != null) {
+                                    // Trừ số lượng suất giảm giá
+                                    ggLogic.truSoLuongGiamGia(maSP, soLuongTruLoNay);
+                                    
+                                    // Tính số tiền thực tế (đã giảm) chia tỷ lệ theo số lượng của lô này
+                                    if (soLuongCanBan > 0) {
+                                        thanhTienChiaNho = thanhTienSP.multiply(new BigDecimal(soLuongTruLoNay))
+                                                .divide(new BigDecimal(soLuongCanBan), 0, RoundingMode.HALF_UP);
+                                    }
+                                }
+                            } catch (Exception ex) {
+                                System.err.println("Lỗi xử lý giảm giá: " + ex.getMessage());
                             }
-                        } catch (Exception ex) {
-                            System.err.println("Lỗi xử lý giảm giá: " + ex.getMessage());
+                            
+                            // Đẩy chi tiết hóa đơn (đã chẻ nhỏ theo lô) vào danh sách chờ insert
+                            danhSachChiTiet.add(new Data.ChiTietHoaDon.ThoXayChiTietHoaDon()
+                                .ganMaHD(maHDMoi).ganMaSp(maSP).ganMaLoHang(maLo) 
+                                .ganSoLuong(soLuongTruLoNay).ganDonGia(donGia)
+                                .ganMaGiamGia(maGiamGiaApDung) 
+                                .ganThanhTienSanPham(thanhTienChiaNho).taoMoi());
+
+                            soLuongConPhaiTru -= soLuongTruLoNay;
                         }
-                        danhSachChiTiet.add(new Data.ChiTietHoaDon.ThoXayChiTietHoaDon()
-                            .ganMaHD(maHDMoi).ganMaSp(maSP).ganMaLoHang(maLoHople) 
-                            .ganSoLuong(soLuong).ganDonGia(donGia)
-                            .ganMaGiamGia(maGiamGiaApDung) 
-                            .ganThanhTienSanPham(thanhTienSP).taoMoi());
+
+                        // Nếu đã quét hết lô mà vẫn chưa đủ hàng -> Quăng lỗi rollback
+                        if (soLuongConPhaiTru > 0) {
+                            throw new Exception("Mã SP " + maSP + " không đủ hàng trong kho (Đang thiếu " + soLuongConPhaiTru + " đơn vị). Vui lòng kiểm kê lại!");
+                        }
                     }
+                    // =========================================================
+                    // KẾT THÚC CHIA LÔ FEFO
+                    // =========================================================
+
                     BigDecimal chenhLechGiaoDich = BigDecimal.ZERO;
                     if (finalIsTienMat) { // Dùng cờ đã chốt
                         // Dùng biến tiền đã chốt
@@ -734,7 +781,7 @@ public class ThanhToanUi extends JPanel {
                         danhSachChiTiet, 
                         khachHangHienTai, 
                         maNhanVienThucTe, 
-                        doanhThuGhiVaoCaLam, // 🔥 CHỈ ĐẨY 17K VÀO CA LÀM
+                        doanhThuGhiVaoCaLam, // 🔥 CHỈ ĐẨY SỐ TIỀN THỰC THU VÀO CA LÀM
                         chenhLechGiaoDich
                     );
 
