@@ -157,15 +157,23 @@ public class TruyVanSieuTocDAO {
             psHD.executeUpdate(); // Chạy lệnh
 
             // 2. BATCH INSERT CHI TIẾT HÓA ĐƠN (GOM MẺ VÀ BẮN 1 LẦN 🚀)
-            String sqlCTHD = "INSERT INTO ChiTietHoaDon (MaHD, MaSP, MaLoHang, SoLuong, DonGia, ThanhTienSanPham) VALUES (?, ?, ?, ?, ?, ?)";
+            String sqlCTHD = "INSERT INTO ChiTietHoaDon (MaHD, MaSP, MaLoHang, SoLuong, DonGia, MaGiamGia, ThanhTienSanPham) VALUES (?, ?, ?, ?, ?, ?, ?)";
             psCTHD = con.prepareStatement(sqlCTHD);
             for (Data.ChiTietHoaDon ct : dsChiTiet) {
                 psCTHD.setString(1, ct.getMaHD());
                 psCTHD.setString(2, ct.getMaSp());
-                psCTHD.setString(3, ct.getMaLoHang()); // Nhớ gán sẵn mã lô từ UI nhé
+                psCTHD.setString(3, ct.getMaLoHang()); 
                 psCTHD.setInt(4, ct.getSoLuong());
                 psCTHD.setBigDecimal(5, ct.getDonGia());
-                psCTHD.setBigDecimal(6, ct.getThanhTienSanPham());
+                
+                // 🔥 ĐÃ FIX: Xử lý an toàn nếu MaGiamGia bị rỗng (sản phẩm không có giảm giá)
+                if (ct.getMaGiamGia() == null || ct.getMaGiamGia().trim().isEmpty()) {
+                    psCTHD.setNull(6, java.sql.Types.VARCHAR);
+                } else {
+                    psCTHD.setString(6, ct.getMaGiamGia());
+                }
+                
+                psCTHD.setBigDecimal(7, ct.getThanhTienSanPham()); // Đẩy ThanhTienSanPham xuống vị trí số 7
                 
                 psCTHD.addBatch(); // Gom vào xe tải, chưa gửi đi vội!
             }
@@ -625,5 +633,138 @@ public class TruyVanSieuTocDAO {
             con.setAutoCommit(true);
             if (psInsert != null) psInsert.close();
         }
+    }
+    // =========================================================================
+    // DTO: CHỨA DỮ LIỆU LỊCH SỬ GIẢM GIÁ (Lấy từ nhiều bảng cùng lúc)
+    // =========================================================================
+    public static class LichSuGiamGiaDTO {
+        public String maGiamGia;
+        public String maSP;
+        public String tenSP;
+        public java.time.LocalDateTime batDau;
+        public java.time.LocalDateTime ketThuc;
+        public BigDecimal giamGia;
+        public String loaiGiamGia;
+        public String trangThai;
+        public int soLuong;
+    }
+
+    public static class ThongKeGiamGiaDTO {
+        public int tongLuotApDung = 0;
+        public BigDecimal tongTienGiam = BigDecimal.ZERO;
+    }
+
+    // =========================================================================
+    // HÀM TRUY VẤN: LẤY DANH SÁCH & THỐNG KÊ SIÊU TỐC
+    // =========================================================================
+    public List<LichSuGiamGiaDTO> layLichSuGiamGiaSieuToc() {
+        List<LichSuGiamGiaDTO> list = new ArrayList<>();
+        // JOIN 2 bảng để lấy Tên SP, sắp xếp chương trình Đang diễn ra lên đầu
+        String sql = "SELECT g.MaGiamGia, g.MaSP, s.TenSP, g.BatDau, g.KetThuc, " +
+                     "g.GiamGia, g.LoaiGiamGia, g.TrangThaiGiamGia, g.SoLuongApDung " +
+                     "FROM GiamGia g JOIN SanPham s ON g.MaSP = s.MaSP " +
+                     "ORDER BY CASE WHEN g.TrangThaiGiamGia = N'Đang diễn ra' THEN 1 ELSE 2 END, g.BatDau DESC";
+
+        try (Connection con = ConnectDB.getInstance().getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                LichSuGiamGiaDTO dto = new LichSuGiamGiaDTO();
+                dto.maGiamGia = rs.getString("MaGiamGia");
+                dto.maSP = rs.getString("MaSP");
+                dto.tenSP = rs.getString("TenSP");
+
+                Timestamp bd = rs.getTimestamp("BatDau");
+                if (bd != null) dto.batDau = bd.toLocalDateTime();
+
+                Timestamp kt = rs.getTimestamp("KetThuc");
+                if (kt != null) dto.ketThuc = kt.toLocalDateTime();
+
+                dto.giamGia = rs.getBigDecimal("GiamGia");
+                dto.loaiGiamGia = rs.getString("LoaiGiamGia");
+
+                // Map trạng thái Database sang giao diện
+                String st = rs.getString("TrangThaiGiamGia");
+                if ("Đang diễn ra".equals(st)) dto.trangThai = "Đang hoạt động";
+                else if ("Sắp diễn ra".equals(st)) dto.trangThai = "Sắp diễn ra";
+                else dto.trangThai = "Đã kết thúc";
+
+                dto.soLuong = rs.getInt("SoLuongApDung");
+                list.add(dto);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    public ThongKeGiamGiaDTO layThongKeTongQuanGiamGia() {
+        ThongKeGiamGiaDTO tk = new ThongKeGiamGiaDTO();
+        // Quét toàn bộ ChiTietHoaDon để tính chính xác Lượt dùng & Tiền đã tiết kiệm cho khách
+        String sql = "SELECT COUNT(MaGiamGia) AS TongLuot, SUM((DonGia * SoLuong) - ThanhTienSanPham) AS TongTienGiam " +
+                     "FROM ChiTietHoaDon WHERE MaGiamGia IS NOT NULL";
+        
+        try (Connection con = ConnectDB.getInstance().getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                tk.tongLuotApDung = rs.getInt("TongLuot");
+                tk.tongTienGiam = rs.getBigDecimal("TongTienGiam");
+                if (tk.tongTienGiam == null) tk.tongTienGiam = BigDecimal.ZERO;
+            }
+        } catch (Exception e) {}
+        return tk;
+    }
+    // =========================================================================
+    // DTO: CHI TIẾT GIAO DỊCH CỦA 1 MÃ GIẢM GIÁ
+    // =========================================================================
+    public static class ChiTietGiamGiaDTO {
+        public String maHD;
+        public String tenSP;
+        public String tenKH;
+        public java.time.LocalDateTime ngayTao;
+        public int soLuong;
+        public BigDecimal thanhTien;
+        public BigDecimal tienGiam;
+    }
+
+    public List<ChiTietGiamGiaDTO> layChiTietApDungGiamGia(String maGiamGia) {
+        List<ChiTietGiamGiaDTO> list = new ArrayList<>();
+        // JOIN 4 bảng: ChiTietHoaDon, HoaDon, SanPham, KhachHang (LEFT JOIN vì có thể là khách vãng lai)
+        String sql = "SELECT hd.MaHD, sp.TenSP, ISNULL(kh.HoTen, N'Khách vãng lai') AS TenKH, " +
+                     "hd.NgayTao, ct.SoLuong, ct.ThanhTienSanPham, " +
+                     "((ct.DonGia * ct.SoLuong) - ct.ThanhTienSanPham) AS TienGiam " +
+                     "FROM ChiTietHoaDon ct " +
+                     "JOIN HoaDon hd ON ct.MaHD = hd.MaHD " +
+                     "JOIN SanPham sp ON ct.MaSP = sp.MaSP " +
+                     "LEFT JOIN KhachHang kh ON hd.MaKH = kh.MaKH " +
+                     "WHERE ct.MaGiamGia = ? " +
+                     "ORDER BY hd.NgayTao DESC";
+
+        try (Connection con = ConnectDB.getInstance().getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+             
+            ps.setString(1, maGiamGia);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ChiTietGiamGiaDTO dto = new ChiTietGiamGiaDTO();
+                    dto.maHD = rs.getString("MaHD");
+                    dto.tenSP = rs.getString("TenSP");
+                    dto.tenKH = rs.getString("TenKH");
+                    
+                    Timestamp ts = rs.getTimestamp("NgayTao");
+                    if (ts != null) dto.ngayTao = ts.toLocalDateTime();
+                    
+                    dto.soLuong = rs.getInt("SoLuong");
+                    dto.thanhTien = rs.getBigDecimal("ThanhTienSanPham");
+                    dto.tienGiam = rs.getBigDecimal("TienGiam");
+                    list.add(dto);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
     }
 }

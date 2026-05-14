@@ -695,11 +695,25 @@ public class ThanhToanUi extends JPanel {
                                 }
                             }
                         }
+                        String maGiamGiaApDung = null;
+                        try {
+                            BigDecimal tongGiaGoc = donGia.multiply(new BigDecimal(soLuong));
+                            if (tongGiaGoc.compareTo(thanhTienSP) > 0) {
+                                Logic.GiamGiaLogic ggLogic = new Logic.GiamGiaLogic();
+                                // Lấy mã giảm giá lên
+                                maGiamGiaApDung = ggLogic.layMaGiamGiaHienTai(maSP);
+                                // Trừ số lượng suất
+                                ggLogic.truSoLuongGiamGia(maSP, soLuong);
+                            }
+                        } catch (Exception ex) {
+                            System.err.println("Lỗi xử lý giảm giá: " + ex.getMessage());
+                        }
                         danhSachChiTiet.add(new Data.ChiTietHoaDon.ThoXayChiTietHoaDon()
                             .ganMaHD(maHDMoi).ganMaSp(maSP).ganMaLoHang(maLoHople) 
-                            .ganSoLuong(soLuong).ganDonGia(donGia).ganThanhTienSanPham(thanhTienSP).taoMoi());
+                            .ganSoLuong(soLuong).ganDonGia(donGia)
+                            .ganMaGiamGia(maGiamGiaApDung) 
+                            .ganThanhTienSanPham(thanhTienSP).taoMoi());
                     }
-                    
                     BigDecimal chenhLechGiaoDich = BigDecimal.ZERO;
                     if (finalIsTienMat) { // Dùng cờ đã chốt
                         // Dùng biến tiền đã chốt

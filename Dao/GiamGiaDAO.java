@@ -135,6 +135,28 @@ public class GiamGiaDAO {
         }
         return false;
     }
+    public String layMaGiamGiaHienTai(String maSP) {
+        String maGG = null;
+        String sql = "SELECT MaGiamGia FROM GiamGia " + 
+                     "WHERE MaSP = ? " + 
+                     "AND TrangThaiGiamGia = N'Đang diễn ra' " + 
+                     "AND GETDATE() BETWEEN BatDau AND KetThuc " + 
+                     "AND SoLuongApDung > 0";
+
+        try (Connection con = ConnectDB.getInstance().getConnection();
+             PreparedStatement pstmt = con.prepareStatement(sql)) {
+             
+            pstmt.setString(1, maSP);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    maGG = rs.getString("MaGiamGia");
+                }
+            }
+        } catch (SQLException e) {
+            logError("layMaGiamGiaHienTai", e);
+        }
+        return maGG;
+    }
 
     public boolean huyGiamGia(String maSP) {
         String sql = "UPDATE GiamGia SET TrangThaiGiamGia = N'Đã kết thúc' " + 

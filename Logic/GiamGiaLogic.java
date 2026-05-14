@@ -206,4 +206,10 @@ public class GiamGiaLogic {
 
         return ketQua.toString();
     }
+    public String layMaGiamGiaHienTai(String maSP) throws Exception {
+        if (maSP == null || maSP.trim().isEmpty()) {
+            throw new Exception("Mã sản phẩm không hợp lệ để kiểm tra mã giảm giá!");
+        }
+        return dao.layMaGiamGiaHienTai(maSP);
+    }
 }
