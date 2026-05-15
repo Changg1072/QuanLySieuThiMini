@@ -51,7 +51,7 @@ public class TrangADMIN extends JFrame {
     
     private KiemKeGUI kiemKeUi = null;
     private QuanLyGiamGiaModule quanLyGiamGiaModuleUi = null; 
-    
+    private TieuHuySanPhamGUI tieuHuyUi = null;
     // ===================== KHAI BÁO BIẾN LƯU TRỮ DỮ LIỆU TẢI TRƯỚC =====================
     private final String maNhanVien;
     private final String tenNhanVien;
@@ -221,6 +221,7 @@ public class TrangADMIN extends JFrame {
         popupQuanLy.add(taoMenuItemTuButton(taoMucDropdown("Khách hàng",   "KHACH_HANG")));
         popupQuanLy.add(taoMenuItemTuButton(taoMucDropdown("Nhân viên",    "NHAN_VIEN")));
         popupQuanLy.add(taoMenuItemTuButton(taoMucDropdown("Ca làm",       "CA_LAM")));
+        popupQuanLy.add(taoMenuItemTuButton(taoMucDropdown("Tiêu hủy",     "TIEU_HUY")));
 
         pnl.add(taoSidebarItemVoiPopup("  Quản lý", popupQuanLy));
 
@@ -451,6 +452,15 @@ public class TrangADMIN extends JFrame {
                         kiemKeUi = new KiemKeGUI(); 
                         kiemKeUi.setNhanVienTruyenVao(this.maNhanVien, this.tenNhanVien);
                         pnlCards.add(kiemKeUi, "KIEM_KE"); 
+                        pnlCards.revalidate();
+                        pnlCards.repaint();
+                    }
+                    break;
+                case "TIEU_HUY":
+                    if (tieuHuyUi == null) {
+                        // Khởi tạo và truyền mã nhân viên hiện tại vào để lưu Database
+                        tieuHuyUi = new TieuHuySanPhamGUI(this.maNhanVien); 
+                        pnlCards.add(tieuHuyUi, "TIEU_HUY");
                         pnlCards.revalidate();
                         pnlCards.repaint();
                     }

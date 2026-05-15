@@ -41,8 +41,12 @@ public class PhieuTieuHuyLogic {
         }
 
         phieu.setNgayTao(LocalDateTime.now());
-        phieu.setTongSoLuong(0);
-        phieu.setTongGiaTriHuy(BigDecimal.ZERO);
+        
+        // BỎ 2 DÒNG RESET CỨNG, HOẶC CHỈ GÁN 0 NẾU GUI KHÔNG TRUYỀN XUỐNG
+        if (phieu.getTongGiaTriHuy() == null) {
+            phieu.setTongGiaTriHuy(BigDecimal.ZERO);
+        }
+        
         phieu.setTrangThaiHuy("CHO_XU_LY"); // Mặc định ở trạng thái Chờ xử lý
 
         boolean isTao = phieuTieuHuyDao.themPhieuTieuHuy(phieu);
@@ -50,10 +54,6 @@ public class PhieuTieuHuyLogic {
             throw new Exception("Lỗi hệ thống: Không thể khởi tạo Phiếu Tiêu Hủy!");
         }
     }
-
-    /**
-     * Chốt sổ phiếu tiêu hủy: Tính tổng thiệt hại và khóa phiếu
-     */
     public void hoanTatPhieuTieuHuy(String maPhieuHuy) throws Exception {
         List<ChiTietPhieuHuy> dsChiTiet = chiTietLogic.layDanhSachChiTietTheoMaPhieu(maPhieuHuy);
         
@@ -69,7 +69,6 @@ public class PhieuTieuHuyLogic {
             tongGiaTri = tongGiaTri.add(ct.getGiaTriHuy());
         }
 
-        // TODO: Update DAO của bạn để hỗ trợ hàm cập nhật Tổng hợp (Số lượng & Giá trị)
         // Hiện tại dùng hàm cập nhật trạng thái
         boolean isCapNhat = phieuTieuHuyDao.capNhatTrangThai(maPhieuHuy, "DA_TIEU_HUY");
         if (!isCapNhat) {

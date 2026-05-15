@@ -19,13 +19,6 @@ import java.util.Map;
 
 import Data.ChiTietLoHang;
 import Data.PhieuTieuHuy;
-import Data.ChiTietPhieuHuy;
-import Data.SanPham;
-import Logic.ChiTietPhieuHuyLogic;
-import Logic.PhieuTieuHuyLogic;
-import Logic.SanPhamLogic;
-import Dao.ChiTietLoHangDAO;
-
 public class TieuHuySanPhamGUI extends JPanel {
 
     // ==========================================
@@ -75,17 +68,23 @@ public class TieuHuySanPhamGUI extends JPanel {
     private JLabel lblStatThatThoat;
     private JLabel lblStatThietHai;
 
-    private ChiTietLoHang loHangDangChon;
-    private String tenSpDangChon = "";
+    private List<ChiTietLoHang> danhSachChon = new ArrayList<>();
+    private Map<String, JTextField> mapTxtSoLuong = new HashMap<>();
+    private JPanel pnlDanhSachChonPhai;
     private List<ChiTietLoHang> danhSachGocCache = new ArrayList<>();
     private Map<String, String> mapTenSanPham = new HashMap<>();
     // Timer cho Debounce Search
     private Timer debounceTimer;
-
-    public TieuHuySanPhamGUI() {
-        khoiTaoGiaoDien();
-        setupDebounceSearch();
-        taiDanhSachHangCanHuyAsync(); // Load dữ liệu bất đồng bộ
+    private String maNVHienTai;
+    private String tenNVHienTai;
+    public TieuHuySanPhamGUI(String maNV) {
+        this.maNVHienTai = maNV;
+        // Lấy thông tin nhân viên thật từ DAO
+        Data.NhanVien nv = Dao.NhanVienDAO.getInstance().layNhanVienTheoMa(maNV);
+        this.tenNVHienTai = (nv != null) ? nv.getHoTen() : "Không xác định";
+        
+        khoiTaoGiaoDien();// Gọi hàm khởi tạo giao diện
+        taiDanhSachHangCanHuyAsync(); 
     }
 
     private void khoiTaoGiaoDien() {
@@ -113,18 +112,32 @@ public class TieuHuySanPhamGUI extends JPanel {
         JPanel pnlTop = new JPanel(new BorderLayout(0, 15));
         pnlTop.setBackground(BG_COLOR);
 
+        // --- DÒNG TIÊU ĐỀ & NHÂN VIÊN ---
+        JPanel pnlHeaderRow = new JPanel(new BorderLayout());
+        pnlHeaderRow.setOpaque(false);
+
+        // Tiêu đề bên trái
         JLabel lblTitle = new JLabel("QUẢN LÝ TIÊU HỦY & THẤT THOÁT");
         lblTitle.setFont(FONT_TITLE);
         lblTitle.setForeground(TEXT_MAIN);
-        pnlTop.add(lblTitle, BorderLayout.NORTH);
+        pnlHeaderRow.add(lblTitle, BorderLayout.WEST);
 
-        // Khởi tạo các Label với giá trị mặc định lúc đang tải
+        // 🔥 HIỂN THỊ NHÂN VIÊN Ở GÓC PHẢI (GIỐNG KIỂM KÊ)
+        JLabel lblNhanVien = new JLabel("👤 Nhân viên: " + tenNVHienTai + " (" + maNVHienTai + ")");
+        lblNhanVien.setFont(new Font("Segoe UI", Font.ITALIC, 13));
+        lblNhanVien.setForeground(TEXT_MUTED);
+        lblNhanVien.setBorder(new EmptyBorder(0, 0, 0, 10)); // Cách mép phải một chút
+        pnlHeaderRow.add(lblNhanVien, BorderLayout.EAST);
+
+        pnlTop.add(pnlHeaderRow, BorderLayout.NORTH);
+
+        // --- PHẦN THỐNG KÊ (4 Cards bên dưới) ---
+        // Giữ nguyên các Label thống kê cũ
         lblStatHetHan = new JLabel("0 Lô");
         lblStatCanDate = new JLabel("0 Lô");
         lblStatThatThoat = new JLabel("0 Phiếu");
         lblStatThietHai = new JLabel("0 đ");
 
-        // Panel thống kê nhanh (4 Cards)
         JPanel pnlStats = new JPanel(new GridLayout(1, 4, 15, 0));
         pnlStats.setBackground(BG_COLOR);
         
@@ -136,7 +149,6 @@ public class TieuHuySanPhamGUI extends JPanel {
         pnlTop.add(pnlStats, BorderLayout.CENTER);
         return pnlTop;
     }
-
     private PanelBoGoc taoCardThongKe(String title, JLabel lblValue, Color valueColor, Color bgColor) {
         PanelBoGoc card = new PanelBoGoc(15);
         card.setBackground(bgColor);
@@ -172,7 +184,11 @@ public class TieuHuySanPhamGUI extends JPanel {
         txtTimKiem.putClientProperty("JTextField.placeholderText", "Tìm SP, Mã lô...");
 
         cbBoLoc = new JComboBox<>(new String[]{"Tất cả trạng thái", "Hết hạn", "Cận date", "Bình thường"});
-        cbSapXep = new JComboBox<>(new String[]{"Sắp xếp: HSD Gần nhất", "Sắp xếp: Tồn kho giảm", "Sắp xếp: Giá trị giảm"});
+        cbSapXep = new JComboBox<>(new String[]{
+            "Sắp xếp: Ưu tiên", // Hết hạn -> Cận date -> Bth
+            "Sắp xếp: Tồn kho giảm", 
+            "Sắp xếp: Giá trị giảm"
+        });
 
         cbBoLoc.setFont(FONT_NORMAL); 
         cbSapXep.setFont(FONT_NORMAL);
@@ -210,107 +226,45 @@ public class TieuHuySanPhamGUI extends JPanel {
         pnlPhai.setBackground(CARD_BG);
         pnlPhai.setPreferredSize(new Dimension(450, 0));
         pnlPhai.setLayout(new BorderLayout());
-        pnlPhai.setBorder(new EmptyBorder(25, 25, 25, 25));
+        pnlPhai.setBorder(new EmptyBorder(25, 20, 25, 20));
 
-        JPanel pnlContent = new JPanel();
-        pnlContent.setLayout(new BoxLayout(pnlContent, BoxLayout.Y_AXIS));
+        JPanel pnlContent = new JPanel(new BorderLayout(0, 15));
         pnlContent.setBackground(CARD_BG);
 
-        // 3.1 Thông tin sản phẩm
-        JLabel lblTitleCT = new JLabel("CHI TIẾT LÔ HÀNG");
-        lblTitleCT.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        lblTitleCT.setForeground(PRIMARY_COLOR);
+        // Tiêu đề
+        lblTenSP = new JLabel("CHƯA CHỌN LÔ HÀNG NÀO"); // Tận dụng lại biến cũ để làm Title
+        lblTenSP.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblTenSP.setForeground(PRIMARY_COLOR);
+        pnlContent.add(lblTenSP, BorderLayout.NORTH);
 
-        lblTenSP = new JLabel("Chọn một sản phẩm để xem...");
-        lblTenSP.setFont(FONT_TITLE);
+        // Danh sách các lô đã chọn (Vùng giữa)
+        pnlDanhSachChonPhai = new JPanel();
+        pnlDanhSachChonPhai.setLayout(new BoxLayout(pnlDanhSachChonPhai, BoxLayout.Y_AXIS));
+        pnlDanhSachChonPhai.setBackground(CARD_BG);
         
-        lblMaLo = new JLabel("Lô: --- | Tồn kho: ---");
-        lblMaLo.setFont(FONT_NORMAL);
-        lblMaLo.setForeground(TEXT_MUTED);
+        JScrollPane scroll = new JScrollPane(pnlDanhSachChonPhai);
+        scroll.setBorder(null);
+        scroll.getVerticalScrollBar().setUI(new CustomScrollBarUI());
+        scroll.getViewport().setBackground(CARD_BG);
+        pnlContent.add(scroll, BorderLayout.CENTER);
 
-        lblHSD = new JLabel("HSD: ---");
-        lblHSD.setFont(FONT_NORMAL);
-        lblGiaNhap = new JLabel("Giá nhập: ---");
-        lblGiaNhap.setFont(FONT_NORMAL);
+        // Vùng dưới: Lý do hủy & Tổng thiệt hại & Nút
+        JPanel pnlBottom = new JPanel();
+        pnlBottom.setLayout(new BoxLayout(pnlBottom, BoxLayout.Y_AXIS));
+        pnlBottom.setBackground(CARD_BG);
 
-        pnlTrangThai = new PanelBoGoc(10);
-        pnlTrangThai.setBackground(COLOR_NORMAL_BG);
-        pnlTrangThai.setBorder(new EmptyBorder(5, 10, 5, 10));
-        lblTrangThaiText = new JLabel("Bình thường");
-        lblTrangThaiText.setFont(FONT_BOLD);
-        pnlTrangThai.add(lblTrangThaiText);
-
-        pnlContent.add(lblTitleCT);
-        pnlContent.add(Box.createVerticalStrut(15));
-        pnlContent.add(lblTenSP);
-        pnlContent.add(Box.createVerticalStrut(5));
-        pnlContent.add(lblMaLo);
-        pnlContent.add(Box.createVerticalStrut(5));
-        pnlContent.add(lblHSD);
-        pnlContent.add(Box.createVerticalStrut(5));
-        pnlContent.add(lblGiaNhap);
-        pnlContent.add(Box.createVerticalStrut(10));
-        pnlContent.add(pnlTrangThai);
-        pnlContent.add(Box.createVerticalStrut(30));
-
-        // 3.2 Form nhập tiêu hủy
-        pnlContent.add(new JSeparator());
-        pnlContent.add(Box.createVerticalStrut(20));
-
-        JLabel lblFormTitle = new JLabel("THAO TÁC TIÊU HỦY");
-        lblFormTitle.setFont(FONT_BOLD);
-        pnlContent.add(lblFormTitle);
-        pnlContent.add(Box.createVerticalStrut(15));
-
-        // KHÓA CHIỀU CAO TỐI ĐA CHO CÁC Ô NHẬP LIỆU (Khoảng 35px là đẹp)
-        Dimension inputSize = new Dimension(Integer.MAX_VALUE, 35);
-        Dimension labelSize = new Dimension(100, 35); // Cố định độ rộng nhãn để canh lề thẳng nhau
-
-        // --- Số lượng ---
-        JPanel pnlSL = new JPanel(new BorderLayout(10, 0));
-        pnlSL.setBackground(CARD_BG);
-        pnlSL.setMaximumSize(inputSize); // ÉP CHIỀU CAO
-        
-        JLabel lblSLTitle = new JLabel("Số lượng hủy:");
-        lblSLTitle.setPreferredSize(labelSize);
-        pnlSL.add(lblSLTitle, BorderLayout.WEST);
-        
-        txtSoLuongHuy = new JTextField();
-        txtSoLuongHuy.setFont(FONT_BOLD);
-        txtSoLuongHuy.setEnabled(false); // Disable khi chưa chọn SP
-        // Thêm viền và padding nhẹ cho đẹp
-        txtSoLuongHuy.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200)),
-                new EmptyBorder(5, 10, 5, 10)));
-        pnlSL.add(txtSoLuongHuy, BorderLayout.CENTER);
-        
-        // Cập nhật thiệt hại realtime khi nhập
-        txtSoLuongHuy.getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) { tinhGiaTriThietHai(); }
-            public void removeUpdate(DocumentEvent e) { tinhGiaTriThietHai(); }
-            public void changedUpdate(DocumentEvent e) { tinhGiaTriThietHai(); }
-        });
-
-        // --- Lý do ---
         JPanel pnlLyDo = new JPanel(new BorderLayout(10, 0));
         pnlLyDo.setBackground(CARD_BG);
-        pnlLyDo.setMaximumSize(inputSize); // ÉP CHIỀU CAO
-        
-        JLabel lblLyDoTitle = new JLabel("Lý do:");
-        lblLyDoTitle.setPreferredSize(labelSize);
-        pnlLyDo.add(lblLyDoTitle, BorderLayout.WEST);
+        pnlLyDo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        pnlLyDo.add(new JLabel("Lý do chung:"), BorderLayout.WEST);
         
         cbLyDoHuy = new JComboBox<>(new String[]{"Hàng hết hạn", "Hư hỏng/Móp méo", "Nấm mốc", "Thất thoát/Mất", "Khác..."});
-        cbLyDoHuy.setEnabled(false);
         pnlLyDo.add(cbLyDoHuy, BorderLayout.CENTER);
-
-        // --- Lý do khác (JTextArea) ---
-        txtLyDoKhac = new JTextArea(3, 20);
+        
+        txtLyDoKhac = new JTextArea(2, 20);
         txtLyDoKhac.setLineWrap(true);
         txtLyDoKhac.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
-        txtLyDoKhac.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70)); // Ép chiều cao tối đa cho JTextArea
         txtLyDoKhac.setVisible(false);
-
         cbLyDoHuy.addItemListener(e -> {
             if (e.getStateChange() == ItemEvent.SELECTED) {
                 txtLyDoKhac.setVisible(cbLyDoHuy.getSelectedItem().equals("Khác..."));
@@ -318,62 +272,42 @@ public class TieuHuySanPhamGUI extends JPanel {
             }
         });
 
-        // Add các thành phần vào pnlContent
-        pnlContent.add(pnlSL);
-        pnlContent.add(Box.createVerticalStrut(15));
-        pnlContent.add(pnlLyDo);
-        pnlContent.add(Box.createVerticalStrut(10));
-        pnlContent.add(txtLyDoKhac);
-        
-        // Đẩy phần thiệt hại xuống dưới cùng (Thêm keo co giãn)
-        pnlContent.add(Box.createVerticalGlue()); 
-        pnlContent.add(Box.createVerticalStrut(10));
-
-        // Hiển thị thiệt hại
         PanelBoGoc pnlThietHai = new PanelBoGoc(15);
         pnlThietHai.setBackground(COLOR_EXPIRED_BG);
         pnlThietHai.setLayout(new BorderLayout());
-        pnlThietHai.setBorder(new EmptyBorder(15, 20, 15, 20)); // Tăng padding trái phải cho thanh thoát
-        
-        // 🔥 CHÌA KHÓA Ở ĐÂY: Khóa chết chiều cao tối đa (65px) để ô không bị phình to!
+        pnlThietHai.setBorder(new EmptyBorder(15, 20, 15, 20)); 
         pnlThietHai.setMaximumSize(new Dimension(Integer.MAX_VALUE, 65)); 
-
+        
         JLabel lblThietHaiTitle = new JLabel("Tổng thiệt hại ước tính:");
         lblThietHaiTitle.setFont(FONT_NORMAL);
         lblThietHaiTitle.setForeground(COLOR_EXPIRED_TEXT);
-        
         lblTongThietHai = new JLabel("0 VNĐ");
-        lblTongThietHai.setFont(new Font("Segoe UI", Font.BOLD, 22)); // Tăng size nhẹ cho nổi bật
+        lblTongThietHai.setFont(new Font("Segoe UI", Font.BOLD, 22)); 
         lblTongThietHai.setForeground(COLOR_EXPIRED_TEXT);
-        lblTongThietHai.setHorizontalAlignment(SwingConstants.RIGHT); // Ép text tiền căn phải
-
-        // Đặt Tiêu đề bên trái (WEST), Tiền bên phải (CENTER tự chiếm không gian còn lại và đẩy text sang phải)
+        lblTongThietHai.setHorizontalAlignment(SwingConstants.RIGHT); 
         pnlThietHai.add(lblThietHaiTitle, BorderLayout.WEST);
         pnlThietHai.add(lblTongThietHai, BorderLayout.CENTER);
-        
-        pnlContent.add(pnlThietHai);
-        pnlContent.add(Box.createVerticalStrut(15));
 
-        pnlPhai.add(pnlContent, BorderLayout.CENTER);
-
-        // 3.3 Buttons
-        JPanel pnlAction = new JPanel(new GridLayout(1, 2, 15, 0)); // Tăng khoảng cách 2 nút ra 15px cho thoáng
+        JPanel pnlAction = new JPanel(new GridLayout(1, 2, 15, 0));
         pnlAction.setBackground(CARD_BG);
-        pnlAction.setBorder(new EmptyBorder(10, 0, 0, 0)); // Cách phần trên một chút
-        
-        // 💡 Cách 1: Dùng hàm taoNutHienDai từ TienIchGiaoDien (Giao diện bo góc cực mượt, hover xịn)
-        // Lưu ý: Đảm bảo bạn đã import GUI.HoTro.TienIchGiaoDien; ở đầu file nhé!
-        
-        btnLuuTam = GUI.HoTro.TienIchGiaoDien.taoNutHienDai("Lưu Tạm", new Color(149, 165, 166)); // Màu xám thanh lịch
-        
-        btnHoanTat = GUI.HoTro.TienIchGiaoDien.taoNutHienDai("Hoàn Tất Hủy", COLOR_EXPIRED_TEXT); // Màu đỏ cảnh báo nổi bật
-
-        // Thêm sự kiện cho nút
+        pnlAction.setBorder(new EmptyBorder(10, 0, 0, 0)); 
+        btnLuuTam = GUI.HoTro.TienIchGiaoDien.taoNutHienDai("Lưu Tạm", new Color(149, 165, 166)); 
+        btnHoanTat = GUI.HoTro.TienIchGiaoDien.taoNutHienDai("Hoàn Tất Hủy", COLOR_EXPIRED_TEXT); 
         btnHoanTat.addActionListener(e -> xuLyHoanTatTieuHuy());
-
         pnlAction.add(btnLuuTam);
         pnlAction.add(btnHoanTat);
-        pnlPhai.add(pnlAction, BorderLayout.SOUTH);
+
+        pnlBottom.add(new JSeparator());
+        pnlBottom.add(Box.createVerticalStrut(15));
+        pnlBottom.add(pnlLyDo);
+        pnlBottom.add(Box.createVerticalStrut(5));
+        pnlBottom.add(txtLyDoKhac);
+        pnlBottom.add(Box.createVerticalStrut(15));
+        pnlBottom.add(pnlThietHai);
+        pnlBottom.add(pnlAction);
+
+        pnlContent.add(pnlBottom, BorderLayout.SOUTH);
+        pnlPhai.add(pnlContent, BorderLayout.CENTER);
 
         return pnlPhai;
     }
@@ -398,12 +332,9 @@ public class TieuHuySanPhamGUI extends JPanel {
     private void timKiemRealtime() {
         if (danhSachGocCache == null || danhSachGocCache.isEmpty()) return;
 
-        // 1. LẤY CÁC THAM SỐ TỪ GIAO DIỆN
         String tuKhoa = txtTimKiem.getText();
-        String tuKhoaThuong = "";
-        if (tuKhoa != null && !tuKhoa.trim().isEmpty() && !tuKhoa.equals("Tìm SP, Mã lô...")) {
-            tuKhoaThuong = GUI.HoTro.DinhDangUtil.loaiBoDauTiengViet(tuKhoa.toLowerCase().trim());
-        }
+        String tuKhoaThuong = (tuKhoa != null && !tuKhoa.equals("Tìm SP, Mã lô...")) 
+                ? GUI.HoTro.DinhDangUtil.loaiBoDauTiengViet(tuKhoa.toLowerCase().trim()) : "";
 
         String boLoc = (String) cbBoLoc.getSelectedItem();
         String sapXep = (String) cbSapXep.getSelectedItem();
@@ -411,63 +342,64 @@ public class TieuHuySanPhamGUI extends JPanel {
 
         List<ChiTietLoHang> dsLoc = new ArrayList<>();
 
-        // 2. GIAI ĐOẠN 1: LỌC DATA (FILTER)
+        // 1. GIAI ĐOẠN LỌC (FILTER)
         for (ChiTietLoHang lo : danhSachGocCache) {
-            
-            // --- Lọc theo từ khóa (Tìm Text) ---
+            // Lọc theo Text
             boolean matchTuKhoa = true;
             if (!tuKhoaThuong.isEmpty()) {
-                String tenSP = mapTenSanPham.getOrDefault(lo.getMaSP(), "Không xác định");
-                String tenSPThuong = GUI.HoTro.DinhDangUtil.loaiBoDauTiengViet(tenSP.toLowerCase());
-                String maLoThuong = GUI.HoTro.DinhDangUtil.loaiBoDauTiengViet(lo.getMaLoHang().toLowerCase());
-
-                if (!tenSPThuong.contains(tuKhoaThuong) && !maLoThuong.contains(tuKhoaThuong)) {
-                    matchTuKhoa = false;
-                }
+                String tenSP = mapTenSanPham.getOrDefault(lo.getMaSP(), "");
+                String matchStr = GUI.HoTro.DinhDangUtil.loaiBoDauTiengViet((tenSP + " " + lo.getMaLoHang()).toLowerCase());
+                if (!matchStr.contains(tuKhoaThuong)) matchTuKhoa = false;
             }
-            if (!matchTuKhoa) continue; // Bỏ qua nếu không khớp text
+            if (!matchTuKhoa) continue;
 
-            // --- Lọc theo Trạng Thái (Combobox) ---
+            // Lọc theo Trạng thái (Combobox)
             boolean matchTrangThai = true;
             if (boLoc != null && !boLoc.equals("Tất cả trạng thái")) {
-                // Tính số ngày còn lại
                 long days = (lo.getHSD() != null) ? ChronoUnit.DAYS.between(today, lo.getHSD()) : 9999;
-                
                 if (boLoc.equals("Hết hạn") && days >= 0) matchTrangThai = false;
                 else if (boLoc.equals("Cận date") && (days < 0 || days > 7)) matchTrangThai = false;
                 else if (boLoc.equals("Bình thường") && days <= 7) matchTrangThai = false;
             }
+            if (matchTrangThai) dsLoc.add(lo);
+        }
 
-            if (matchTrangThai) {
-                dsLoc.add(lo); // Pass hết bài test thì đưa vào danh sách hiển thị
+        // 2. GIAI ĐOẠN SẮP XẾP ĐA TẦNG (SORTING) 🔥
+        dsLoc.sort((lo1, lo2) -> {
+            // --- TẦNG 1: ƯU TIÊN HÀNG ĐANG ĐƯỢC CHỌN LÊN ĐẦU ---
+            boolean s1 = danhSachChon.contains(lo1);
+            boolean s2 = danhSachChon.contains(lo2);
+            if (s1 != s2) return s1 ? -1 : 1; // Thằng nào được chọn (true) thì lên trước (-1)
+
+            // --- TẦNG 2: SẮP XẾP THEO TRẠNG THÁI CẢNH BÁO ---
+            if (sapXep == null || sapXep.equals("Sắp xếp: Ưu tiên") || sapXep.equals("Sắp xếp: HSD Gần nhất")) {
+                int p1 = getPriority(lo1, today);
+                int p2 = getPriority(lo2, today);
+                if (p1 != p2) return Integer.compare(p1, p2);
+                
+                // Nếu cùng trạng thái -> HSD cũ hơn lên trước
+                if (lo1.getHSD() == null) return 1;
+                if (lo2.getHSD() == null) return -1;
+                return lo1.getHSD().compareTo(lo2.getHSD());
+            } 
+            
+            // Các kiểu sắp xếp khác
+            else if (sapXep.equals("Sắp xếp: Tồn kho giảm")) {
+                return Integer.compare(lo2.getSoLuongTon(), lo1.getSoLuongTon());
             }
-        }
+            return 0;
+        });
 
-        // 3. GIAI ĐOẠN 2: SẮP XẾP DATA (SORT)
-        if (sapXep != null && !dsLoc.isEmpty()) {
-            dsLoc.sort((lo1, lo2) -> {
-                if (sapXep.equals("Sắp xếp: HSD Gần nhất")) {
-                    // Xử lý an toàn nếu HSD bị null
-                    if (lo1.getHSD() == null && lo2.getHSD() == null) return 0;
-                    if (lo1.getHSD() == null) return 1;
-                    if (lo2.getHSD() == null) return -1;
-                    // Tăng dần, ngày nào gần hôm nay nhất sẽ lên đầu
-                    return lo1.getHSD().compareTo(lo2.getHSD()); 
-                    
-                } else if (sapXep.equals("Sắp xếp: Tồn kho giảm")) {
-                    return Integer.compare(lo2.getSoLuongTon(), lo1.getSoLuongTon());
-                    
-                } else if (sapXep.equals("Sắp xếp: Giá trị giảm")) {
-                    BigDecimal gt1 = lo1.getGiaNhap().multiply(new BigDecimal(lo1.getSoLuongTon()));
-                    BigDecimal gt2 = lo2.getGiaNhap().multiply(new BigDecimal(lo2.getSoLuongTon()));
-                    return gt2.compareTo(gt1);
-                }
-                return 0;
-            });
-        }
-
-        // 4. ĐẨY DATA LÊN GIAO DIỆN
         hienThiDanhSachLenUI(dsLoc);
+    }
+
+    // Hàm phụ trợ tính độ ưu tiên dựa trên ngày (Dùng cho sắp xếp)
+    private int getPriority(ChiTietLoHang lo, LocalDate today) {
+        if (lo.getHSD() == null) return 2;
+        long days = ChronoUnit.DAYS.between(today, lo.getHSD());
+        if (days < 0) return 0;   // Hết hạn -> Rank 0
+        if (days <= 7) return 1; // Cận date -> Rank 1
+        return 2;                // Bình thường -> Rank 2
     }
     private void thucHienTimKiem(String tuKhoa) {
         if (danhSachGocCache == null || danhSachGocCache.isEmpty()) return;
@@ -514,148 +446,173 @@ public class TieuHuySanPhamGUI extends JPanel {
         pnlDanhSachCard.revalidate();
         pnlDanhSachCard.repaint();
     }
-    /**
-     * Tính giá trị thiệt hại Realtime khi người dùng nhập số lượng
-     */
+
+    // 1. Hàm vẽ lại danh sách bên phải mỗi khi user tick/bỏ tick
+    private void capNhatPanelPhaiDaChon() {
+        pnlDanhSachChonPhai.removeAll();
+        mapTxtSoLuong.clear(); // Reset map ô nhập liệu
+        
+        if (danhSachChon.isEmpty()) {
+            lblTenSP.setText("CHƯA CHỌN LÔ HÀNG NÀO");
+            btnHoanTat.setEnabled(false);
+            lblTongThietHai.setText("0 VNĐ");
+        } else {
+            lblTenSP.setText("ĐÃ CHỌN " + danhSachChon.size() + " LÔ HÀNG");
+            btnHoanTat.setEnabled(true);
+            
+            for (ChiTietLoHang lo : danhSachChon) {
+                JPanel pnlItem = new JPanel(new BorderLayout(10, 0));
+                pnlItem.setBackground(Color.WHITE);
+                pnlItem.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(240, 240, 240)),
+                    new EmptyBorder(10, 5, 10, 5)
+                ));
+                pnlItem.setMaximumSize(new Dimension(Integer.MAX_VALUE, 65));
+
+                String tenSP = mapTenSanPham.getOrDefault(lo.getMaSP(), "SP...");
+                JLabel lblInfo = new JLabel("<html><b>" + tenSP + "</b><br><font color='#7f8c8d'>Lô: " + lo.getMaLoHang() + " | Tồn: " + lo.getSoLuongTon() + "</font></html>");
+                pnlItem.add(lblInfo, BorderLayout.CENTER);
+
+                // Ô nhập số lượng hủy cho lô này
+                JTextField txtSL = new JTextField(String.valueOf(lo.getSoLuongTon()), 4);
+                txtSL.setHorizontalAlignment(SwingConstants.CENTER);
+                txtSL.setFont(FONT_BOLD);
+                // Lắng nghe gõ phím để tính tiền
+                txtSL.getDocument().addDocumentListener(new DocumentListener() {
+                    public void insertUpdate(DocumentEvent e) { tinhGiaTriThietHai(); }
+                    public void removeUpdate(DocumentEvent e) { tinhGiaTriThietHai(); }
+                    public void changedUpdate(DocumentEvent e) { tinhGiaTriThietHai(); }
+                });
+                
+                String key = lo.getMaLoHang() + "_" + lo.getMaSP();
+                mapTxtSoLuong.put(key, txtSL); // Lưu vào Map để lát lấy data
+                
+                JPanel pnlSL = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+                pnlSL.setOpaque(false);
+                pnlSL.add(new JLabel("Hủy: "));
+                pnlSL.add(txtSL);
+                
+                pnlItem.add(pnlSL, BorderLayout.EAST);
+                pnlDanhSachChonPhai.add(pnlItem);
+            }
+        }
+        
+        pnlDanhSachChonPhai.revalidate();
+        pnlDanhSachChonPhai.repaint();
+        tinhGiaTriThietHai(); // Gọi hàm tính tiền
+    }
+
+    // 2. Hàm tính tiền duyệt qua toàn bộ Map
     private void tinhGiaTriThietHai() {
-        if (loHangDangChon == null) return;
+        if (danhSachChon.isEmpty()) {
+            lblTongThietHai.setText("0 VNĐ"); return;
+        }
         
         SwingUtilities.invokeLater(() -> {
-            try {
-                String slStr = txtSoLuongHuy.getText().trim();
-                if (slStr.isEmpty()) {
-                    lblTongThietHai.setText("0 VNĐ");
-                    return;
-                }
-                
-                int soLuong = Integer.parseInt(slStr);
-                
-                // Validate cơ bản trên UI
-                if (soLuong < 0) {
-                    lblTongThietHai.setText("Lỗi: Số âm!");
-                    return;
-                }
-                // 🔥 ĐÃ SỬA: Dùng getSoLuongTon()
-                if (soLuong > loHangDangChon.getSoLuongTon()) { 
-                    lblTongThietHai.setText("Lỗi: Vượt tồn kho!");
-                    lblTongThietHai.setForeground(Color.RED);
-                    return;
-                }
+            BigDecimal tongTien = BigDecimal.ZERO;
+            boolean coLoi = false;
 
-                // 🔥 ĐÃ SỬA: Dùng getGiaNhap()
-                BigDecimal thietHai = loHangDangChon.getGiaNhap().multiply(new BigDecimal(soLuong)); 
-                lblTongThietHai.setText(moneyFormat.format(thietHai));
+            for (ChiTietLoHang lo : danhSachChon) {
+                String key = lo.getMaLoHang() + "_" + lo.getMaSP();
+                JTextField txt = mapTxtSoLuong.get(key);
+                if (txt == null) continue;
+
+                try {
+                    int sl = Integer.parseInt(txt.getText().trim());
+                    if (sl < 0 || sl > lo.getSoLuongTon()) {
+                        coLoi = true; break; // Nhập lố tồn kho hoặc âm
+                    }
+                    tongTien = tongTien.add(lo.getGiaNhap().multiply(new BigDecimal(sl)));
+                } catch (Exception ex) { coLoi = true; break; }
+            }
+
+            if (coLoi) {
+                lblTongThietHai.setText("Lỗi số lượng!");
+                lblTongThietHai.setForeground(Color.RED);
+            } else {
+                lblTongThietHai.setText(moneyFormat.format(tongTien));
                 lblTongThietHai.setForeground(COLOR_EXPIRED_TEXT);
-
-            } catch (NumberFormatException ex) {
-                lblTongThietHai.setText("Lỗi: Nhập sai số");
             }
         });
     }
 
-    /**
-     * Xử lý khi nhấn nút Hoàn Tất Tiêu Hủy
-     */
+    // 3. Hàm hoàn tất duyệt vòng lặp lưu Multi Database 🚀
     private void xuLyHoanTatTieuHuy() {
-        if (loHangDangChon == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn lô hàng cần tiêu hủy!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
+        if (danhSachChon.isEmpty()) return;
 
         try {
-            int soLuongHuy = Integer.parseInt(txtSoLuongHuy.getText().trim());
-            
-            // Cảnh báo UX như cũ
-            if (soLuongHuy >= 50 || loHangDangChon.getGiaNhap().multiply(new BigDecimal(soLuongHuy)).compareTo(new BigDecimal(1000000)) > 0) {
-                int confirm = JOptionPane.showConfirmDialog(this, 
-                    "CẢNH BÁO: Bạn đang tiêu hủy số lượng lớn hoặc giá trị cao.\nXác nhận tiếp tục?", 
-                    "Xác nhận tiêu hủy lớn", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-                if (confirm != JOptionPane.YES_OPTION) return;
+            // 1. Lấy lý do chung
+            String lyDoChung = cbLyDoHuy.getSelectedItem().toString();
+            if (lyDoChung.equals("Khác...")) lyDoChung = txtLyDoKhac.getText().trim();
+
+            int tongSoLuong = 0;
+            BigDecimal tongGiaTriHuy = BigDecimal.ZERO;
+
+            // 2. VÒNG LẶP 1: Xác thực an toàn và tính toán TỔNG cho Phiếu (Master)
+            for (Data.ChiTietLoHang lo : danhSachChon) {
+                String key = lo.getMaLoHang() + "_" + lo.getMaSP();
+                int slHuy = Integer.parseInt(mapTxtSoLuong.get(key).getText().trim());
+                
+                if (slHuy <= 0 || slHuy > lo.getSoLuongTon()) {
+                    JOptionPane.showMessageDialog(this, "Số lượng hủy của lô " + lo.getMaLoHang() + " không hợp lệ!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                
+                tongSoLuong += slHuy;
+                BigDecimal giaTriTungLo = lo.getGiaNhap().multiply(new BigDecimal(slHuy));
+                tongGiaTriHuy = tongGiaTriHuy.add(giaTriTungLo);
             }
 
-            String lyDo = cbLyDoHuy.getSelectedItem().toString();
-            if (lyDo.equals("Khác...")) lyDo = txtLyDoKhac.getText().trim();
+            // ===============================================
+            // 3. TẠO PHIẾU TỔNG (Đẩy đủ 7 cột xuống SQL)
+            // ===============================================
+            Data.PhieuTieuHuy phieu = new Data.PhieuTieuHuy();
+            
+            // Bơm dữ liệu chuẩn chỉnh:
+            phieu.setMaNV(this.maNVHienTai); // Đã liên kết mã nhân viên từ lúc đăng nhập
+            phieu.setTongSoLuong(tongSoLuong); 
+            phieu.setTongGiaTriHuy(tongGiaTriHuy); 
+            phieu.setLyDoHuy(lyDoChung);
+            
+            // Logic sẽ tự sinh MaPhieuHuy, NgayTao (Hiện tại) và gán trạng thái
+            Logic.PhieuTieuHuyLogic.getInstance().taoPhieuTieuHuy(phieu); 
 
             // ===============================================
-            // GỌI LOGIC TẦNG BACKEND TẠI ĐÂY
+            // 4. TẠO CHI TIẾT PHIẾU (Đẩy đủ 6 cột xuống SQL)
             // ===============================================
-            
-            // 1. Khởi tạo Phiếu Tiêu Hủy
-            PhieuTieuHuy phieu = new PhieuTieuHuy();
-            // LƯU Ý: Chỗ này bạn truyền Mã Nhân Viên đang đăng nhập vào nhé! Tôi tạm fix "NV001"
-            phieu.setMaNV("NV001"); 
-            PhieuTieuHuyLogic.getInstance().taoPhieuTieuHuy(phieu); // Nó sẽ tự sinh MaPhieuHuy
-            
-            // 2. Nạp Chi Tiết (Nó sẽ tự trừ tồn kho và tính tổng tiền)
-            ChiTietPhieuHuy ct = new ChiTietPhieuHuy();
-            ct.setMaPhieuHuy(phieu.getMaPhieuHuy());
-            ct.setMaLoHang(loHangDangChon.getMaLoHang());
-            ct.setMaSP(loHangDangChon.getMaSP());
-            ct.setSoLuongHuy(soLuongHuy);
-            ct.setLyDoChiTiet(lyDo);
-            
-            ChiTietPhieuHuyLogic.getInstance().themChiTietPhieuHuy(ct);
-            
-            // 3. Hoàn tất & Chốt phiếu (Đổi trạng thái sang DA_TIEU_HUY)
-            PhieuTieuHuyLogic.getInstance().hoanTatPhieuTieuHuy(phieu.getMaPhieuHuy());
+            for (Data.ChiTietLoHang lo : danhSachChon) {
+                String key = lo.getMaLoHang() + "_" + lo.getMaSP();
+                int slHuy = Integer.parseInt(mapTxtSoLuong.get(key).getText().trim());
+                BigDecimal giaTriHuyChiTiet = lo.getGiaNhap().multiply(new BigDecimal(slHuy));
 
+                Data.ChiTietPhieuHuy ct = new Data.ChiTietPhieuHuy();
+                
+                // Bơm dữ liệu:
+                ct.setMaPhieuHuy(phieu.getMaPhieuHuy()); // Nối đúng với mã phiếu tổng ở trên
+                ct.setMaLoHang(lo.getMaLoHang());
+                ct.setMaSP(lo.getMaSP());
+                ct.setSoLuongHuy(slHuy);
+                ct.setGiaTriHuy(giaTriHuyChiTiet); // Giá trị thiệt hại riêng của lô này
+                ct.setLyDoChiTiet(lyDoChung);
+                
+                Logic.ChiTietPhieuHuyLogic.getInstance().themChiTietPhieuHuy(ct);
+            }
+            
+            // 5. Chốt sổ phiếu (Cập nhật trạng thái DA_TIEU_HUY)
+            Logic.PhieuTieuHuyLogic.getInstance().hoanTatPhieuTieuHuy(phieu.getMaPhieuHuy());
             // ===============================================
 
-            JOptionPane.showMessageDialog(this, "Đã ghi nhận tiêu hủy thành công " + soLuongHuy + " sản phẩm!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Đã lưu thông tin tiêu hủy vào Database (Gồm " + danhSachChon.size() + " chi tiết)!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
             
-            // Reset form và load lại danh sách Realtime từ Database
-            loHangDangChon = null;
-            txtSoLuongHuy.setText("");
-            lblTongThietHai.setText("0 VNĐ");
-            txtSoLuongHuy.setEnabled(false);
-            
-            // Gọi lại hàm load kho
-            taiDanhSachHangCanHuyAsync();
+            // Reset toàn bộ UI sau khi xử lý xong
+            danhSachChon.clear();
+            capNhatPanelPhaiDaChon(); 
+            taiDanhSachHangCanHuyAsync(); // Load lại kho siêu tốc bằng Turbo
 
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Lỗi: Số lượng nhập vào không hợp lệ!", "Lỗi", JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Có lỗi xảy ra khi lưu SQL: " + ex.getMessage(), "Lỗi Database", JOptionPane.ERROR_MESSAGE);
         }
     }
-
-    /**
-     * Hiển thị thông tin Lô Hàng được click lên Form Chi tiết
-     */
-    private void chonLoHangDeTieuHuy(ChiTietLoHang lo) {
-        this.loHangDangChon = lo;
-        this.tenSpDangChon = mapTenSanPham.getOrDefault(lo.getMaSP(), "Sản phẩm ẩn danh");
-        
-        lblTenSP.setText(this.tenSpDangChon);
-        lblMaLo.setText("Lô: " + lo.getMaLoHang() + "  |  Tồn hệ thống: " + lo.getSoLuongTon());
-        
-        if (lo.getHSD() != null) {
-            lblHSD.setText("Hạn sử dụng: " + lo.getHSD().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-        } else {
-            lblHSD.setText("Hạn sử dụng: Không có");
-        }
-        
-        lblGiaNhap.setText("Giá nhập: " + moneyFormat.format(lo.getGiaNhap()));
-
-        // Xác định tình trạng hiển thị
-        long days = ChronoUnit.DAYS.between(LocalDate.now(), lo.getHSD());
-        if (days < 0) {
-            capNhatUIThongBao(COLOR_EXPIRED_BG, COLOR_EXPIRED_TEXT, "⛔ ĐÃ HẾT HẠN (" + Math.abs(days) + " ngày)");
-            cbLyDoHuy.setSelectedItem("Hàng hết hạn");
-        } else if (days <= 7) {
-            capNhatUIThongBao(COLOR_WARNING_BG, COLOR_WARNING_TEXT, "⚠ CẬN DATE (Còn " + days + " ngày)");
-        } else {
-            capNhatUIThongBao(COLOR_NORMAL_BG, COLOR_NORMAL_TEXT, "✔ BÌNH THƯỜNG");
-        }
-
-        // Enable form nhập liệu
-        txtSoLuongHuy.setEnabled(true);
-        cbLyDoHuy.setEnabled(true);
-        txtSoLuongHuy.setText(String.valueOf(lo.getSoLuongTon())); // Gợi ý hủy hết tồn kho
-        txtSoLuongHuy.requestFocus();
-        txtSoLuongHuy.selectAll();
-    }
-
     private void capNhatUIThongBao(Color bg, Color text, String msg) {
         pnlTrangThai.setBackground(bg);
         lblTrangThaiText.setForeground(text);
@@ -668,29 +625,20 @@ public class TieuHuySanPhamGUI extends JPanel {
     // =====================================================================
     private void taiDanhSachHangCanHuyAsync() {
         pnlDanhSachCard.removeAll();
-        pnlDanhSachCard.add(new JLabel(" Đang tải dữ liệu từ CSDL..."));
+        pnlDanhSachCard.add(new JLabel(" 🚀 Đang tải dữ liệu từ Động cơ Turbo..."));
         pnlDanhSachCard.revalidate();
         pnlDanhSachCard.repaint();
 
         SwingWorker<Void, Void> worker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
-                // 1. Tải Map Tên Sản Phẩm siêu tốc
-                List<SanPham> listSP = new SanPhamLogic().layDanhSachSanPham();
-                mapTenSanPham.clear();
-                for (SanPham sp : listSP) {
-                    mapTenSanPham.put(sp.getMaSP(), sp.getTenSP());
-                }
-
-                // 2. Tải toàn bộ Chi Tiết Lô Hàng từ CSDL
-                List<ChiTietLoHang> tatCaLo = ChiTietLoHangDAO.getInstance().layDanhSachChiTietLoHang();
+                // 🔥 KÍCH HOẠT TRUY VẤN SIÊU TỐC (Chỉ mất vài mili-giây)
+                Dao.TruyVanSieuTocDAO.DuLieuTieuHuyDTO dataTurbo = Dao.TruyVanSieuTocDAO.getInstance().loadDuLieuKhoSieuToc();
                 
-                danhSachGocCache.clear();
-                for (ChiTietLoHang lo : tatCaLo) {
-                    if (lo.getSoLuongTon() > 0) { // Chỉ đưa lên UI những lô còn hàng
-                        danhSachGocCache.add(lo);
-                    }
-                }
+                // Nạp thẳng vào bộ nhớ đệm (Cache) trên RAM
+                danhSachGocCache = dataTurbo.dsLoHangKho;
+                mapTenSanPham = dataTurbo.mapTenSanPham;
+                
                 return null;
             }
 
@@ -699,10 +647,10 @@ public class TieuHuySanPhamGUI extends JPanel {
                 try {
                     get(); // Bắt lỗi nếu có
                     
-                    // 1. Tải xong thì kích hoạt thuật toán Tìm Kiếm để vẽ UI
-                    thucHienTimKiem(txtTimKiem.getText());
+                    // 1. Gọi thuật toán tìm kiếm/lọc Real-time (Đã gộp ở bước trước) để vẽ UI
+                    timKiemRealtime(); 
                     
-                    // 2. 🔥 GỌI CẬP NHẬT 4 CARD THỐNG KÊ TRÊN CÙNG
+                    // 2. Cập nhật 4 thẻ thống kê trên cùng
                     capNhatThongKe();
                     
                 } catch (Exception e) {
@@ -756,27 +704,39 @@ public class TieuHuySanPhamGUI extends JPanel {
         PanelBoGoc card = new PanelBoGoc(15);
         card.setLayout(new BorderLayout(15, 0));
         card.setBackground(CARD_BG);
-        card.setBorder(new EmptyBorder(10, 15, 10, 15));
-        card.setMaximumSize(new Dimension(800, 90));
+        
+        // Kiểm tra xem Lô này đang được chọn hay không để đổi màu viền
+        boolean isSelected = danhSachChon.contains(lo);
+        if (isSelected) {
+            card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(PRIMARY_COLOR, 2),
+                new EmptyBorder(8, 13, 8, 13)
+            ));
+            card.setBackground(new Color(240, 248, 255));
+        } else {
+            card.setBorder(new EmptyBorder(10, 15, 10, 15));
+        }
+        
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
         card.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // Icon thay cho ảnh
-        JLabel lblIcon = new JLabel("📦");
-        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 40));
-        card.add(lblIcon, BorderLayout.WEST);
+        // 🔥 THÊM CHECKBOX BÊN TRÁI CÙNG
+        ModernCheckBox cbSelect = new ModernCheckBox();
+        cbSelect.setPreferredSize(new Dimension(30, 30));
+        cbSelect.setSelected(isSelected);
+        card.add(cbSelect, BorderLayout.WEST);
 
         // Lấy tên SP từ Map
         String tenSP = mapTenSanPham.getOrDefault(lo.getMaSP(), "Sản phẩm ẩn danh");
 
         // Info giữa
         JPanel pnlInfo = new JPanel(new GridLayout(2, 1));
-        pnlInfo.setBackground(CARD_BG);
+        pnlInfo.setOpaque(false);
         
-        JLabel lblName = new JLabel(tenSP); // Dùng tên SP thật
+        JLabel lblName = new JLabel(tenSP);
         lblName.setFont(FONT_BOLD);
         lblName.setForeground(TEXT_MAIN);
         
-        // Dùng Getters của ChiTietLoHang
         String hsdStr = (lo.getHSD() != null) ? lo.getHSD().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "Không có";
         JLabel lblSub = new JLabel("Lô: " + lo.getMaLoHang() + " | Tồn: " + lo.getSoLuongTon() + " | HSD: " + hsdStr);
         lblSub.setFont(FONT_SMALL);
@@ -789,33 +749,26 @@ public class TieuHuySanPhamGUI extends JPanel {
         // Trạng thái bên phải
         JLabel lblStatus = new JLabel();
         lblStatus.setFont(FONT_BOLD);
-        
         if (lo.getHSD() != null) {
             long days = ChronoUnit.DAYS.between(LocalDate.now(), lo.getHSD());
-            if (days < 0) {
-                lblStatus.setText("HẾT HẠN");
-                lblStatus.setForeground(COLOR_EXPIRED_TEXT);
-            } else if (days <= 7) {
-                lblStatus.setText("CẬN DATE");
-                lblStatus.setForeground(COLOR_WARNING_TEXT);
-            } else {
-                lblStatus.setText("BÌNH THƯỜNG");
-                lblStatus.setForeground(COLOR_NORMAL_TEXT);
-            }
-        } else {
-            lblStatus.setText("BÌNH THƯỜNG");
-            lblStatus.setForeground(COLOR_NORMAL_TEXT);
-        }
+            if (days < 0) { lblStatus.setText("HẾT HẠN"); lblStatus.setForeground(COLOR_EXPIRED_TEXT); } 
+            else if (days <= 7) { lblStatus.setText("CẬN DATE"); lblStatus.setForeground(COLOR_WARNING_TEXT); } 
+            else { lblStatus.setText("BÌNH THƯỜNG"); lblStatus.setForeground(COLOR_NORMAL_TEXT); }
+        } else { lblStatus.setText("BÌNH THƯỜNG"); lblStatus.setForeground(COLOR_NORMAL_TEXT); }
         card.add(lblStatus, BorderLayout.EAST);
 
-        // Hover & Click Effect
+        // Hiệu ứng Click
         card.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseEntered(MouseEvent e) { card.setBackground(new Color(240, 248, 255)); }
-            @Override
-            public void mouseExited(MouseEvent e) { card.setBackground(CARD_BG); }
-            @Override
-            public void mouseClicked(MouseEvent e) { chonLoHangDeTieuHuy(lo); }
+            public void mouseClicked(MouseEvent e) {
+                if (danhSachChon.contains(lo)) {
+                    danhSachChon.remove(lo); // Bỏ chọn
+                } else {
+                    danhSachChon.add(lo); // Chọn thêm
+                }
+                timKiemRealtime();
+                capNhatPanelPhaiDaChon(); // Đẩy dữ liệu sang form phải
+            }
         });
 
         return card;
@@ -876,6 +829,26 @@ public class TieuHuySanPhamGUI extends JPanel {
             g2.dispose();
         }
     }
+    // =========================================================
+    // 🎨 COMPONENT: MODERN CHECKBOX (O TICK CHUẨN GMAIL)
+    // =========================================================
+    private class ModernCheckBox extends JCheckBox {
+        public ModernCheckBox() { setOpaque(false); setCursor(new Cursor(Cursor.HAND_CURSOR)); }
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            int size = 18; int y = (getHeight() - size) / 2; int x = (getWidth() - size) / 2; 
+            if (isSelected()) {
+                g2.setColor(PRIMARY_COLOR); g2.fillRoundRect(x, y, size, size, 5, 5); 
+                g2.setColor(Color.WHITE); g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawLine(x + 4, y + 9, x + 8, y + 13); g2.drawLine(x + 8, y + 13, x + 14, y + 5); 
+            } else {
+                g2.setColor(Color.WHITE); g2.fillRoundRect(x, y, size, size, 5, 5);
+                g2.setColor(new Color(180, 185, 195)); g2.drawRoundRect(x, y, size, size, 5, 5);
+            }
+            g2.dispose();
+        }
+    }
 
     // MAIN ĐỂ TEST GIAO DIỆN CHẠY ĐỘC LẬP
     public static void main(String[] args) {
@@ -884,7 +857,7 @@ public class TieuHuySanPhamGUI extends JPanel {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(1200, 800);
         frame.setLocationRelativeTo(null);
-        frame.add(new TieuHuySanPhamGUI());
+        frame.add(new TieuHuySanPhamGUI("NV001"));
         frame.setVisible(true);
     }
 }
