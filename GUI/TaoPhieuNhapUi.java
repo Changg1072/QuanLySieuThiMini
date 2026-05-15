@@ -170,7 +170,25 @@ public class TaoPhieuNhapUi extends JPanel {
         
         cbSanPham = new ComboGroup("Chọn Sản phẩm", getDanhSachSpCombo(), true);
         cbSanPham.btnAction.addActionListener(e -> {
-            GUI.HoTro.TienIchGiaoDien.hienThiThongBao(this, "Chức năng thêm sản phẩm mới đang phát triển!", "INFO");
+            Window parentWindow = SwingUtilities.getWindowAncestor(this);
+            GUI.HoTro.ThemSanPhamDialog dialog = new GUI.HoTro.ThemSanPhamDialog(parentWindow);
+            dialog.setVisible(true);
+            
+            if (dialog.isSuccess()) {
+                // 1. Load lại danh sách mới từ DB (lúc này đã có SP mới)
+                cbSanPham.reloadItems(getDanhSachSpCombo());
+                
+                // 2. Lấy thông tin SP vừa tạo
+                SanPham spVuaTao = dialog.getSanPhamMoi();
+                if (spVuaTao != null) {
+                    // 3. Tự động chọn sản phẩm đó trên ComboGroup
+                    cbSanPham.selectItemById(spVuaTao.getMaSP());
+                    
+                    // 4. Có thể tự điền đơn giá bán làm gợi ý cho giá nhập nếu muốn
+                    txtGiaNhap.setText(spVuaTao.getGiaBan().toPlainString());
+                    txtSoLuong.getField().requestFocus();
+                }
+            }
         });
         txtSoLuong = new FormGroup("Số lượng", true, null); txtGiaNhap = new FormGroup("Giá nhập", true, null);
         txtNSX = new FormGroup("NSX", true, "📅"); txtHSD = new FormGroup("HSD", true, "📅");

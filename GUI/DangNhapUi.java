@@ -356,4 +356,4 @@ public class DangNhapUi extends JFrame {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new DangNhapUi().setVisible(true));
     }
-}
+} 

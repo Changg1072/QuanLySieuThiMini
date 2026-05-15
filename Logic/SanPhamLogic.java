@@ -28,7 +28,7 @@ public class SanPhamLogic {
     public void themSanPham(SanPham sp) throws Exception {
         kiemTraLoi(sp);
         
-        if (timSanPhamTheoMa(sp.getMaSP()) != null) {
+        if (dao.laySanPhamTheoMa(sp.getMaSP()) != null) {
             throw new Exception("Lỗi: Mã sản phẩm '" + sp.getMaSP() + "' đã tồn tại!");
         }
 

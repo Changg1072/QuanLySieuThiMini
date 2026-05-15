@@ -24,7 +24,7 @@ public class ONhapLieuHienDai extends JPanel {
     private final Color colorTextSub = Color.WHITE; 
     private final Color colorPrimary = Color.WHITE; 
     private final Color colorError = new Color(250, 80, 80); 
-    private final Color colorBgDisabled = new Color(241, 245, 249);
+    private final Color colorBgDisabled = new Color(35, 45, 60);
     
     // Nền xám sáng như bạn vừa yêu cầu
     private final Color colorFieldBg = new Color(55, 60, 75); 
@@ -143,7 +143,9 @@ public class ONhapLieuHienDai extends JPanel {
 
         g2.setColor(field.isEditable() ? colorFieldBg : colorBgDisabled);
         g2.fill(shape);
-
+        if (!field.isEditable()) {
+            field.setForeground(new Color(150, 160, 175));
+        }
         super.paintChildren(g);
 
         boolean isEmpty = (field instanceof JPasswordField)
