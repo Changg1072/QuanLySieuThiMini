@@ -1,6 +1,19 @@
 {
     "java.project.referencedLibraries": [
         "lib/**/*.jar",
-        "mssql-jdbc-13.4.0.jre11.jar"
-    ]
+        "mssql-jdbc-13.4.0.jre11.jar",
+        "javafx-sdk-26.0.1/lib/javafx.base.jar",
+        "javafx-sdk-26.0.1/lib/javafx.controls.jar",
+        "javafx-sdk-26.0.1/lib/javafx.fxml.jar",
+        "javafx-sdk-26.0.1/lib/javafx.graphics.jar",
+        "javafx-sdk-26.0.1/lib/javafx.media.jar",
+        "javafx-sdk-26.0.1/lib/javafx.swing.jar",
+        "javafx-sdk-26.0.1/lib/javafx.web.jar",
+        "javafx-sdk-26.0.1/lib/javafx-swt.jar",
+        "javafx-sdk-26.0.1/lib/jdk.jsobject.jar",
+        "javafx-sdk-26.0.1/lib/jfx.incubator.input.jar",
+        "javafx-sdk-26.0.1/lib/jfx.incubator.richtext.jar",
+        "gson-2.10.1.jar"
+    ],
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

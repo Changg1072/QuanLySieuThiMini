@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="kho_dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="title-area">
+                <h1>Warehouse Intelligence</h1>
+                <p>Hệ thống phân tích và quản lý kho hàng Real-time</p>
+            </div>
+            <div class="action-bar">
+                <input type="text" id="search" placeholder="Tìm sản phẩm..." oninput="filterTable()">
+                <button class="btn btn-refresh" onclick="location.reload()">🔄 Làm mới</button>
+                <button class="btn btn-primary" onclick="alert('ACTION:IMPORT')">📦 Nhập hàng</button>
+                <button class="btn btn-accent" onclick="alert('ACTION:AUDIT')">📋 Kiểm kê</button>
+            </div>
+        </header>
+
+        <div class="kpi-grid">
+            <div class="card kpi-card">
+                <div class="icon-box blue">📦</div>
+                <div>
+                    <span class="label">Tổng tồn kho</span>
+                    <h2 id="totalStock">0</h2>
+                </div>
+            </div>
+            <div class="card kpi-card">
+                <div class="icon-box green">💸</div>
+                <div>
+                    <span class="label">Giá trị kho</span>
+                    <h2 id="warehouseValue">0đ</h2>
+                </div>
+            </div>
+            <div class="card kpi-card">
+                <div class="icon-box orange">⚠</div>
+                <div>
+                    <span class="label">Sắp hết hàng</span>
+                    <h2 id="lowStockCount">0</h2>
+                </div>
+            </div>
+            <div class="card kpi-card">
+                <div class="icon-box red">🚨</div>
+                <div>
+                    <span class="label">Thất thoát tháng</span>
+                    <h2 id="totalLoss">0đ</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="card chart-container">
+                <h3>Cơ cấu tồn kho theo loại</h3>
+                <div id="donutChart"></div>
+            </div>
+            <div class="card alert-container">
+                <h3>Cảnh báo quan trọng</h3>
+                <div id="alertsFeed">
+                    <div class="shimmer" style="height: 50px; margin-bottom: 10px;"></div>
+                    <div class="shimmer" style="height: 50px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card table-card">
+            <h3>Danh mục đối soát kho</h3>
+            <table id="invTable">
+                <thead>
+                    <tr>
+                        <th>Mã hàng</th>
+                        <th>Sản phẩm</th>
+                        <th>Phân loại</th>
+                        <th>Tồn kho</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+    <script src="kho_dashboard.js"></script>
+</body>
+</html>

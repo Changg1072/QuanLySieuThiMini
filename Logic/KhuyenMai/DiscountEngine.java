@@ -24,6 +24,7 @@ public class DiscountEngine {
 
     public KetQuaGiamGia xuLyGiamGia(GiamGiaContext ctx) {
         KetQuaGiamGia ketQua = new KetQuaGiamGia();
+        if (ctx.giaBan <= 0) return ketQua;
         double tongPhanTramGiam = 0.0;
 
         // 1. Duyệt qua tất cả các rule, cộng dồn mức giảm

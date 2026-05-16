@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Intelligence Analytics System</title>
+    <link rel="stylesheet" href="sanpham_dashboard.css">
+    <!-- Loaded securely inside standard WebKit configuration scopes -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body>
+    <div class="dashboard-viewport-root">
+        
+        <!-- 1. HEADER SECTION -->
+        <header class="saas-premium-header">
+            <div class="header-branding-group">
+                <h1 class="header-main-title">Product Analytics</h1>
+                <p class="header-sub-caption">Quản lý nâng cao và phân tích trí tuệ hiệu suất sản phẩm hàng hóa</p>
+            </div>
+            <div class="header-controls-group">
+                <div class="search-input-wrapper">
+                    <input type="text" id="internalSearchBox" class="premium-search-field" placeholder="Tìm kiếm sản phẩm siêu tốc..." oninput="dispatchFilterCoordinates()">
+                </div>
+                <select id="categorySelector" class="premium-dropdown-control" onchange="dispatchFilterCoordinates()">
+                    <option value="ALL">Tất Cả Danh Mục</option>
+                </select>
+                <select id="statusFilterSelector" class="premium-dropdown-control" onchange="dispatchFilterCoordinates()">
+                    <option value="ALL">Mọi Trạng Thái</option>
+                    <option value="BEST_SELLER">🔥 Bán Chạy</option>
+                    <option value="LOW_STOCK">⚠ Tồn Kho Thấp</option>
+                    <option value="SLOW_MOVING">🐢 Bán Chậm</option>
+                </select>
+                <button class="action-btn btn-secondary" onclick="triggerCoreDataSync()">
+                    <span class="btn-icon"></span> Đồng bộ
+                </button>
+                <button class="action-btn btn-primary" onclick="alert('Tính năng liên kết với Excel Logic.')">
+                    <span class="btn-icon"></span> Xuất File
+                </button>
+            </div>
+        </header>
+
+        <!-- 2. HIGH PERFORMANCE KPI GRID MATRIX -->
+        <section class="kpi-metric-cards-layout">
+            <div class="metric-analytics-card" id="kpi-total-skus">
+                <div class="card-shimmer-fx"></div>
+                <div class="metric-card-inner">
+                    <div class="metric-header-meta">
+                        <span class="metric-label-title">Tổng Phân Nhóm SKU</span>
+                        <div class="metric-icon-avatar blue-tint">📦</div>
+                    </div>
+                    <h2 class="metric-counter-display" id="txt-total-products">0</h2>
+                    <p class="metric-bottom-subtext" id="txt-total-categories">0 danh mục hàng hóa</p>
+                </div>
+            </div>
+            
+            <div class="metric-analytics-card" id="kpi-top-performer">
+                <div class="card-shimmer-fx"></div>
+                <div class="metric-card-inner">
+                    <div class="metric-header-meta">
+                        <span class="metric-label-title">Sản Phẩm Top 1</span>
+                        <div class="metric-icon-avatar amber-tint">🔥</div>
+                    </div>
+                    <h2 class="metric-counter-display compact-text" id="txt-top-product-name">--</h2>
+                    <p class="metric-bottom-subtext text-emerald" id="txt-top-product-qty">0 đơn vị đã chốt</p>
+                </div>
+            </div>
+
+            <div class="metric-analytics-card" id="kpi-risk-alerts">
+                <div class="card-shimmer-fx"></div>
+                <div class="metric-card-inner">
+                    <div class="metric-header-meta">
+                        <span class="metric-label-title">Cảnh Báo Hụt Kho</span>
+                        <div class="metric-icon-avatar rose-tint">⚠️</div>
+                    </div>
+                    <h2 class="metric-counter-display text-rose" id="txt-low-stock-count">0</h2>
+                    <p class="metric-bottom-subtext" id="txt-risk-caption">Mặt hàng cần lên đơn nhập gấp</p>
+                </div>
+            </div>
+
+            <div class="metric-analytics-card" id="kpi-valuation">
+                <div class="card-shimmer-fx"></div>
+                <div class="metric-card-inner">
+                    <div class="metric-header-meta">
+                        <span class="metric-label-title">Giá Trị Tổng Kho</span>
+                        <div class="metric-icon-avatar emerald-tint">💸</div>
+                    </div>
+                    <h2 class="metric-counter-display" id="txt-valuation-display">0đ</h2>
+                    <p class="metric-bottom-subtext text-emerald">📈 Kiểm kê Real-time định kỳ</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. ADVANCED GRAPHICAL INTELLIGENCE CHARTS LAYER -->
+        <section class="charts-visualization-split-view">
+            <div class="analytics-chart-container-card main-trendline">
+                <div class="chart-header-group">
+                    <h3 class="chart-card-heading">Sản Phẩm Dẫn Đầu Doanh Số Chi Nhánh</h3>
+                    <span class="chart-badge-tag">Tháng này</span>
+                </div>
+                <div id="chartTopSellingItems" class="apex-rendering-viewport"></div>
+            </div>
+            
+            <div class="analytics-chart-container-card distribution-donut">
+                <div class="chart-header-group">
+                    <h3 class="chart-card-heading">Cơ Cấu Lưu Kho Theo Phân Loại</h3>
+                    <span class="chart-badge-tag purple-tag">Phân tích kho</span>
+                </div>
+                <div id="chartCategoryDonut" class="apex-rendering-viewport"></div>
+            </div>
+        </section>
+
+        <!-- 4. INTELLIGENT EXPERT INSIGHT CARDS -->
+        <section class="intelligence-insights-block">
+            <div class="insight-card-inner">
+                <div class="insight-title-row">
+                    <span class="insight-sparkle-icon">✨</span>
+                    <h4>Hệ Thống Phân Tích Trí Tuệ Định Kỳ (Operational Product Insights)</h4>
+                </div>
+                <div class="insight-bullet-feed-wrapper" id="containerInsightFeed">
+                    <!-- Dynamic rendering engine target -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. SHOPIFY INSPIRED CARDS REGISTRY GRID -->
+        <section class="premium-product-catalog-grid-header">
+            <h3 class="section-title">Danh Mục Thẻ Giao Dịch Nhanh</h3>
+            <p class="section-subtitle">Hiển thị trực quan dữ liệu và các hành động vi mô tức thời</p>
+        </section>
+        <section class="premium-product-catalog-grid" id="catalogCardsContainer">
+            <!-- Dynamic micro cards populated securely here -->
+        </section>
+
+        <!-- 6. ULTRALIGHT INTERACTIVE INVENTORY DATATABLE -->
+        <section class="premium-datatable-card-wrapper">
+            <div class="datatable-header-meta-row">
+                <h3 class="table-card-heading">Bảng Đối Soát Chi Tiết Kho Toàn Diện</h3>
+                <div class="table-pagination-controls">
+                    <span class="pagination-counter-label" id="txtPaginationDisplay">Hiển thị 1 - 5 của 0 sản phẩm</span>
+                    <button class="mini-pagination-btn" onclick="adjustPageOffset(-1)">◀</button>
+                    <button class="mini-pagination-btn" onclick="adjustPageOffset(1)">▶</button>
+                </div>
+            </div>
+            <div class="table-scrolling-container">
+                <table class="saas-structured-table">
+                    <thead>
+                        <tr>
+                            <th>Mã Hàng</th>
+                            <th>Thông Tin Sản Phẩm</th>
+                            <th>Phân Loại</th>
+                            <th class="align-right">Giá Niêm Yết</th>
+                            <th class="align-right">Tồn Kho Hiện Tại</th>
+                            <th class="align-center">Xếp Hạng Giao Dịch</th>
+                            <th class="align-right">Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableRowsTarget">
+                        <!-- High performance tabular elements appended through in-memory iterations -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script src="sanpham_dashboard.js"></script>
+</body>
+</html>

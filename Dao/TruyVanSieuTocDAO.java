@@ -84,18 +84,20 @@ public class TruyVanSieuTocDAO {
                 }
             }
 
-            // 📦 RS 2: Danh sách Loại Ca
-            // 📦 RS 2: Danh sách Loại Ca
+         // 📦 RS 2: Danh sách Loại Ca
             if (cs.getMoreResults()) {
                 try (ResultSet rs = cs.getResultSet()) {
                     while (rs.next()) {
                         LoaiCa lc = new LoaiCa();
                         lc.setMaLoaiCa(rs.getString("MaLoaiCa"));
                         lc.setTenCa(rs.getString("TenCa"));
-                        // Nếu GioBatDau trong Data của cậu là LocalTime thì dùng .toLocalTime()
-                        // Nếu là java.sql.Time thì bỏ .toLocalTime() đi nhé!
-                        lc.setGioBatDau(rs.getTime("GioBatDau").toLocalTime());
-                        lc.setGioKetThuc(rs.getTime("GioKetThuc").toLocalTime());
+                        	
+                        // 🔥 ĐÃ FIX: Kiểm tra NULL trước khi parse sang LocalTime
+                        java.sql.Time timeBatDau = rs.getTime("GioBatDau");
+                        if (timeBatDau != null) lc.setGioBatDau(timeBatDau.toLocalTime());
+                        
+                        java.sql.Time timeKetThuc = rs.getTime("GioKetThuc");
+                        if (timeKetThuc != null) lc.setGioKetThuc(timeKetThuc.toLocalTime());
                         
                         dto.mapLoaiCa.put(lc.getMaLoaiCa(), lc);
                     }
@@ -774,6 +776,7 @@ public class TruyVanSieuTocDAO {
         public List<Data.SanPham> dsSanPham = new ArrayList<>();
         public Map<String, Integer> mapTongTonKho = new HashMap<>(); // MaSP -> Tổng số lượng tồn
         public Map<String, List<Data.ChiTietLoHang>> mapDanhSachLo = new HashMap<>(); // MaSP -> Danh sách các lô
+        public Map<String, String> mapTenLoai = new HashMap<>();
     }
 
     public DuLieuKiemKeSieuTocDTO loadDuLieuKiemKeSieuToc() {
@@ -781,9 +784,9 @@ public class TruyVanSieuTocDAO {
         Connection con = ConnectDB.getInstance().getConnection();
         if (con == null) return dto;
 
-        // ĐÃ SỬA: BỎ ĐIỀU KIỆN 'WHERE' ĐỂ LẤY TẤT CẢ CÁC LÔ HÀNG BẤT CHẤP TỒN KHO LÀ 0 HAY ĐÃ HẾT HẠN
+        // 🔥 BỔ SUNG: Lấy thêm GiaNhap từ ChiTietLoHang để tính Giá trị kho
         String sql = "SELECT * FROM SanPham; " +
-                     "SELECT MaSP, MaLoHang, SoLuongTon, HSD FROM ChiTietLoHang ORDER BY HSD ASC;";
+                     "SELECT MaSP, MaLoHang, SoLuongTon, HSD, GiaNhap FROM ChiTietLoHang ORDER BY HSD ASC;";
 
         try (Statement st = con.createStatement()) {
             boolean hasResults = st.execute(sql);
@@ -798,6 +801,7 @@ public class TruyVanSieuTocDAO {
                             .ganLinkHinhAnh(rs.getString("LinkHinhAnh"))
                             .ganMaLoai(rs.getString("MaLoai"))
                             .ganDonViTinh(rs.getString("DonViTinh"))
+                            .ganGiaBan(rs.getBigDecimal("GiaBan")) // Bổ sung Giá Bán để hiện lên Bảng Web
                             .taoMoi();
                         dto.dsSanPham.add(sp);
                         dto.mapTongTonKho.put(sp.getMaSP(), 0); 
@@ -821,6 +825,9 @@ public class TruyVanSieuTocDAO {
                         ct.setSoLuongTon(ton);
                         if (sqlHSD != null) ct.setHSD(sqlHSD.toLocalDate());
                         
+                        // Bổ sung Giá Nhập để Web tính "Tổng Giá Trị Kho"
+                        ct.setGiaNhap(rs.getBigDecimal("GiaNhap")); 
+                        
                         // Thêm lô vào danh sách của Sản Phẩm tương ứng
                         if (dto.mapDanhSachLo.containsKey(maSP)) {
                             dto.mapDanhSachLo.get(maSP).add(ct);
@@ -832,6 +839,23 @@ public class TruyVanSieuTocDAO {
                     }
                 }
             }
+
+            // 📦 Kết quả 3: Nạp Tên Loại Sản Phẩm siêu tốc vào Cache
+            try {
+                try (ResultSet rs = st.executeQuery("SELECT MaLoai, TenLoai FROM LoaiHang")) {
+                    while (rs.next()) {
+                        dto.mapTenLoai.put(rs.getString("MaLoai"), rs.getString("TenLoai"));
+                    }
+                }
+            } catch (Exception ex1) {
+                // Dự phòng trường hợp CSDL của bạn đặt tên bảng là LoaiSanPham
+                try (ResultSet rs = st.executeQuery("SELECT MaLoai, TenLoai FROM LoaiSanPham")) {
+                    while (rs.next()) {
+                        dto.mapTenLoai.put(rs.getString("MaLoai"), rs.getString("TenLoai"));
+                    }
+                } catch (Exception ex2) {}
+            }
+            
         } catch (SQLException e) {
             System.err.println("🔥 [SieuTocDAO] Lỗi tải dữ liệu Kiểm Kê: " + e.getMessage());
         }

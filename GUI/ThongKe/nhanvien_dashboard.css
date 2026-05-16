@@ -1,0 +1,387 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --bg-workspace-canvas: #f8fafc;
+    --card-surface-pure: #ffffff;
+    --text-slate-primary: #0f172a;
+    --text-slate-muted: #64748b;
+    --blue-premium-accent: #0284c7;
+    --blue-glow-ambient: rgba(2, 132, 199, 0.15);
+    --emerald-success: #10b981;
+    --sky-info: #0ea5e9;
+    --rose-danger: #f43f5e;
+    --premium-radius: 20px;
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg-workspace-canvas);
+    margin: 0;
+    padding: 0;
+    color: var(--text-slate-primary);
+    -webkit-font-smoothing: antialiased;
+}
+
+.hrm-viewport-root {
+    padding: 24px;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.clear-layout-fix {
+    clear: both;
+}
+
+/* 1. BRANDING HEADER COMPONENT STYLING */
+.hrm-saas-header {
+    width: 100%;
+    margin-bottom: 28px;
+    display: block;
+}
+
+.header-branding-cell {
+    float: left;
+    width: 35%;
+}
+
+.header-main-title {
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin: 0 0 5px 0;
+    color: var(--text-slate-primary);
+}
+
+.header-sub-caption {
+    font-size: 13px;
+    color: var(--text-slate-muted);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.header-actions-cell {
+    float: right;
+    width: 65%;
+    text-align: right;
+    padding-top: 5px;
+}
+
+.search-input-wrapper {
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+#hrmSearchField {
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    font-size: 13.5px;
+    width: 200px;
+    outline: none;
+    font-family: inherit;
+    transition: var(--transition-smooth);
+}
+
+#hrmSearchField:focus {
+    border-color: var(--blue-premium-accent);
+    box-shadow: 0 0 0 3px var(--blue-glow-ambient);
+}
+
+.premium-select-dropdown {
+    background: var(--card-surface-pure);
+    border: 1px solid #e2e8f0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-family: inherit;
+    color: var(--text-slate-primary);
+    cursor: pointer;
+    vertical-align: middle;
+    margin-right: 4px;
+    outline: none;
+}
+
+.action-btn-node {
+    display: inline-block;
+    padding: 11px 16px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    vertical-align: middle;
+    margin-left: 6px;
+    transition: var(--transition-smooth);
+}
+
+.btn-primary { background: var(--blue-premium-accent); color: white; }
+.btn-accent { background: #7c3aed; color: white; }
+.btn-secondary { background: #f1f5f9; color: #334155; }
+.btn-excel { background: #0f172a; color: white; }
+
+.action-btn-node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    opacity: 0.95;
+}
+
+/* 2. CORE KPI GRID STRATUM LAYOUT (FIXED VIA EMBEDDED TABLE COORDINATES) */
+.kpi-summary-row-wrapper {
+    width: 100%;
+    margin-bottom: 28px;
+    display: block;
+}
+
+.kpi-column-cell-quarter {
+    width: 25%;
+    float: left;
+    padding-right: 16px;
+}
+
+.kpi-column-cell-quarter:last-child {
+    padding-right: 0;
+}
+
+.kpi-surface-card {
+    background: var(--card-surface-pure);
+    border-radius: var(--premium-radius);
+    padding: 22px;
+    box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.02);
+    border: 1px solid #edf2f7;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 112px;
+}
+
+.kpi-surface-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 22px -4px rgba(15, 23, 42, 0.05);
+}
+
+.kpi-structural-table {
+    display: table;
+    width: 100%;
+    height: 100%;
+    table-layout: fixed; /* 🔥 FORCE CRITICAL ABSOLUTE DIMENSIONS PROTECTION */
+}
+
+.avatar-frame {
+    display: table-cell;
+    vertical-align: middle;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 22px;
+    line-height: 48px;
+}
+
+.blue-tint { background: #eff6ff; color: #0284c7; }
+.green-tint { background: #ecfdf5; color: #10b981; }
+.sky-tint { background: #f0f9ff; color: #0ea5e9; }
+.rose-tint { background: #fff1f2; color: #f43f5e; }
+
+.content-frame {
+    display: table-cell;
+    vertical-align: middle;
+    padding-left: 14px;
+    max-width: 130px;
+}
+
+.kpi-meta-lbl {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-slate-muted);
+    margin-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.kpi-counter-display {
+    display: block;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.text-emerald { color: var(--emerald-success) !important; }
+.text-sky { color: var(--sky-info) !important; }
+.text-rose { color: var(--rose-danger) !important; }
+
+.kpi-bottom-caption-txt {
+    display: block;
+    font-size: 11.5px;
+    color: var(--text-slate-muted);
+    margin: 2px 0 0 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* 3. MULTI-COLUMN COMPLEX SPLIT BOX BOARDS (TABLE DISPLAY STRUCTURAL ALIGNMENTS) */
+.split-layout-structural-table {
+    display: table;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 20px 0;
+    margin-left: -20px;
+    margin-right: -20px;
+    table-layout: fixed; /* 🔥 LOCK BASE COORDINATE ALIGNMENTS */
+}
+
+.layout-row-group {
+    display: table-row;
+}
+
+.layout-cell-group {
+    display: table-cell;
+    vertical-align: top;
+}
+
+.production-chart-partition { width: 60%; }
+.split-shift-chart-partition { width: 40%; }
+.leaderboard-partition { width: 50%; }
+.insights-timeline-partition { width: 50%; }
+
+.premium-dashboard-card-shell {
+    background: var(--card-surface-pure);
+    border-radius: var(--premium-radius);
+    padding: 24px;
+    box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.02);
+    border: 1px solid #edf2f7;
+    width: 100%;
+}
+
+.card-section-heading {
+    font-size: 14.5px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    color: var(--text-slate-primary);
+    border-left: 4px solid var(--blue-premium-accent);
+    padding-left: 10px;
+}
+
+.apex-rendering-shell {
+    min-height: 255px;
+}
+
+.scrolling-feed-container {
+    height: 255px;
+    overflow-y: auto;
+}
+
+/* 4. REUSABLE LEADERSHIP LIST COMPONENT BLOCKS */
+.leader-row-matrix-item {
+    display: table;
+    width: 100%;
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f5f9;
+    table-layout: fixed;
+}
+.leader-row-matrix-item:last-child { border-bottom: none; }
+
+.leader-cell-node { display: table-cell; vertical-align: middle; }
+
+.circle-initials-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #bae6fd 0%, #38bdf8 100%);
+    color: #0369a1; font-weight: 700; text-align: center;
+    line-height: 36px; font-size: 13px;
+}
+
+.badge-pill-tier {
+    display: inline-block; font-size: 10.5px; padding: 2px 8px;
+    border-radius: 20px; font-weight: 600; margin-top: 3px;
+    background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;
+}
+
+/* 5. LINEAR TIMELINE EVENT TRACKER CELLS */
+.timeline-event-card {
+    border-left: 2px dashed #cbd5e1;
+    padding-left: 18px;
+    position: relative;
+    padding-bottom: 12px;
+    display: block;
+}
+.timeline-event-card::before {
+    content: ""; position: absolute; left: -6px; top: 3px;
+    width: 10px; height: 10px; border-radius: 50%; background: #7c3aed;
+}
+
+.timeline-stamp-lbl { display: block; font-size: 11px; color: var(--text-slate-muted); font-weight: 600; margin-bottom: 4px; }
+.timeline-main-desc { display: block; font-size: 13px; font-weight: 600; color: var(--text-slate-primary); margin: 0 0 2px 0; }
+
+/* 6. AI BULLET FEEDS INTEL BLOCKS */
+.ai-intelligence-block {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+}
+.ai-bullet-feed-wrapper {
+    display: block; width: 100%;
+}
+.ai-insight-row-card {
+    padding: 11px 14px; border-radius: 10px; background: #ffffff;
+    border: 1px solid #e2e8f0; border-left: 4px solid #7c3aed;
+    margin-bottom: 8px; font-size: 13px; font-weight: 500;
+}
+
+/* 7. HIGH-FIDELITY CRM STRUCTURED DATA TABLE METAS */
+.table-meta-header-row {
+    display: block; width: 100%; margin-bottom: 18px; white-space: nowrap;
+}
+.datatable-pagination-box { float: right; display: inline-block; vertical-align: middle; }
+
+.pagination-indicator-lbl {
+    font-size: 13px; color: var(--text-slate-muted); margin-right: 10px;
+    display: inline-block; vertical-align: middle;
+}
+
+.mini-pager-btn-node {
+    display: inline-block; vertical-align: middle; background: #f1f5f9; border: none;
+    width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 11px;
+    line-height: 28px; text-align: center; transition: var(--transition-smooth);
+}
+.mini-pager-btn-node:hover { background: #e2e8f0; }
+
+.table-horizontal-overflow-container {
+    overflow-x: auto; width: 100%; clear: both;
+}
+
+.saas-structured-data-table {
+    width: 100%; border-collapse: collapse; table-layout: fixed;
+}
+.saas-structured-data-table th {
+    background: #f8fafc; padding: 12px 14px; font-size: 12px; font-weight: 600;
+    color: var(--text-slate-muted); text-transform: uppercase; letter-spacing: 0.03em;
+    border-bottom: 2px solid #edf2f7; text-align: left;
+}
+.saas-structured-data-table td {
+    padding: 12px 14px; font-size: 13.5px; border-bottom: 1px solid #f1f5f9;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.saas-structured-data-table tbody tr:hover { background: #fafbfc; }
+
+.micro-action-btn {
+    background: none; border: 1px solid #e2e8f0; padding: 5px 12px;
+    border-radius: 6px; font-size: 11.5px; cursor: pointer; font-family: inherit;
+    color: var(--blue-premium-accent); font-weight: 600; transition: var(--transition-smooth);
+}
+.micro-action-btn:hover { background: #0f172a; color: white; border-color: #0f172a; }
+
+/* SHIMMER VECTOR CONFIGURATIONS */
+.card-glow-shimmer {
+    position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    transform: skewX(-20deg); animation: loopShimmerTrack 6s infinite;
+}
+@keyframes loopShimmerTrack {
+    0% { left: -100%; } 22% { left: 160%; } 100% { left: 160%; }
+}

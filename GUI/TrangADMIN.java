@@ -52,6 +52,7 @@ public class TrangADMIN extends JFrame {
     private KiemKeGUI kiemKeUi = null;
     private QuanLyGiamGiaModule quanLyGiamGiaModuleUi = null; 
     private TieuHuySanPhamGUI tieuHuyUi = null;
+    private GUI.ThongKe.ThongKeUI thongKeUi = null;
     // ===================== KHAI BÁO BIẾN LƯU TRỮ DỮ LIỆU TẢI TRƯỚC =====================
     private final String maNhanVien;
     private final String tenNhanVien;
@@ -87,7 +88,7 @@ public class TrangADMIN extends JFrame {
         pnlCards.setBackground(CLR_CONTENT_BG);
 
         pnlCards.add(taoPanelGiuCho("TRANG CHỦ TỔNG QUAN"),            "TRANG_CHU");
-        pnlCards.add(taoPanelGiuCho("BÁO CÁO THỐNG KÊ DOANH THU"),     "THONG_KE");
+        //pnlCards.add(taoPanelGiuCho("BÁO CÁO THỐNG KÊ DOANH THU"),     "THONG_KE");
         // pnlCards.add(taoPanelGiuCho("QUẢN LÝ SẢN PHẨM"),               "SAN_PHAM");
         // pnlCards.add(taoPanelGiuCho("QUẢN LÝ CHƯƠNG TRÌNH GIẢM GIÁ"),  "GIAM_GIA");
         pnlCards.add(taoPanelGiuCho("QUẢN LÝ NHÀ CUNG CẤP"),           "NHA_CUNG_CAP");
@@ -463,6 +464,26 @@ public class TrangADMIN extends JFrame {
                         pnlCards.add(tieuHuyUi, "TIEU_HUY");
                         pnlCards.revalidate();
                         pnlCards.repaint();
+                    }
+                    break;
+                case "THONG_KE":
+                    if (thongKeUi == null) {
+                        thongKeUi = new GUI.ThongKe.ThongKeUI();
+                        
+                        // 🔥 ĐĂNG KÝ BỘ ĐIỀU HƯỚNG TỪ THONGKE_UI VỀ LẠI TRANG ADMIN
+                        thongKeUi.setRouterCallback(new GUI.ThongKe.ThongKeUI.ThongKeUiRouterCallback() {
+                            @Override
+                            public void dieuHuongTrang(String maTrang) {
+                                // Tận dụng sức mạnh có sẵn của hàm taoMucDropdown để tự kích hoạt Click chuyển trang
+                                taoMucDropdown("Chuyển Hướng Ảo", maTrang).doClick();
+                            }
+                        });
+                        
+                        pnlCards.add(thongKeUi, "THONG_KE");
+                        pnlCards.revalidate();
+                        pnlCards.repaint();
+                    } else {
+                        thongKeUi.synchronizeControlCenterMetrics(true);
                     }
                     break;
             }

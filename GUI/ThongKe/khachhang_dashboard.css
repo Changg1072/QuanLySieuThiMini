@@ -1,0 +1,460 @@
+@import url('https://fonts.googleapis.com/css2 family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --bg-workspace: #f8fafc;
+    --card-surface: #ffffff;
+    --text-slate-heavy: #0f172a;
+    --text-slate-muted: #64748b;
+    --blue-accent: #2563eb;
+    --blue-glow-ambient: rgba(37, 99, 235, 0.12);
+    --purple-vibrant: #7c3aed;
+    --emerald-success: #10b981;
+    --amber-warning: #d97706;
+    --radius-premium: 20px;
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg-workspace);
+    margin: 0;
+    padding: 0;
+    color: var(--text-slate-heavy);
+    -webkit-font-smoothing: antialiased;
+}
+
+.crm-viewport-wrapper {
+    padding: 26px;
+    max-width: 1620px;
+    margin: 0 auto;
+}
+
+.clear-fix {
+    clear: both;
+}
+
+/* 1. BRANDING HEADER DESIGN BLOCKS */
+.crm-premium-header {
+    width: 100%;
+    margin-bottom: 28px;
+    display: block;
+}
+
+.header-branding-block {
+    float: left;
+    width: 32%; /* Thu hẹp tiêu đề lại một chút */
+}
+
+.header-main-title {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin: 0 0 5px 0;
+    color: var(--text-slate-heavy);
+}
+
+.header-sub-caption {
+    font-size: 13.5px;
+    color: var(--text-slate-muted);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.header-actions-block {
+    float: right;
+    width: 68%; /* Nới rộng không gian cho các nút bấm */
+    text-align: right;
+    padding-top: 4px;
+    white-space: nowrap; /* 🔥 KHÓA RỚT DÒNG */
+}
+.search-field-container, .premium-select-box, .action-trigger {
+    display: inline-block;
+    vertical-align: middle; /* Căn thẳng hàng ngang tuyệt đối */
+}
+.search-field-container {
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+#crmSearchInput {
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    font-size: 13.5px;
+    width: 200px; /* Thu nhỏ ô tìm kiếm lại 1 chút cho đỡ chật */
+    outline: none;
+    font-family: inherit;
+    transition: var(--transition-smooth);
+}
+
+#crmSearchInput:focus {
+    border-color: var(--blue-accent);
+    box-shadow: 0 0 0 3px var(--blue-glow-ambient);
+}
+
+.premium-select-box {
+    background: var(--card-surface);
+    border: 1px solid #e2e8f0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-family: inherit;
+    color: var(--text-slate-heavy);
+    cursor: pointer;
+    vertical-align: middle;
+    margin-right: 4px;
+    outline: none;
+}
+
+.action-trigger {
+    display: inline-block;
+    padding: 11px 16px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    vertical-align: middle;
+    margin-left: 6px;
+    transition: var(--transition-smooth);
+}
+
+.btn-primary { background: var(--blue-accent); color: white; }
+.btn-secondary { background: #f1f5f9; color: #334155; }
+.btn-excel { background: #0f172a; color: white; }
+
+.action-trigger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    opacity: 0.95;
+}
+
+/* 2. KPI MATRICES BLOCKS LAYOUT (REPLACED BANNED GRID WITH SAFE TABLE CELL INLINES) */
+.kpi-cards-matrix-row {
+    width: 100%;
+    margin-bottom: 28px;
+    display: block;
+}
+
+.kpi-column-dimension {
+    width: 25%;
+    float: left;
+    padding-right: 16px;
+}
+
+.kpi-column-dimension:last-child {
+    padding-right: 0;
+}
+
+.kpi-surface-card {
+    background: var(--card-surface);
+    border-radius: var(--radius-premium);
+    padding: 22px;
+    box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.02);
+    border: 1px solid #edf2f7;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 112px;
+}
+
+.kpi-surface-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 22px -4px rgba(15, 23, 42, 0.05);
+}
+
+.kpi-layout-table {
+    display: table;
+    width: 100%;
+    height: 100%;
+    table-layout: fixed;
+}
+
+.kpi-cell-avatar {
+    display: table-cell;
+    vertical-align: middle;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 22px;
+    line-height: 48px;
+}
+
+.blue-tint { background: #eff6ff; color: #2563eb; }
+.purple-tint { background: #f5f3ff; color: #7c3aed; }
+.emerald-tint { background: #ecfdf5; color: #10b981; }
+.amber-tint { background: #fffbeb; color: #d97706; }
+
+.kpi-cell-content {
+    display: table-cell;
+    vertical-align: middle;
+    padding-left: 12px;
+    max-width: 120px; /* 🔥 ÉP KÍCH THƯỚC KHUNG CHỮ */
+}
+.kpi-metadata-lbl, .kpi-counter-val, .kpi-caption-subtext {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+.kpi-metadata-lbl {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-slate-muted);
+    margin-bottom: 2px;
+}
+
+.kpi-counter-val {
+    display: block;
+    font-size: 25px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+.text-purple { color: var(--purple-vibrant) !important; }
+.text-emerald { color: var(--emerald-success) !important; }
+.text-amber { color: var(--amber-warning) !important; }
+
+.kpi-caption-subtext {
+    display: block;
+    font-size: 11.5px;
+    color: var(--text-slate-muted);
+    margin: 2px 0 0 0;
+}
+
+/* 3. STRUCTURAL SPLIT LAYOUT TABLE MATRICES (FOR TOTAL ELIMINATION OF OVERLAPPING NO FLEX/GRID) */
+.split-view-structural-table {
+    display: table;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 20px 0;
+    margin-left: -20px;
+    margin-right: -20px;
+    table-layout: fixed;
+}
+
+.table-row-group {
+    display: table-row;
+}
+
+.table-cell-group {
+    display: table-cell;
+    vertical-align: top;
+}
+
+.primary-chart-area { width: 55%; }
+.secondary-insights-area { width: 45%; }
+.rank-leaderboard-partition { width: 50%; }
+.timeline-partition { width: 50%; }
+
+.premium-analytics-card {
+    background: var(--card-surface);
+    border-radius: var(--radius-premium);
+    padding: 24px;
+    box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.02);
+    border: 1px solid #edf2f7;
+    width: 100%;
+}
+
+.card-inner-heading {
+    display: inline-block; /* Để nó có thể đứng chung hàng với cụm phân trang */
+    font-size: 14.5px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-slate-heavy);
+    border-left: 4px solid var(--blue-accent);
+    padding-left: 10px;
+    vertical-align: middle;
+}
+
+.apex-rendering-shell {
+    min-height: 250px;
+}
+
+/* 4. INSIGHT FEED ELEMENT STRUCTURAL LINES */
+.insights-feed-container {
+    height: 250px;
+    overflow-y: auto;
+}
+
+.insight-item-bullet {
+    padding: 12px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border-left: 4px solid var(--purple-vibrant);
+    margin-bottom: 10px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* 5. LEADERBOARD LIST CARDS ROWS */
+.leaderboard-scroller-box, .timeline-scroller-box {
+    height: 270px;
+    overflow-y: auto;
+}
+
+.leader-row-item {
+    display: table;
+    width: 100%;
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f5f9;
+    table-layout: fixed;
+}
+
+.leader-row-item:last-child { border-bottom: none; }
+
+.leader-cell { display: table-cell; vertical-align: middle; }
+
+.avatar-badge-circle {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: linear-gradient(135deg, #ddd6fe 0%, #c084fc 100%);
+    color: var(--purple-vibrant); font-weight: 700; text-align: center;
+    line-height: 38px; font-size: 14px;
+}
+
+.leader-badge-pill {
+    display: inline-block; font-size: 11px; padding: 2px 8px;
+    border-radius: 20px; font-weight: 600; margin-top: 3px;
+}
+
+.bg-diamond { background: #e0f2fe; color: #0369a1; }
+.bg-gold { background: #fef3c7; color: #b45309; }
+
+/* 6. TIMELINE RETAIL COMPONENT NODES */
+.timeline-micro-card {
+    border-left: 2px dashed #cbd5e1;
+    padding-left: 20px;
+    position: relative;
+    padding-bottom: 22px; /* Nới rộng khoảng cách giữa các lịch sử */
+    display: block; /* Khóa khối */
+}
+.timeline-micro-card > div:last-child {
+    display: block;
+    line-height: 1.4;
+    padding-top: 4px;
+}
+.timeline-micro-card::before {
+    content: ""; 
+    position: absolute; 
+    left: -6px; 
+    top: 4px;
+    width: 10px; 
+    height: 10px; 
+    border-radius: 50%; 
+    background: var(--blue-accent);
+}
+
+.timeline-stamp-lbl { 
+    display: block; /* 🔥 QUAN TRỌNG: ÉP RỚT DÒNG */
+    font-size: 11.5px; 
+    color: var(--text-slate-muted); 
+    font-weight: 600; 
+    margin-bottom: 6px; /* Cách chữ Tên Khách Hàng ra */
+    line-height: 1.2;
+}
+.timeline-main-txt { 
+    display: block; /* 🔥 QUAN TRỌNG: ÉP RỚT DÒNG */
+    font-size: 13.5px; 
+    margin: 0 0 6px 0; 
+    font-weight: 600; 
+    color: var(--text-slate-heavy);
+    line-height: 1.3;
+}
+
+/* 7. REVOLUTIONARY TABULAR ARCHITECTURE SECTION */
+.data-table-module-wrapper {
+    margin-top: 24px;
+    width: 100%;
+}
+
+.datatable-meta-header-row {
+    display: block;
+    width: 100%;
+    margin-bottom: 18px;
+    white-space: nowrap; /* 🔥 KHÓA RỚT DÒNG CHO TIÊU ĐỀ VÀ PHÂN TRANG */
+}
+
+.datatable-pagination-panel {
+    float: right;
+    display: inline-block;
+    vertical-align: middle;
+}
+.pagination-indicator-txt {
+    font-size: 13px;
+    color: var(--text-slate-muted);
+    margin-right: 10px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.mini-pager-arrow-btn {
+    display: inline-block;
+    vertical-align: middle;
+    background: #f1f5f9; 
+    border: none; 
+    width: 28px; /* KHÓA CHIỀU RỘNG */
+    height: 28px; /* KHÓA CHIỀU CAO */
+    padding: 0;
+    margin-left: 4px;
+    border-radius: 6px; 
+    cursor: pointer; 
+    font-size: 11px;
+    line-height: 28px; /* CĂN GIỮA CHỮ BÊN TRONG */
+    text-align: center;
+    transition: var(--transition-smooth); 
+}
+.mini-pager-arrow-btn:hover { background: #e2e8f0; }
+
+.table-horizontal-scrolling-container {
+    overflow-x: auto; width: 100%; clear: both;
+}
+
+.crm-structured-table {
+    width: 100%; border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.crm-structured-table th {
+    background: #f8fafc; padding: 12px 14px; font-size: 12px;
+    font-weight: 600; color: var(--text-slate-muted);
+    text-transform: uppercase; letter-spacing: 0.03em;
+    border-bottom: 2px solid #edf2f7; text-align: left;
+}
+
+.crm-structured-table td {
+    padding: 12px 14px; 
+    font-size: 13.5px; 
+    border-bottom: 1px solid #f1f5f9;
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+}
+
+.crm-structured-table tbody tr:hover { background: #fafbfc; }
+
+.micro-action-pill-btn {
+    background: none; border: 1px solid #e2e8f0; padding: 5px 11px;
+    border-radius: 6px; font-size: 11.5px; cursor: pointer; font-family: inherit;
+    color: var(--blue-accent); font-weight: 500; transition: var(--transition-smooth);
+}
+.micro-action-pill-btn:hover { background: #0f172a; color: white; border-color: #0f172a; }
+
+/* LOADING SHIMMER WAVE LAYERS */
+.shimmer-glow-layer {
+    position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    transform: skewX(-20deg); animation: runShimmerVector 6s infinite;
+}
+@keyframes runShimmerVector {
+    0% { left: -100%; } 20% { left: 160%; } 100% { left: 160%; }
+}

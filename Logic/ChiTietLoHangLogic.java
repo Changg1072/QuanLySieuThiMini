@@ -124,6 +124,11 @@ public class ChiTietLoHangLogic {
     }
 
     public List<ChiTietLoHang> layChiTietTheoMaSP(String maSP) {
-        throw new UnsupportedOperationException("Unimplemented method 'layChiTietTheoMaSP'");
+        if (maSP == null || maSP.trim().isEmpty()) return new java.util.ArrayList<>();
+        
+        // Gọi xuống DAO để lấy tất cả các lô hàng đang chứa sản phẩm này
+        return dao.layDanhSachChiTietLoHang().stream()
+                .filter(ct -> ct.getMaSP().equalsIgnoreCase(maSP))
+                .collect(java.util.stream.Collectors.toList());
     }
 }

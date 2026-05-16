@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workforce Intelligence Platform</title>
+    <link rel="stylesheet" href="nhanvien_dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body>
+    <div class="hrm-viewport-root">
+        
+        <!-- 1. PREMIUM HEADER ACTION BAR -->
+        <header class="hrm-saas-header">
+            <div class="header-branding-cell">
+                <h1 class="header-main-title">Workforce Intelligence</h1>
+                <p class="header-sub-caption">Hệ thống phân tích chấm công, theo dõi giờ làm và hoạch định hiệu suất nhân sự thời gian thực</p>
+            </div>
+            <div class="header-actions-cell">
+                <div class="search-input-wrapper">
+                    <input type="text" id="hrmSearchField" placeholder="Tìm tên, mã nhân viên..." oninput="dispatchRealtimeFilterCoordinates()">
+                </div>
+                <select id="roleFilterBox" class="premium-select-dropdown" onchange="dispatchRealtimeFilterCoordinates()">
+                    <option value="ALL">Mọi Chức Vụ</option>
+                    <option value="Quản lý">💼 Quản Lý</option>
+                    <option value="Thu Ngân">💵 Thu Ngân</option>
+                    <option value="Kho">📦 Nhân Viên Kho</option>
+                </select>
+                <button class="action-btn-node btn-secondary" onclick="alert('ACTION:SYNC')">🔄 Đồng bộ</button>
+                <button class="action-btn-node btn-accent" onclick="alert('ACTION:ASSIGN_SHIFT')">📋 Phân Ca</button>
+                <button class="action-btn-node btn-primary" onclick="alert('ACTION:ADD_STAFF')">➕ Thêm Người</button>
+                <button class="action-btn-node btn-excel" onclick="alert('ACTION:EXPORT')">📥 Xuất File</button>
+            </div>
+            <div class="clear-layout-fix"></div>
+        </header>
+
+        <!-- 2. STABLE KPI TILES ROW LAYOUT (ANTI-OVERLAPPING WEBKIT ENGINE) -->
+        <section class="kpi-summary-row-wrapper">
+            <div class="kpi-column-cell-quarter">
+                <div class="kpi-surface-card">
+                    <div class="card-glow-shimmer"></div>
+                    <div class="kpi-structural-table">
+                        <div class="kpi-table-cell avatar-frame blue-tint">👨‍💼</div>
+                        <div class="kpi-table-cell content-frame">
+                            <span class="kpi-meta-lbl">Tổng Quân Số Nhân Sự</span>
+                            <h2 class="kpi-counter-display" id="txt-total-employees">0</h2>
+                            <p class="kpi-bottom-caption-txt" id="txt-active-count">0 tài khoản đang chạy</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="kpi-column-cell-quarter">
+                <div class="kpi-surface-card">
+                    <div class="card-glow-shimmer"></div>
+                    <div class="kpi-structural-table">
+                        <div class="kpi-table-cell avatar-frame green-tint">💰</div>
+                        <div class="kpi-table-cell content-frame">
+                            <span class="kpi-meta-lbl">Doanh Số Nhân Viên</span>
+                            <h2 class="kpi-counter-display text-emerald" id="txt-global-revenue">0đ</h2>
+                            <p class="kpi-bottom-caption-txt text-emerald" id="txt-top-performer">Top: --</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="kpi-column-cell-quarter">
+                <div class="kpi-surface-card">
+                    <div class="card-glow-shimmer"></div>
+                    <div class="kpi-structural-table">
+                        <div class="kpi-table-cell avatar-frame sky-tint">⏰</div>
+                        <div class="kpi-table-cell content-frame">
+                            <span class="kpi-meta-lbl">Tổng Giờ Công Tích Lũy</span>
+                            <h2 class="kpi-counter-display text-sky" id="txt-total-hours">0h</h2>
+                            <p class="kpi-bottom-caption-txt" id="txt-avg-hours">Trung bình: 0h / người</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="kpi-column-cell-quarter">
+                <div class="kpi-surface-card">
+                    <div class="card-glow-shimmer"></div>
+                    <div class="kpi-structural-table">
+                        <div class="kpi-table-cell avatar-frame rose-tint">⚠️</div>
+                        <div class="kpi-table-cell content-frame">
+                            <span class="kpi-meta-lbl">Chỉ Số Đi Trễ / Đúng Giờ</span>
+                            <h2 class="kpi-counter-display text-rose" id="txt-late-count">0 lượt</h2>
+                            <p class="kpi-bottom-caption-txt text-emerald" id="txt-punctuality-rate">Tỷ lệ đúng giờ: 100%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="clear-layout-fix"></div>
+        </section>
+
+        <!-- 3. WORKFORCE CHARTS STRATUM COMPONENT TABLE -->
+        <div class="split-layout-structural-table">
+            <div class="layout-row-group">
+                <div class="layout-cell-group production-chart-partition">
+                    <div class="premium-dashboard-card-shell">
+                        <h3 class="card-section-heading">Biểu Đồ Phân Phối Cân Bằng Doanh Thu Cá Nhân</h3>
+                        <div id="chartSalesByEmployee" class="apex-rendering-shell"></div>
+                    </div>
+                </div>
+                <div class="layout-cell-group split-shift-chart-partition">
+                    <div class="premium-dashboard-card-shell">
+                        <h3 class="card-section-heading">Cơ Cấu Sắp Xếp Ca Làm Việc</h3>
+                        <div id="chartShiftDistribution" class="apex-rendering-shell"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. LEADERBOARD AND REAL-TIME MONITORING SPLIT TABULAR PANEL -->
+        <div class="split-layout-structural-table" style="margin-top: 24px;">
+            <div class="layout-row-group">
+                <div class="layout-cell-group leaderboard-partition">
+                    <div class="premium-dashboard-card-shell">
+                        <h3 class="card-section-heading">🏆 Bảng Vinh Danh Hiệu Suất Bán Hàng Nhân Viên (MVP Tiers)</h3>
+                        <div class="scrolling-feed-container" id="leaderboardContainerTarget">
+                            <!-- Populated dynamically via JS models -->
+                        </div>
+                    </div>
+                </div>
+                <div class="layout-cell-group insights-timeline-partition">
+                    <div class="premium-dashboard-card-shell">
+                        <h3 class="card-section-heading">🕒 Nhật Ký Ra Vào Ca Làm Việc Toàn Hệ Thống Gần Đây</h3>
+                        <div class="scrolling-feed-container" id="timelineContainerTarget">
+                            <!-- Linear timeline nodes appended securely here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. REAL-TIME AI WORKFORCE INTELLIGENCE FEED BLOCK -->
+        <section class="premium-dashboard-card-shell ai-intelligence-block" style="margin-top: 24px;">
+            <h3 class="card-section-heading" style="border-color:#7c3aed;">✨ Chỉ Báo Quản Trị Nhân Sự Thông Minh (AI Workforce Insights)</h3>
+            <div class="ai-bullet-feed-wrapper" id="insightsContainerTarget">
+                <!-- AI dynamic evaluation string components filled -->
+            </div>
+        </section>
+
+        <!-- 6. HIGH-PERFORMANCE ANTI-LAG INDUSTRIAL DATATABLE -->
+        <section class="premium-dashboard-card-shell datatable-outer-card-wrapper" style="margin-top: 24px;">
+            <div class="table-meta-header-row">
+                <h3 class="card-section-heading" style="margin:0; padding:0; border:none; display:inline-block; vertical-align:middle;">Sổ Cái Tra Cứu Hiệu Suất Nhân Sự Toàn Diện</h3>
+                <div class="datatable-pagination-box">
+                    <span class="pagination-indicator-lbl" id="txtPaginationDisplayLabel">Hiển thị 1 - 5 của 0 nhân viên</span>
+                    <button class="mini-pager-btn-node" onclick="adjustPagerPagePointer(-1)">◀</button>
+                    <button class="mini-pager-btn-node" onclick="adjustPagerPagePointer(1)">▶</button>
+                </div>
+            </div>
+            
+            <div class="table-horizontal-overflow-container">
+                <table class="saas-structured-data-table" id="hrmMainDataTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">Mã Nhân Sự</th>
+                            <th style="width: 25%;">Họ Và Tên</th>
+                            <th style="width: 15%;">Số Điện Thoại</th>
+                            <th style="width: 15%;">Bộ Phận Chức Vụ</th>
+                            <th style="width: 11%; text-align: right;">Giờ Công (Tháng)</th>
+                            <th style="width: 11%; text-align: right;">Doanh Số Tạo Ra</th>
+                            <th style="width: 11%; text-align: right;">Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hrmTableRowsTarget">
+                        <!-- Dynamic matrix entities written instantly -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+    <script src="nhanvien_dashboard.js"></script>
+</body>
+</html>

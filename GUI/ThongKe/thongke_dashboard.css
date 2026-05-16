@@ -1,0 +1,396 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --bg-workspace-canvas: #f8fafc;
+    --card-surface-pure: #ffffff;
+    --text-slate-heavy: #0f172a;
+    --text-slate-muted: #64748b;
+    --primary-blue: #2563eb;
+    --blue-ambient-glow: rgba(37, 99, 235, 0.05);
+    --emerald-success: #10b981;
+    --orange-warning: #f59e0b;
+    --rose-danger: #f43f5e;
+    --radius-premium: 22px;
+    --transition-premium: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg-workspace-canvas);
+    margin: 0;
+    padding: 0;
+    color: var(--text-slate-heavy);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+}
+
+.clear-layout-fix {
+    clear: both;
+}
+
+/* 1. MASTER INTERFACE LAYOUT STRUCTURES (100% NON-FLEX STABLE GRID ALTERNATIVES) */
+.master-layout-table {
+    display: table;
+    width: 100%;
+    height: 100vh;
+    table-layout: fixed;
+}
+
+.layout-row-wrapper {
+    display: table-row;
+}
+
+/* 2. SIDEBAR SYSTEM STYLING CONFIGURATIONS */
+.sidebar-navigation-cell {
+    display: table-cell;
+    width: 280px;
+    background-color: #ffffff;
+    border-right: 1px solid #e2e8f0;
+    vertical-align: top;
+    position: relative;
+    padding: 24px 16px;
+}
+
+.sidebar-branding-wrapper {
+    display: block;
+    width: 100%;
+    margin-bottom: 30px;
+    padding-left: 8px;
+}
+
+.branding-logo-circle {
+    float: left;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--blue-ambient-glow);
+    text-align: center;
+    line-height: 40px;
+    font-size: 20px;
+}
+
+.branding-identity-block {
+    margin-left: 52px;
+    padding-top: 2px;
+}
+
+.brand-title {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-slate-heavy);
+}
+
+.brand-badge-tier {
+    display: block;
+    font-size: 11px;
+    color: var(--text-slate-muted);
+    font-weight: 500;
+}
+
+.sidebar-menu-list {
+    display: block;
+    width: 100%;
+}
+
+.navigation-menu-item {
+    display: block;
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 550;
+    color: #475569;
+    cursor: pointer;
+    margin-bottom: 6px;
+    transition: var(--transition-premium);
+}
+
+.navigation-menu-item:hover {
+    background-color: #f1f5f9;
+    color: var(--text-slate-heavy);
+}
+
+.navigation-menu-item.active {
+    background-color: #edf2f7;
+    color: var(--primary-blue);
+    font-weight: 600;
+}
+
+.menu-icon-slot {
+    margin-right: 10px;
+    display: inline-block;
+}
+
+.sidebar-footer-profile {
+    position: absolute;
+    bottom: 24px;
+    left: 16px;
+    right: 16px;
+    background: #f8fafc;
+    border-radius: 14px;
+    padding: 12px;
+    border: 1px solid #edf2f7;
+}
+
+.footer-table-row { display: table; width: 100%; }
+.footer-table-cell { display: table-cell; vertical-align: middle; }
+.footer-table-cell.img-pane { width: 42px; }
+
+.avatar-circle-icon {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+    color: white; font-weight: 700; text-align: center; line-height: 34px; font-size: 13px;
+}
+
+.admin-username-txt { display: block; font-size: 13px; font-weight: 600; color: var(--text-slate-heavy); }
+.admin-role-txt { display: block; font-size: 11px; color: var(--text-slate-muted); }
+
+/* 3. MAIN WORKSPACE CONTENT CONTAINERS STYLING */
+.main-viewport-content-cell {
+    display: table-cell;
+    vertical-align: top;
+    background-color: var(--bg-workspace-canvas);
+    overflow-y: auto;
+    height: 100vh;
+}
+
+.topbar-context-header {
+    background: #ffffff;
+    padding: 18px 28px;
+    border-bottom: 1px solid #e2e8f0;
+    width: 100%;
+    display: block;
+}
+
+.topbar-left-breadcrumbs {
+    float: left;
+    font-size: 14px;
+    color: var(--text-slate-muted);
+    padding-top: 8px;
+    font-weight: 500;
+}
+
+.breadcrumb-active-view {
+    color: var(--text-slate-heavy);
+    font-weight: 600;
+}
+
+.topbar-right-actions-group {
+    float: right;
+}
+
+.header-action-button {
+    display: inline-block;
+    padding: 9px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    margin-left: 8px;
+    font-family: inherit;
+    transition: var(--transition-premium);
+}
+
+.btn-neutral { background: #f1f5f9; color: #334155; }
+.btn-neutral:hover { background: #e2e8f0; }
+.btn-primary { background: var(--primary-blue); color: white; }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37,99,235,0.2); }
+
+/* 4. FILTERS LAYER CONFIGURATION */
+.global-filters-control-band {
+    padding: 14px 28px;
+    background: #ffffff;
+    border-bottom: 1px solid #edf2f7;
+    display: block;
+    width: 100%;
+}
+
+.filter-layout-table {
+    display: block;
+    width: 100%;
+}
+
+.filter-cell {
+    float: left;
+    width: 24%;
+    margin-right: 1.33%;
+}
+
+.filter-cell:last-child {
+    margin-right: 0;
+}
+
+.filter-meta-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-slate-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 5px;
+}
+
+.premium-interactive-select {
+    width: 100%;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text-slate-heavy);
+    outline: none;
+    cursor: pointer;
+}
+
+/* 5. INTERACTIVE INNER VIEW PANELS DECORATION */
+.dashboard-viewport-outer-container {
+    padding: 28px;
+    display: block;
+    width: 100%;
+}
+
+.sub-dashboard-view-panel {
+    width: 100%;
+    transition: opacity 0.3s ease;
+}
+
+.hidden-view-state { display: none; opacity: 0; }
+.visible-view-state { display: block; opacity: 1; }
+
+.kpi-cards-block-row {
+    width: 100%;
+    margin-bottom: 24px;
+    display: block;
+}
+
+.kpi-quad-cell {
+    width: 25%;
+    float: left;
+    padding-right: 16px;
+}
+
+.kpi-quad-cell:last-child { padding-right: 0; }
+
+.premium-summary-kpi-card {
+    background: var(--card-surface-pure);
+    border-radius: var(--radius-premium);
+    padding: 24px;
+    border: 1px solid #edf2f7;
+    box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.02);
+}
+
+.kpi-meta-lbl {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-slate-muted);
+}
+
+.kpi-counter-val {
+    display: block;
+    font-size: 25px;
+    font-weight: 700;
+    margin: 8px 0 4px 0;
+    letter-spacing: -0.025em;
+    color: var(--text-slate-heavy);
+}
+
+.kpi-subtext-delta {
+    margin: 0; font-size: 11.5px; color: var(--text-slate-muted);
+}
+
+/* TEXT DECORATION ACCENTS */
+.text-emerald { color: var(--emerald-success) !important; }
+.text-orange { color: var(--orange-warning) !important; }
+.text-rose { color: var(--rose-danger) !important; }
+
+/* AMBIENT LIGHT EFFECTS */
+.text-glow-blue { border-top: 4px solid var(--primary-blue); }
+.text-glow-emerald { border-top: 4px solid var(--emerald-success); }
+.text-glow-orange { border-top: 4px solid var(--orange-warning); }
+.text-glow-rose { border-top: 4px solid var(--rose-danger); }
+
+/* 6. CHARTS SECTIONS MERGE ARCHITECTURE (TABLE ALIGNMENTS FOR WEBkit) */
+.analytics-layout-split-table {
+    display: table;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 24px 0;
+    margin-left: -24px;
+    margin-right: -24px;
+}
+
+.table-row { display: table-row; }
+.table-cell { display: table-cell; vertical-align: top; }
+
+.main-trend-visual-cell { width: 60%; }
+.side-leaderboards-cell { width: 40%; }
+
+.premium-workspace-surface-card {
+    background: var(--card-surface-pure);
+    border-radius: var(--radius-premium);
+    padding: 24px;
+    border: 1px solid #edf2f7;
+    box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.02);
+    width: 100%;
+}
+
+.card-section-heading {
+    font-size: 14.5px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    color: var(--text-slate-heavy);
+    border-left: 4px solid var(--primary-blue);
+    padding-left: 10px;
+}
+
+/* 7. ROW ENTITIES FOR TOP SELLING MATRIX SCROLLS */
+.ranking-stream-list {
+    display: block; width: 100%;
+}
+
+.ranking-item-row {
+    display: table;
+    width: 100%;
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+.ranking-item-row:last-child { border-bottom: none; }
+.rank-cell { display: table-cell; vertical-align: middle; font-size: 13.5px; }
+
+/* 8. FLOATING PREMIUM AI GLASS PROFILE METER */
+.floating-ai-insights-glass-card {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 320px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.12);
+    border-radius: 16px;
+    padding: 16px;
+    z-index: 1000;
+    border-left: 4px solid #7c3aed;
+    animation: bounceFloatTransition 4s ease-in-out infinite;
+}
+
+.insight-badge-pill {
+    display: inline-block; background: #f3e8ff; color: #6b21a8;
+    font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
+    margin-bottom: 8px; text-transform: uppercase;
+}
+
+@keyframes bounceFloatTransition {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+    100% { transform: translateY(0); }
+}

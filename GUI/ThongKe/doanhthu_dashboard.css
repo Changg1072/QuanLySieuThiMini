@@ -1,0 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+:root { --bg-app: #f8fafc; --card-bg: #ffffff; --text-primary: #0f172a; --text-secondary: #64748b; --accent-blue: #2563eb; --radius-premium: 18px; }
+body { font-family: 'Inter', sans-serif; background-color: var(--bg-app); margin: 0; color: var(--text-primary); }
+.app-container { padding: 24px; max-width: 1600px; margin: 0 auto; animation: fadeIn 0.6s; }
+.dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 32px; }
+.stat-card { background: var(--card-bg); border-radius: var(--radius-premium); padding: 24px; box-shadow: 0 4px 20px -2px rgba(15,23,42,0.03); transition: all 0.4s; overflow: hidden; position: relative;}
+.stat-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(15,23,42,0.06); }
+.card-title { font-size: 13.5px; font-weight: 500; color: var(--text-secondary); }
+.counter-val { font-size: 26px; font-weight: 700; margin: 10px 0 0 0; }
+.charts-section { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 32px; }
+.chart-card, .analytics-card, .table-card { background: var(--card-bg); border-radius: var(--radius-premium); padding: 24px; box-shadow: 0 4px 20px -2px rgba(15,23,42,0.03); }
+.analytics-layout-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 32px; }
+.premium-table { width: 100%; border-collapse: collapse; text-align: left; }
+.premium-table th { padding: 14px 16px; font-size: 12.5px; color: var(--text-secondary); border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
+.premium-table td { padding: 16px; font-size: 13.5px; border-bottom: 1px solid #f1f5f9; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.leader-row { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid #f8fafc; margin-top:12px; }
+.avatar-mock { width: 36px; height: 36px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; margin-right: 12px; }

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Intelligence Analytics Dashboard</title>
+    <link rel="stylesheet" href="khachhang_dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body>
+    <div class="crm-viewport-wrapper">
+        
+        <!-- 1. BRANDING HEADER COMPONENT -->
+        <header class="crm-premium-header">
+            <div class="header-branding-block">
+                <h1 class="header-main-title">Customer Intelligence</h1>
+                <p class="header-sub-caption">Phân tích hành vi dữ liệu tệp khách hàng và quản lý chương trình thẻ thân thiết (CRM)</p>
+            </div>
+            <div class="header-actions-block">
+                <div class="search-field-container">
+                    <input type="text" id="crmSearchInput" placeholder="Tìm tên, sđt khách hàng..." oninput="handleRealtimeFiltering()">
+                </div>
+                <select id="tierSelector" class="premium-select-box" onchange="handleRealtimeFiltering()">
+                    <option value="ALL">Mọi Phân Hạng</option>
+                    <option value="Vip">💎 VIP</option>
+                    <option value="Vàng">🥇 Vàng</option>
+                    <option value="Bạc">🥈 Bạc</option>
+                    <option value="Đồng">🥉 Đồng</option>
+                </select>
+                <button class="action-trigger btn-secondary" onclick="alert('ACTION:SYNC')">🔄 Đồng bộ</button>
+                <button class="action-trigger btn-primary" onclick="alert('ACTION:ADD_CUSTOMER')">➕ Thêm Khách</button>
+                <button class="action-trigger btn-excel" onclick="alert('ACTION:EXPORT')">📥 Xuất Excel</button>
+            </div>
+            <div class="clear-fix"></div>
+        </header>
+
+        <!-- 2. STABLE HIGH-PERFORMANCE KPI CARDS CAROUSEL ROW -->
+        <section class="kpi-cards-matrix-row">
+            <div class="kpi-column-dimension">
+                <div class="kpi-surface-card">
+                    <div class="shimmer-glow-layer"></div>
+                    <div class="kpi-layout-table">
+                        <div class="kpi-cell-avatar blue-tint">👥</div>
+                        <div class="kpi-cell-content">
+                            <span class="kpi-metadata-lbl">Tổng Thành Viên CRM</span>
+                            <h2 class="kpi-counter-val" id="val-total-customers">0</h2>
+                            <p class="kpi-caption-subtext" id="val-new-customers-month">0 đăng ký mới</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="kpi-column-dimension">
+                <div class="kpi-surface-card">
+                    <div class="shimmer-glow-layer"></div>
+                    <div class="kpi-layout-table">
+                        <div class="kpi-cell-avatar purple-tint">💎</div>
+                        <div class="kpi-cell-content">
+                            <span class="kpi-metadata-lbl">Hội Viên Cấp Cao</span>
+                            <h2 class="kpi-counter-val text-purple" id="val-vip-count">0</h2>
+                            <p class="kpi-caption-subtext">Hạng Vàng & VIP trở lên</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="kpi-column-dimension">
+                <div class="kpi-surface-card">
+                    <div class="shimmer-glow-layer"></div>
+                    <div class="kpi-layout-table">
+                        <div class="kpi-cell-avatar emerald-tint">🔥</div>
+                        <div class="kpi-cell-content">
+                            <span class="kpi-metadata-lbl">Tỷ Lệ Quay Lại</span>
+                            <h2 class="kpi-counter-val text-emerald" id="val-return-rate">0%</h2>
+                            <p class="kpi-caption-subtext" id="val-avg-ticket">Đơn vị: 0đ/đơn</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="kpi-column-dimension">
+                <div class="kpi-surface-card">
+                    <div class="shimmer-glow-layer"></div>
+                    <div class="kpi-layout-table">
+                        <div class="kpi-cell-avatar amber-tint">🎁</div>
+                        <div class="kpi-cell-content">
+                            <span class="kpi-metadata-lbl">Tổng Điểm Tích Lũy</span>
+                            <h2 class="kpi-counter-val text-amber" id="val-total-points">0</h2>
+                            <p class="kpi-caption-subtext">Quỹ điểm thưởng chi nhánh</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="clear-fix"></div>
+        </section>
+
+        <!-- 3. SPLIT PANEL: CHARTS VISUALIZATION GRID -->
+        <div class="split-view-structural-table">
+            <div class="table-row-group">
+                <div class="table-cell-group primary-chart-area">
+                    <div class="premium-analytics-card">
+                        <h3 class="card-inner-heading">Phân Khúc Định Danh Nhóm Hội Viên</h3>
+                        <div id="chartCustomerRanks" class="apex-rendering-shell"></div>
+                    </div>
+                </div>
+                <div class="table-cell-group secondary-insights-area">
+                    <div class="premium-analytics-card">
+                        <h3 class="card-inner-heading">Hệ Thống Chỉ Báo Trí Tuệ Khách Hàng</h3>
+                        <div class="insights-feed-container" id="insightsContainerTarget">
+                            <!-- Bullet feeds appended inside runtime cycles -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. LOYALTY RANKING AND PURCHASE TIMELINE HORIZONTAL MERGE LAYER -->
+        <div class="split-view-structural-table" style="margin-top: 24px;">
+            <div class="table-row-group">
+                <div class="table-cell-group rank-leaderboard-partition">
+                    <div class="premium-analytics-card">
+                        <h3 class="card-inner-heading">🥇 Bảng Vàng Vinh Danh Khách Hàng Chi Tiêu Khủng</h3>
+                        <div class="leaderboard-scroller-box" id="leaderboardContainerTarget">
+                            <!-- Ranked cards rendered dynamically -->
+                        </div>
+                    </div>
+                </div>
+                <div class="table-cell-group timeline-partition">
+                    <div class="premium-analytics-card">
+                        <h3 class="card-inner-heading">🕒 Nhật Ký Giao Dịch Toàn Hệ Thống Gần Đây</h3>
+                        <div class="timeline-scroller-box" id="timelineContainerTarget">
+                            <!-- Linear vector components added -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. INTERACTIVE ANTI-LAG DATATABLE HOUSING MODULE -->
+        <section class="premium-analytics-card data-table-module-wrapper">
+            <div class="datatable-meta-header-row">
+                <h3 class="card-inner-heading" style="margin: 0; border: none; padding: 0;">Sổ Cái Tra Cứu Thông Tin Tệp Khách Hàng Toàn Diện</h3>
+                <div class="datatable-pagination-panel">
+                    <span class="pagination-indicator-txt" id="txtPagerLabel">Hiển thị 1 - 5 của 0 khách hàng</span>
+                    <button class="mini-pager-arrow-btn" onclick="modifyPagePointer(-1)">◀</button>
+                    <button class="mini-pager-arrow-btn" onclick="modifyPagePointer(1)">▶</button>
+                </div>
+            </div>
+            
+            <div class="table-horizontal-scrolling-container">
+                <table class="crm-structured-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">Mã Hội Viên</th>
+                            <th style="width: 25%;">Họ Và Tên</th>
+                            <th style="width: 15%;">Số Điện Thoại</th>
+                            <th style="width: 13%; text-align: center;">Hạng Thẻ</th>
+                            <th style="width: 12%; text-align: right;">Tích Điểm</th>
+                            <th style="width: 13%; text-align: right;">Tổng Chi Tiêu</th>
+                            <th style="width: 10%; text-align: right;">Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="crmTableBodyTarget">
+                        <!-- Iterated rows injected inside JavaScript engine memory nodes -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+    <script src="khachhang_dashboard.js"></script>
+</body>
+</html>

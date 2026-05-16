@@ -27,12 +27,9 @@ public class NhaCungCapDAO {
         List<NhaCungCap> dsNhaCungCap = new ArrayList<>();
         String sql = "SELECT * FROM NhaCungCap";
 
-        // Kéo ống nước ra ngoài để không bị Java tự đóng
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return dsNhaCungCap;
-
         try (
-            PreparedStatement pstmt = con.prepareStatement(sql); 
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement pstmt = con.prepareStatement(sql);
             ResultSet rs = pstmt.executeQuery()
         ) {
             while (rs.next()) {
@@ -48,13 +45,12 @@ public class NhaCungCapDAO {
     // 2. THÊM MỘT NHÀ CUNG CẤP MỚI
     // ==============================
     public boolean themNhaCungCap(NhaCungCap ncc) {
-        // 🔥 Đã thêm cột TrangThai với giá trị mặc định là 'Đang hợp tác'
         String sql = "INSERT INTO NhaCungCap(MaNCC, TenNCC, SDT, Email, DiaChi, TrangThai) VALUES (?, ?, ?, ?, ?, N'Đang hợp tác')";
 
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return false;
-
-        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement pstmt = con.prepareStatement(sql)
+        ) {
             pstmt.setString(1, ncc.getMaNCC());
             pstmt.setString(2, ncc.getTenNCC());
             pstmt.setString(3, ncc.getSDT());
@@ -75,10 +71,10 @@ public class NhaCungCapDAO {
     public boolean suaNhaCungCap(NhaCungCap ncc) {
         String sql = "UPDATE NhaCungCap SET TenNCC = ?, SDT = ?, Email = ?, DiaChi = ? WHERE MaNCC = ?";
 
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return false;
-
-        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement pstmt = con.prepareStatement(sql)
+        ) {
             pstmt.setString(1, ncc.getTenNCC());
             pstmt.setString(2, ncc.getSDT());
             pstmt.setString(3, ncc.getEmail());
@@ -97,13 +93,12 @@ public class NhaCungCapDAO {
     // 4. XÓA NHÀ CUNG CẤP (XÓA MỀM)
     // ==============================
     public boolean xoaNhaCungCap(String maNCC) {
-        // 🔥 THAY VÌ DELETE, TA DÙNG UPDATE ĐỂ GIỮ LẠI LỊCH SỬ KẾT NỐI KHÓA NGOẠI
         String sql = "UPDATE NhaCungCap SET TrangThai = N'Ngừng hợp tác' WHERE MaNCC = ?";
 
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return false;
-
-        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement pstmt = con.prepareStatement(sql)
+        ) {
             pstmt.setString(1, maNCC);
             return pstmt.executeUpdate() > 0;
 
@@ -118,11 +113,11 @@ public class NhaCungCapDAO {
     // ==============================
     public NhaCungCap layNhaCungCapTheoTen(String tenNCC) {
         String sql = "SELECT * FROM NhaCungCap WHERE TenNCC = ?";
-        
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return null;
 
-        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement pstmt = con.prepareStatement(sql)
+        ) {
             pstmt.setString(1, tenNCC);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -140,11 +135,11 @@ public class NhaCungCapDAO {
     // ==============================
     public boolean kiemTraTrungMaNCC(String maNCC) {
         String sql = "SELECT COUNT(*) FROM NhaCungCap WHERE MaNCC = ?";
-        
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return false;
 
-        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement pstmt = con.prepareStatement(sql)
+        ) {
             pstmt.setString(1, maNCC);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) return rs.getInt(1) > 0;
@@ -160,11 +155,11 @@ public class NhaCungCapDAO {
     // ==============================
     public NhaCungCap layNhaCungCapTheoMa(String maNCC) {
         String sql = "SELECT * FROM NhaCungCap WHERE MaNCC = ?";
-        
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return null;
 
-        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement pstmt = con.prepareStatement(sql)
+        ) {
             pstmt.setString(1, maNCC);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -187,7 +182,7 @@ public class NhaCungCapDAO {
                 .ganSDT(rs.getString("SDT"))
                 .ganEmail(rs.getString("Email"))
                 .ganDiaChi(rs.getString("DiaChi"))
-                .ganTrangThai(rs.getString("TrangThai")) // 🔥 Đã hứng cột Trạng Thái từ DB lên Model
+                .ganTrangThai(rs.getString("TrangThai"))
                 .taoMoi();
     }
 

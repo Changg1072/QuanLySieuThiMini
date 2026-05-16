@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trung Tâm Điều Khiển Thống Kê</title>
+    <link rel="stylesheet" href="thongke_dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body>
+
+    <div class="master-layout-table">
+        <div class="layout-row-wrapper">
+            
+            <nav class="sidebar-navigation-cell">
+                <div class="sidebar-branding-wrapper">
+                    <div class="branding-logo-circle">📊</div>
+                    <div class="branding-identity-block">
+                        <span class="brand-title">Hệ Thống Quản Lý</span>
+                        <span class="brand-badge-tier">Bản Doanh Nghiệp</span>
+                    </div>
+                </div>
+                
+                <div class="sidebar-menu-list">
+                    <div class="navigation-menu-item active" id="menu-OVERVIEW" onclick="switchControlViewTab('OVERVIEW')">
+                        <span class="menu-icon-slot">🏠</span> Bảng Điều Khiển Tổng Quan
+                    </div>
+                    <div class="navigation-menu-item" id="menu-REVENUE" onclick="switchControlViewTab('REVENUE')">
+                        <span class="menu-icon-slot">💰</span> Phân Phối Doanh Thu
+                    </div>
+                    <div class="navigation-menu-item" id="menu-WAREHOUSE" onclick="switchControlViewTab('WAREHOUSE')">
+                        <span class="menu-icon-slot">📦</span> Sức Khỏe Kho Hàng
+                    </div>
+                    <div class="navigation-menu-item" id="menu-CUSTOMER" onclick="switchControlViewTab('CUSTOMER')">
+                        <span class="menu-icon-slot">👥</span> Trí Tuệ Khách Hàng
+                    </div>
+                    <div class="navigation-menu-item" id="menu-STAFF" onclick="switchControlViewTab('STAFF')">
+                        <span class="menu-icon-slot">👨‍💼</span> Hiệu Suất Nhân Sự
+                    </div>
+                    <div class="navigation-menu-item" id="menu-PRODUCT" onclick="switchControlViewTab('PRODUCT')">
+                        <span class="menu-icon-slot">🛍️</span> Danh Mục Sản Phẩm
+                    </div>
+                </div>
+                
+                <div class="sidebar-footer-profile">
+                    <div class="footer-table-row">
+                        <div class="footer-table-cell img-pane"><div class="avatar-circle-icon">Q</div></div>
+                        <div class="footer-table-cell text-pane">
+                            <span class="admin-username-txt">Quản Trị Viên</span>
+                            <span class="admin-role-txt">Hệ thống cấp cao</span>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <main class="main-viewport-content-cell">
+                
+                <header class="topbar-context-header">
+                    <div class="topbar-left-breadcrumbs">
+                        <span class="breadcrumb-historical-label">Trung Tâm Phân Tích</span> / 
+                        <span class="breadcrumb-active-view" id="activeBreadcrumbLabel">Tổng Quan Hệ Thống</span>
+                    </div>
+                    
+                    <div class="topbar-right-actions-group">
+                        <button class="header-action-button btn-neutral" onclick="alert('ACTION:GLOBAL_REFRESH')">🔄 Làm Mới</button>
+                        <button class="header-action-button btn-neutral" onclick="alert('ACTION:FULLSCREEN')">🔲 Toàn Màn Hình</button>
+                        <button class="header-action-button btn-primary" onclick="alert('ACTION:EXPORT_REPORT')">📥 Xuất Báo Cáo Tổng Hợp</button>
+                    </div>
+                    <div class="clear-layout-fix"></div>
+                </header>
+
+                <section class="global-filters-control-band">
+                    <div class="filter-layout-table">
+                        <div class="filter-cell select-box-partition">
+                            <span class="filter-meta-label">Chu Kỳ Đối Soát Tháng</span>
+                            <select id="filterMonthBox" class="premium-interactive-select" onchange="propagateFilterChanges()">
+                                <option value="1">Tháng 01</option><option value="2">Tháng 02</option><option value="3">Tháng 03</option>
+                                <option value="4">Tháng 04</option><option value="5">Tháng 05</option><option value="6">Tháng 06</option>
+                                <option value="7">Tháng 07</option><option value="8">Tháng 08</option><option value="9">Tháng 09</option>
+                                <option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-cell select-box-partition">
+                            <span class="filter-meta-label">Năm Phân Tích</span>
+                            <select id="filterYearBox" class="premium-interactive-select" onchange="propagateFilterChanges()">
+                                <option value="2024">Năm 2024</option>
+                                <option value="2025">Năm 2025</option>
+                                <option value="2026" selected>Năm 2026</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-cell select-box-partition">
+                            <span class="filter-meta-label">Phân Phối Nhóm Hàng</span>
+                            <select id="filterCategoryBox" class="premium-interactive-select" onchange="propagateFilterChanges()">
+                                <option value="ALL">Mọi Danh Mục Ngành Hàng</option>
+                                <option value="L01">Nước Giải Khát</option>
+                                <option value="L02">Bánh Kẹo / Snack</option>
+                                <option value="L03">Sữa & Sản Phẩm Từ Sữa</option>
+                                <option value="L04">Mì Ăn Liền / Thực Phẩm Khô</option>
+                            </select>
+                        </div>
+                        <div class="clear-layout-fix"></div>
+                    </div>
+                </section>
+
+                <div class="dashboard-viewport-outer-container">
+                    
+                    <div class="sub-dashboard-view-panel visible-view-state" id="panel-OVERVIEW">
+                        <div class="kpi-cards-block-row">
+                            <div class="kpi-quad-cell">
+                                <div class="premium-summary-kpi-card text-glow-blue">
+                                    <span class="kpi-meta-lbl">Doanh Thu Tổng Hợp</span>
+                                    <h2 class="kpi-counter-val" id="lbl-total-revenue">0đ</h2>
+                                    <p class="kpi-subtext-delta">Dữ liệu kết nối thời gian thực</p>
+                                </div>
+                            </div>
+                            <div class="kpi-quad-cell">
+                                <div class="premium-summary-kpi-card text-glow-emerald">
+                                    <span class="kpi-meta-lbl">Lợi Nhuận Thuần Túy</span>
+                                    <h2 class="kpi-counter-val text-emerald" id="lbl-net-profits">0đ</h2>
+                                    <p class="kpi-subtext-delta">Đã khấu trừ vốn và chi phí tổn thất</p>
+                                </div>
+                            </div>
+                            <div class="kpi-quad-cell">
+                                <div class="premium-summary-kpi-card text-glow-orange">
+                                    <span class="kpi-meta-lbl">Khối Lượng Hóa Đơn</span>
+                                    <h2 class="kpi-counter-val text-orange" id="lbl-total-invoices">0</h2>
+                                    <p class="kpi-subtext-delta">Phát sinh trong chu kỳ tháng</p>
+                                </div>
+                            </div>
+                            <div class="kpi-quad-cell">
+                                <div class="premium-summary-kpi-card text-glow-rose">
+                                    <span class="kpi-meta-lbl">Rủi Ro Kho / Thất Thoát</span>
+                                    <h2 class="kpi-counter-val text-rose" id="lbl-total-losses">0đ</h2>
+                                    <p class="kpi-subtext-delta" id="lbl-low-stock-count">0 mặt hàng dưới hạn mức tồn</p>
+                                </div>
+                            </div>
+                            <div class="clear-layout-fix"></div>
+                        </div>
+
+                        <div class="analytics-layout-split-table">
+                            <div class="table-row">
+                                <div class="table-cell main-trend-visual-cell">
+                                    <div class="premium-workspace-surface-card">
+                                        <h3 class="card-section-heading">Biến Động Doanh Thu Luỹ Tiến Toàn Năm</h3>
+                                        <div id="overviewTrendLinearChart" style="min-height: 280px;"></div>
+                                    </div>
+                                </div>
+                                <div class="table-cell side-leaderboards-cell">
+                                    <div class="premium-workspace-surface-card" style="margin-bottom: 20px;">
+                                        <h3 class="card-section-heading">Top 5 Sản Phẩm Chạy Nhất</h3>
+                                        <div class="ranking-stream-list" id="targetTopProductsList"></div>
+                                    </div>
+                                    <div class="premium-workspace-surface-card">
+                                        <h3 class="card-section-heading">Bảng Vàng Khách Hàng Thành Viên</h3>
+                                        <div class="ranking-stream-list" id="targetTopCustomersList"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sub-dashboard-view-panel hidden-view-state" id="panel-FALLBACK_CONTAINER">
+                        <div class="premium-workspace-surface-card" style="text-align: center; padding: 80px 40px;">
+                            <div style="font-size: 48px; margin-bottom: 20px;">⚡</div>
+                            <h2 style="font-weight:600; margin:0 0 10px 0; color:var(--text-slate-heavy);">Phân Hệ Đang Hoạt Động</h2>
+                            <p style="color:var(--text-slate-muted); max-width:600px; margin:0 auto; font-size:14px; line-height:1.6;">
+                                Giao diện con chuyên sâu đang được điều phối chạy song song mượt mà dưới sự giám sát của Bảng điều khiển trung tâm.
+                                Toàn bộ bộ lọc thời gian thực đã được liên kết thông suốt xuống bên dưới.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+            
+        </div>
+    </div>
+
+    <div class="floating-ai-insights-glass-card">
+        <div class="insight-badge-pill">✨ Gợi ý AI</div>
+        <div id="floatingAiInsightsContainer">
+            <p style="margin: 0; font-size: 12.5px; line-height: 1.4; color: #475569;">
+                Đang liên kết dữ liệu hệ thống để phân tích...
+            </p>
+        </div>
+    </div>
+
+    <script src="thongke_dashboard.js"></script>
+</body>
+</html>

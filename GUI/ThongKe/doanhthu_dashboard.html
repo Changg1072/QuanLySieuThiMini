@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retail Supermarket Analytics Panel</title>
+    <link rel="stylesheet" href="doanhthu_dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 1. HEADER -->
+        <header class="dashboard-header">
+            <div class="header-left">
+                <h1>Tổng Quan Doanh Thu</h1>
+                <p class="subtitle">Báo cáo phân tích kinh doanh dữ liệu thời gian thực</p>
+            </div>
+            <div class="header-right">
+                <div class="control-group">
+                    <select id="timeFilter" class="modern-select" onchange="handleTimeFilterChange(this.value)">
+                        <option value="current">Tháng Này</option>
+                        <option value="last_month">Tháng Trước</option>
+                        <option value="year">Toàn Bộ Năm</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="triggerRefresh()">Làm Mới</button>
+                    <button class="btn btn-primary" onclick="triggerExcelExport()">Xuất Excel</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 2. KPI CARDS -->
+        <section class="kpi-grid">
+            <div class="stat-card" id="card-revenue">
+                <div class="card-shimmer"></div>
+                <div class="card-content">
+                    <div class="card-header">
+                        <span class="card-title">Tổng Doanh Thu</span>
+                    </div>
+                    <div class="card-body">
+                        <h2 class="counter-val" id="val-revenue">0đ</h2>
+                        <span class="trend-badge trend-up">12.4%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="stat-card" id="card-invoices">
+                <div class="card-shimmer"></div>
+                <div class="card-content">
+                    <div class="card-header"><span class="card-title">Tổng Hóa Đơn</span></div>
+                    <div class="card-body">
+                        <h2 class="counter-val" id="val-invoices">0</h2>
+                        <span class="subtext-context" id="val-avg-ticket">Trung bình: 0đ / đơn</span>
+                    </div>
+                </div>
+            </div>
+            <div class="stat-card" id="card-profit">
+                <div class="card-shimmer"></div>
+                <div class="card-content">
+                    <div class="card-header"><span class="card-title">Lợi Nhuận Thực Tế</span></div>
+                    <div class="card-body">
+                        <h2 class="counter-val" id="val-profit">0đ</h2>
+                        <span class="trend-badge trend-neutral" id="val-margin">Margin: 0%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="stat-card" id="card-loss">
+                <div class="card-shimmer"></div>
+                <div class="card-content">
+                    <div class="card-header"><span class="card-title">Tổng Thất Thoát</span></div>
+                    <div class="card-body">
+                        <h2 class="counter-val" id="val-loss" style="color: #ef4444;">0đ</h2>
+                        <span class="subtext-context">Hàng hủy & Lệch kho</span>
+                    </div>
+                </div>
+            </div>
+            <div class="stat-card" id="card-peak">
+                <div class="card-shimmer"></div>
+                <div class="card-content">
+                    <div class="card-header"><span class="card-title">Giờ Cao Điểm</span></div>
+                    <div class="card-body">
+                        <h2 class="text-highlight" id="val-peak-hour">--:--</h2>
+                        <span class="subtext-context" id="val-peak-count">0 giao dịch đỉnh điểm</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. CHARTS -->
+        <section class="charts-section">
+            <div class="chart-card main-chart">
+                <div class="chart-header">
+                    <h3>Biểu Đồ Doanh Thu & Xu Hướng Phát Triển</h3>
+                </div>
+                <div id="salesLinearChart" class="chart-container"></div>
+            </div>
+            <div class="chart-card vector-chart">
+                <div class="chart-header">
+                    <h3>Phương Thức Thanh Toán</h3>
+                </div>
+                <div id="paymentDistributionChart" class="chart-container"></div>
+            </div>
+        </section>
+
+        <!-- 4. LEADERBOARDS -->
+        <section class="analytics-layout-grid">
+            <div class="analytics-card">
+                <div class="block-header">
+                    <h3>Top Sản Phẩm Bán Chạy Nhất</h3>
+                    <span class="badge-count">Tháng hiện tại</span>
+                </div>
+                <div class="leaderboard-list" id="top-products-list"></div>
+            </div>
+            <div class="analytics-card">
+                <div class="block-header">
+                    <h3>Bảng Vàng Khách Hàng Thân Thiết</h3>
+                    <span class="badge-count text-purple">VIP Tiers</span>
+                </div>
+                <div class="leaderboard-list" id="top-customers-list"></div>
+            </div>
+        </section>
+
+        <!-- 5. RECENT INVOICES -->
+        <section class="table-card">
+            <div class="table-header">
+                <h3>Nhật Ký Hóa Đơn Gần Đây</h3>
+            </div>
+            <div class="table-wrapper">
+                <table class="premium-table">
+                    <thead>
+                        <tr>
+                            <th>Mã Hóa Đơn</th><th>Khách Hàng</th><th>Thu Ngân</th>
+                            <th>Thời Gian</th><th>Phương Thức</th><th class="text-right">Thành Tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoice-rows-container"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+    <script src="doanhthu_dashboard.js"></script>
+</body>
+</html>
