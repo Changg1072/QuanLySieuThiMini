@@ -6,6 +6,20 @@
     "configurations": [
         {
             "type": "java",
+            "name": "CanhBaoKhoPanel",
+            "request": "launch",
+            "mainClass": "GUI.CanhBaoKhoPanel",
+            "projectName": "QuanLySieuThiMini_e2aa0a7f"
+        },
+        {
+            "type": "java",
+            "name": "ThanhToanUi",
+            "request": "launch",
+            "mainClass": "GUI.ThanhToanUi",
+            "projectName": "QuanLySieuThiMini_e2aa0a7f"
+        },
+        {
+            "type": "java",
             "name": "ThongKeUI",
             "request": "launch",
             "mainClass": "GUI.ThongKe.ThongKeUI",
