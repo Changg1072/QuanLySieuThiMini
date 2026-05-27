@@ -220,6 +220,7 @@ public class TrangADMIN extends JFrame {
             btn.setBackground(CLR_SIDEBAR_BG);
             btn.setForeground(CLR_TEXT_PRIMARY);
         }
+        
         cardLayout.show(pnlCards, "CANH_BAO");
     }
 
@@ -872,28 +873,93 @@ public class TrangADMIN extends JFrame {
                 protected Integer doInBackground() {
                     int count = 0;
                     try {
-                        // Kéo siêu tốc từ DB
-                        Dao.TruyVanSieuTocDAO.DuLieuKiemKeSieuTocDTO duLieu = 
-                            Dao.TruyVanSieuTocDAO.getInstance().loadDuLieuKiemKeSieuToc();
+                        // === BƯỚC 0: Lấy danh sách lô đã kiểm tra hoàn tất (giống CanhBaoKhoPanel) ===
+                        java.util.Set<String> dsLoaDaKiemTra = new java.util.HashSet<>();
+                        String sqlDaKiem = "SELECT DISTINCT MaLoHang FROM KiemKeKho " +
+                                        "WHERE LyDo LIKE N'Đã kiểm tra %'";
+                        try (java.sql.Connection con = Dao.ConnectDB.getInstance().getConnection();
+                            java.sql.Statement stKiem = con.createStatement();
+                            java.sql.ResultSet rsKiem = stKiem.executeQuery(sqlDaKiem)) {
+                            while (rsKiem.next()) {
+                                dsLoaDaKiemTra.add(rsKiem.getString("MaLoHang"));
+                            }
+                        } catch (Exception ignored) {}
+        
+                        // === BƯỚC 1: Lấy danh sách SP đang giảm giá (giống CanhBaoKhoPanel) ===
+                        java.util.Set<String> dsDangGiamGia = Dao.TruyVanSieuTocDAO.getInstance()
+                                .getTapHopSanPhamDangGiamGia();
+        
+                        // === BƯỚC 2: Quét HSD & Tồn thấp (đồng bộ logic với taiDuLieuThucTeTuKho) ===
+                        Dao.TruyVanSieuTocDAO.DuLieuKiemKeSieuTocDTO duLieu =
+                                Dao.TruyVanSieuTocDAO.getInstance().loadDuLieuKiemKeSieuToc();
                         java.time.LocalDate today = java.time.LocalDate.now();
-
+        
                         for (Data.SanPham sp : duLieu.dsSanPham) {
                             java.util.List<Data.ChiTietLoHang> dsLo = duLieu.mapDanhSachLo.get(sp.getMaSP());
                             if (dsLo == null) continue;
+        
                             for (Data.ChiTietLoHang lo : dsLo) {
-                                if (lo.getSoLuongTon() <= 0) continue;
-                                // 1. Tồn thấp
-                                if (lo.getSoLuongTon() <= 15) count++;
-                                // 2. Cận date / Hết hạn
-                                else if (lo.getHSD() != null) {
-                                    long days = java.time.temporal.ChronoUnit.DAYS.between(today, lo.getHSD());
-                                    if (days <= 30) count++;
+                                int tonKho = lo.getSoLuongTon();
+                                if (tonKho <= 0) continue;
+        
+                                // Bỏ qua lô đã kiểm tra hoàn tất
+                                if (dsLoaDaKiemTra.contains(lo.getMaLoHang())) continue;
+        
+                                boolean daCanhBaoDate = false;
+        
+                                if (lo.getHSD() != null) {
+                                    long daysBetween = java.time.temporal.ChronoUnit.DAYS
+                                            .between(today, lo.getHSD());
+        
+                                    if (daysBetween < 0) {
+                                        // Hết hạn
+                                        count++;
+                                        daCanhBaoDate = true;
+        
+                                    } else if (daysBetween <= 30) {
+                                        // Sắp hết hạn nhưng đang giảm giá → bỏ qua
+                                        if (dsDangGiamGia.contains(sp.getMaSP())) {
+                                            daCanhBaoDate = true;
+                                            continue;
+                                        }
+                                        count++;
+                                        daCanhBaoDate = true;
+                                    }
+                                }
+        
+                                // Tồn thấp (chỉ đếm nếu chưa cảnh báo date)
+                                if (!daCanhBaoDate && tonKho <= 15) {
+                                    count++;
                                 }
                             }
                         }
+        
+                        // === BƯỚC 3: Đếm lệch kho (đồng bộ logic với taiDuLieuThucTeTuKho) ===
+                        String sqlLechKho = "SELECT k.MaLoHang, k.LyDo " +
+                                            "FROM KiemKeKho k " +
+                                            "WHERE k.SoLuongHeThong <> k.SoLuongThucTe";
+                        try (java.sql.Connection con = Dao.ConnectDB.getInstance().getConnection();
+                            java.sql.Statement st = con.createStatement();
+                            java.sql.ResultSet rs = st.executeQuery(sqlLechKho)) {
+                            while (rs.next()) {
+                                String maLo = rs.getString("MaLoHang");
+                                String lyDo = rs.getString("LyDo");
+        
+                                // Bỏ qua: đã bù trừ Huề kho
+                                if (lyDo != null && lyDo.contains("Huề kho")) continue;
+        
+                                // Bỏ qua: đã kiểm tra hoàn tất
+                                if (lyDo != null && lyDo.startsWith("Đã kiểm tra " + maLo)) continue;
+                                if (dsLoaDaKiemTra.contains(maLo)) continue;
+        
+                                count++;
+                            }
+                        } catch (Exception ignored) {}
+        
                     } catch (Exception ignored) {}
                     return count;
                 }
+        
                 @Override
                 protected void done() {
                     try { setNotificationCount(get()); } catch (Exception ignored) {}

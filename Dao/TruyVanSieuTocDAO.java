@@ -47,6 +47,7 @@ public class TruyVanSieuTocDAO {
         public Map<String, Integer> mapGiamGia = new HashMap<>(); // ← THÊM DÒNG NÀY
     }
 
+
     // =========================================================================
     // 2. TẢI DỮ LIỆU CHIA CA (Dùng cho BangChiaCaUi & ChiaCaUi)
     // =========================================================================

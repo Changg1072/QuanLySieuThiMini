@@ -506,8 +506,8 @@ public class KiemKeGUI extends JPanel {
             BorderFactory.createLineBorder(MAU_VIEN, 1),
             new EmptyBorder(10, 10, 10, 10)
         ));
-        txtLyDo.setText("Nhập lý do chênh lệch nếu có...");
-        txtLyDo.setForeground(MAU_CHU_NHAT);
+        txtLyDo.setText("Đã kiểm tra");
+        txtLyDo.setForeground(MAU_CHU_CHINH);
         txtLyDo.addFocusListener(new FocusAdapter() {
             public void focusGained(FocusEvent e) { if (txtLyDo.getText().equals("Nhập lý do chênh lệch nếu có...")) { txtLyDo.setText(""); txtLyDo.setForeground(MAU_CHU_CHINH); } }
             public void focusLost(FocusEvent e) { if (txtLyDo.getText().isEmpty()) { txtLyDo.setText("Nhập lý do chênh lệch nếu có..."); txtLyDo.setForeground(MAU_CHU_NHAT); } }
@@ -779,8 +779,9 @@ public class KiemKeGUI extends JPanel {
         } else {
             // Lô chưa đếm: Dọn dẹp sạch sẽ UI
             txtKiemDem.setText("");
-            txtLyDo.setText("Nhập lý do chênh lệch nếu có...");
-            txtLyDo.setForeground(MAU_CHU_NHAT);
+            // 🔥 ĐÃ ĐỔI: Reset về "Đã kiểm tra" thay vì thông báo placeholder cũ
+            txtLyDo.setText("Đã kiểm tra " + maLoDangChon);
+            txtLyDo.setForeground(MAU_CHU_CHINH);
             
             lblChenhLech.setText("--");
             lblTextChenhLechNho.setText("");
@@ -886,7 +887,7 @@ public class KiemKeGUI extends JPanel {
 
         String lyDo = txtLyDo.getText().trim();
         if (lyDo.equals("Nhập lý do chênh lệch nếu có...")) lyDo = "";
-
+        if (lyDo.isEmpty()) lyDo = "Đã kiểm tra " + maLoDangChon;
         if (lech != 0 && lyDo.isEmpty()) {
             // 🔥 THAY JOPTIONPANE
             TienIchGiaoDien.hienThiThongBao(this, "Hệ thống phát hiện có chênh lệch.<br>Vui lòng nhập lý do!", "WARNING"); 
@@ -970,18 +971,58 @@ public class KiemKeGUI extends JPanel {
                                     String[] parts = entry.getKey().split("_");
                                     String maSP = parts[0];
                                     String maLo = parts[1];
-                                    int tonHTCuaLo = duLieuSQL.mapDanhSachLo.get(maSP).stream()
-                                        .filter(l -> l.getMaLoHang().equals(maLo)).findFirst().get().getSoLuongTon();
+                                    
+                                    // 1. Lấy nguyên Object Lô Hàng hiện tại để lấy Số Lượng Tồn và Giá Nhập
+                                    Data.ChiTietLoHang loHangHienTai = duLieuSQL.mapDanhSachLo.get(maSP).stream()
+                                        .filter(l -> l.getMaLoHang().equals(maLo)).findFirst().get();
+                                    
+                                    int tonHTCuaLo = loHangHienTai.getSoLuongTon();
 
+                                    // =========================================================================
+                                    // 🚀 TÍNH NĂNG MỚI: TỰ ĐỘNG LẬP PHIẾU TIÊU HỦY KHI THIẾU HỤT (THẤT THOÁT)
+                                    // =========================================================================
+                                    if (uiData.soLuongThucTe < tonHTCuaLo) {
+                                        int soLuongThieu = tonHTCuaLo - uiData.soLuongThucTe;
+                                        
+                                        // Tính toán giá trị thất thoát dựa trên giá nhập của lô
+                                        java.math.BigDecimal giaNhapSP = loHangHienTai.getGiaNhap() != null ? loHangHienTai.getGiaNhap() : java.math.BigDecimal.ZERO;
+                                        java.math.BigDecimal tongGiaTriHuy = giaNhapSP.multiply(new java.math.BigDecimal(soLuongThieu));
+                                        
+                                        // A. Tạo vỏ phiếu tiêu hủy tổng
+                                        Data.PhieuTieuHuy phieuHuy = new Data.PhieuTieuHuy();
+                                        phieuHuy.setMaNV(maNhanVienHienTai);
+                                        phieuHuy.setTongSoLuong(soLuongThieu);
+                                        phieuHuy.setTongGiaTriHuy(tongGiaTriHuy);
+                                        phieuHuy.setLyDoHuy("Thất thoát (Hệ thống tự động lập khi kiểm kê)");
+                                        Logic.PhieuTieuHuyLogic.getInstance().taoPhieuTieuHuy(phieuHuy);
+                                        
+                                        // B. Tạo chi tiết hàng hủy cho đúng mã SP và Lô hàng bị thiếu đó
+                                        Data.ChiTietPhieuHuy chiTietHuy = new Data.ChiTietPhieuHuy();
+                                        chiTietHuy.setMaPhieuHuy(phieuHuy.getMaPhieuHuy());
+                                        chiTietHuy.setMaLoHang(maLo);
+                                        chiTietHuy.setMaSP(maSP);
+                                        chiTietHuy.setSoLuongHuy(soLuongThieu);
+                                        chiTietHuy.setGiaTriHuy(tongGiaTriHuy);
+                                        chiTietHuy.setLyDoChiTiet("Thất thoát");
+                                        Logic.ChiTietPhieuHuyLogic.getInstance().themChiTietPhieuHuy(chiTietHuy);
+                                        
+                                        // C. Hoàn tất đóng gói phiếu tiêu hủy (Hệ thống sẽ gọi DAO trừ kho thật)
+                                        Logic.PhieuTieuHuyLogic.getInstance().hoanTatPhieuTieuHuy(phieuHuy.getMaPhieuHuy());
+                                    }
+                                    // =========================================================================
+
+                                    // 2. Tiếp tục khởi tạo phiếu Kiểm Kê bình thường
                                     KiemKeKho kk = new KiemKeKho.ThoXayKiemKeKho()
                                         .ganMaKiemKe("CHUA_CO_MA").ganMaNV(maNhanVienHienTai)
                                         .ganMaLoHang(maLo).ganMaSP(maSP)
                                         .ganSoLuongHeThong(tonHTCuaLo).ganSoLuongThucTe(uiData.soLuongThucTe)
                                         .ganLyDo(uiData.lyDo).taoMoi();
+                                        
                                     mapGomNhomTheoSP.computeIfAbsent(maSP, k -> new ArrayList<>()).add(kk);
                                 }
                             }
 
+                            // 3. Xử lý bù trừ chéo và gán mã Phiếu kiểm kê
                             for (List<KiemKeKho> dsPhieu : mapGomNhomTheoSP.values()) {
                                 logic.xuLyBuTruCheoTruocKhiLuu(dsPhieu);
                                 for (KiemKeKho kk : dsPhieu) {
@@ -991,11 +1032,13 @@ public class KiemKeGUI extends JPanel {
                                 }
                             }
 
-                            // 🔥 GỌI DAO LƯU SIÊU TỐC (BATCH)
+                            // 4. 🔥 GỌI DAO LƯU KẾT QUẢ KIỂM KÊ SIÊU TỐC (BATCH)
                             TruyVanSieuTocDAO.getInstance().dongBoKiemKeGopChungSieuToc(tatCaPhieuChoLuu);
                             isSuccess = true;
+                            
                         } catch (Exception ex) {
                             errorMsg = ex.getMessage();
+                            ex.printStackTrace(); // In ra console để dễ debug nếu có lỗi
                         }
                         return null;
                     }

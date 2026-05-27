@@ -125,7 +125,25 @@ public class CanhBaoKhoPanel extends JPanel {
                     .getTapHopSanPhamDangGiamGia();
                 LocalDate today = LocalDate.now();
 
-                // 1. QUÉT HẠN SỬ DỤNG & TỒN THẤP (Như cũ)
+                // =====================================================================
+                // 🆕 BƯỚC 0: RÀ SOÁT & NẠP DANH SÁCH LÔ ĐÃ KIỂM TRA HOÀN TẤT
+                // Logic: Lô có LyDo bắt đầu bằng "Đã kiểm tra [MaLoHang]" → đã xử lý xong
+                // → Loại khỏi tất cả cảnh báo (cả lệch kho lần 1 và lần 2)
+                // =====================================================================
+                java.util.Set<String> dsLoaDaKiemTra = new java.util.HashSet<>();
+                String sqlDaKiem = "SELECT DISTINCT MaLoHang FROM KiemKeKho " +
+                                   "WHERE LyDo LIKE N'Đã kiểm tra %'";
+                try (java.sql.Connection con = Dao.ConnectDB.getInstance().getConnection();
+                     java.sql.Statement stKiem = con.createStatement();
+                     java.sql.ResultSet rsKiem = stKiem.executeQuery(sqlDaKiem)) {
+                    while (rsKiem.next()) {
+                        dsLoaDaKiemTra.add(rsKiem.getString("MaLoHang"));
+                    }
+                } catch (Exception e) {
+                    System.err.println("Lỗi lấy danh sách lô đã kiểm tra: " + e.getMessage());
+                }
+
+                // 1. QUÉT HẠN SỬ DỤNG & TỒN THẤP
                 for (SanPham sp : duLieuSQL.dsSanPham) {
                     List<ChiTietLoHang> dsLo = duLieuSQL.mapDanhSachLo.get(sp.getMaSP());
                     if (dsLo == null) continue;
@@ -134,13 +152,15 @@ public class CanhBaoKhoPanel extends JPanel {
                         int tonKho = lo.getSoLuongTon();
                         if (tonKho <= 0) continue;
 
+                        // 🆕 BỎ QUA LÔ ĐÃ ĐƯỢC KIỂM TRA HOÀN TẤT
+                        if (dsLoaDaKiemTra.contains(lo.getMaLoHang())) continue;
+
                         boolean daCanhBaoDate = false;
 
                         if (lo.getHSD() != null) {
                             long daysBetween = ChronoUnit.DAYS.between(today, lo.getHSD());
 
                             if (daysBetween < 0) {
-                                // Hết hạn → vẫn cảnh báo bình thường (cần tiêu hủy, không phải giảm giá)
                                 long expiredDays = Math.abs(daysBetween);
                                 list.add(new AlertItem(
                                     sp.getTenSP(), "Đã hết hạn " + expiredDays + " ngày",
@@ -151,9 +171,8 @@ public class CanhBaoKhoPanel extends JPanel {
                                 daCanhBaoDate = true;
 
                             } else if (daysBetween <= 30) {
-                                // 🎯 Sắp hết hạn nhưng đã đang giảm giá → bỏ qua
                                 if (dsDangGiamGia.contains(sp.getMaSP())) {
-                                    daCanhBaoDate = true; // Tránh rơi vào cảnh báo tồn thấp phía dưới
+                                    daCanhBaoDate = true;
                                     continue;
                                 }
 
@@ -178,37 +197,46 @@ public class CanhBaoKhoPanel extends JPanel {
                         }
                     }
                 }
-                // 2. 🎯 ĐỘNG CƠ QUÉT LỆCH KHO TỪ BẢNG KiemKeKho
+
+                // 2. ĐỘNG CƠ QUÉT LỆCH KHO TỪ BẢNG KiemKeKho
                 String sqlLechKho = "SELECT k.MaSP, s.TenSP, k.MaLoHang, k.SoLuongHeThong, k.SoLuongThucTe, k.LyDo " +
                                     "FROM KiemKeKho k JOIN SanPham s ON k.MaSP = s.MaSP " +
                                     "WHERE k.SoLuongHeThong <> k.SoLuongThucTe";
-                                    
+
                 try (java.sql.Connection con = Dao.ConnectDB.getInstance().getConnection();
                      java.sql.Statement st = con.createStatement();
                      java.sql.ResultSet rs = st.executeQuery(sqlLechKho)) {
-                     
+
                     while (rs.next()) {
                         String tenSP = rs.getString("TenSP");
-                        String maLo = rs.getString("MaLoHang");
-                        int slHT = rs.getInt("SoLuongHeThong");
-                        int slTT = rs.getInt("SoLuongThucTe");
-                        String lyDo = rs.getString("LyDo");
-                        
-                        // 🎯 CHẶN NGAY TẠI ĐÂY: Nếu đã tự động bù trừ "Huề kho" thì KHÔNG CẢNH BÁO NỮA
-                        if (lyDo != null && lyDo.contains("Huề kho")) {
-                            continue; // Bỏ qua luôn lô này, không đẩy vào list Cảnh báo
-                        }
-                        
-                        int lech = slTT - slHT; // Âm là thiếu, Dương là dư
+                        String maLo  = rs.getString("MaLoHang");
+                        int slHT     = rs.getInt("SoLuongHeThong");
+                        int slTT     = rs.getInt("SoLuongThucTe");
+                        String lyDo  = rs.getString("LyDo");
+
+                        // CHẶN: Đã bù trừ "Huề kho" → bỏ qua
+                        if (lyDo != null && lyDo.contains("Huề kho")) continue;
+
+                        // 🆕 CHẶN: Lô đã được kiểm tra hoàn tất → bỏ qua
+                        // Nhận dạng qua LyDo = "Đã kiểm tra [MaLoHang]"
+                        if (lyDo != null && lyDo.startsWith("Đã kiểm tra " + maLo)) continue;
+
+                        // Dự phòng thêm: nếu mã lô nằm trong Set đã thu thập ở Bước 0 → bỏ qua
+                        if (dsLoaDaKiemTra.contains(maLo)) continue;
+
+                        int lech = slTT - slHT;
                         String textCanhBao = (lech > 0 ? "Phát hiện dư: +" : "Phát hiện thiếu: ") + lech + " SP";
                         if (lyDo != null && !lyDo.trim().isEmpty()) {
                             textCanhBao += " (" + lyDo + ")";
                         }
-                        
-                        // Push vào danh sách với Loại = LECH_KHO (Tím)
-                        list.add(new AlertItem(tenSP, textCanhBao, maLo, "Kho chờ xử lý", AlertPriority.HIGH, AlertType.LECH_KHO, rs.getString("MaSP"), slHT, BigDecimal.ZERO));
+
+                        list.add(new AlertItem(
+                            tenSP, textCanhBao, maLo, "Kho chờ xử lý",
+                            AlertPriority.HIGH, AlertType.LECH_KHO,
+                            rs.getString("MaSP"), slHT, BigDecimal.ZERO
+                        ));
                     }
-                } catch(Exception e) {
+                } catch (Exception e) {
                     System.err.println("Lỗi quét lệch kho: " + e.getMessage());
                 }
 
