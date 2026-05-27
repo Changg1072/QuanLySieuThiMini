@@ -948,14 +948,59 @@ public class CanhBaoKhoPanel extends JPanel {
                     }
                 }));
 
-            } else { // LOW_STOCK
-                pnlContainer.add(createPopupItem("📋 Kiểm kê lại kho", e -> {
+            } else if (data.type == AlertType.LOW_STOCK) {
+                // 1. NHẬP HÀNG NGAY -> Chuyển thẳng trang
+                pnlContainer.add(createPopupItem("📦 Nhập hàng ngay", e -> {
                     setVisible(false);
-                    WarehouseAlertActionHandler.routeAction(AlertType.LECH_KHO, data, parentCard);
+                    parentCard.markAsPending("ĐANG NHẬP", "Đã mở form");
+                    if (navigationCallback != null) {
+                        // =========================================================
+                        // 🧠 THUẬT TOÁN ĐẶT HÀNG THÔNG MINH (DEMAND-DRIVEN ERP)
+                        // =========================================================
+                        // (Thực tế sếp có thể query các số này từ lịch sử bán hàng trong DB)
+                        int sucBanNgay = 12;         // Tốc độ bán trung bình: 12 SP / ngày
+                        int thoiGianGiaoHang = 3;    // Lead time: NCC mất 3 ngày để chở hàng tới
+                        int chuKyNhapHang = 14;      // Chu kỳ: Muốn nhập 1 lần đủ bán trong 2 tuần (14 ngày)
+                        int quyCachDongGoi = 10;     // Quy cách: Lốc 10 cái, Thùng 24 cái...
+
+                        // Bước 1: Tính Tồn kho an toàn (Đủ bán trong lúc chờ hàng về + 2 ngày rủi ro kẹt xe)
+                        int tonKhoAnToan = sucBanNgay * (thoiGianGiaoHang + 2); 
+
+                        // Bước 2: Tính Mức tồn kho mục tiêu (Đủ bán trong 1 chu kỳ + Tồn an toàn)
+                        int tonKhoMucTieu = (sucBanNgay * chuKyNhapHang) + tonKhoAnToan;
+
+                        // Bước 3: Tính số lượng thực tế cần bù (Mục tiêu - Đang có)
+                        int slCanBu = tonKhoMucTieu - data.soLuongTon;
+                        if (slCanBu <= 0) slCanBu = quyCachDongGoi; // Rủi ro dữ liệu âm -> Gợi ý nhập 1 thùng tối thiểu
+
+                        // Bước 4: Làm tròn lên theo quy cách đóng gói của Nhà cung cấp
+                        int slDeXuat = (int) (Math.ceil((double) slCanBu / quyCachDongGoi) * quyCachDongGoi);
+                        // =========================================================
+
+                        navigationCallback.navigateTo("NhapHangNgay", data.maSP + "|" + data.productName + "|" + slDeXuat);
+                    }
                 }));
-                pnlContainer.add(createPopupItem("📥 Nhập thêm hàng", e -> {
+                
+                // 2. NHẬP HÀNG SAU -> Bắn tín hiệu ngầm dạng Gợi ý
+                pnlContainer.add(createPopupItem("📝 Lưu gợi ý nhập sau", e -> {
                     setVisible(false);
-                    WarehouseAlertActionHandler.routeAction(AlertType.LOW_STOCK, data, parentCard);
+                    parentCard.markAsPending("CHỜ NHẬP", "Đã ghim gợi ý");
+                    if (navigationCallback != null) {
+                        // (ÁP DỤNG CÙNG THUẬT TOÁN ĐỂ ĐỒNG BỘ CON SỐ GỢI Ý)
+                        int sucBanNgay = 12;
+                        int thoiGianGiaoHang = 3;
+                        int chuKyNhapHang = 14;
+                        int quyCachDongGoi = 10;
+
+                        int tonKhoAnToan = sucBanNgay * (thoiGianGiaoHang + 2); 
+                        int tonKhoMucTieu = (sucBanNgay * chuKyNhapHang) + tonKhoAnToan;
+                        int slCanBu = tonKhoMucTieu - data.soLuongTon;
+                        
+                        if (slCanBu <= 0) slCanBu = quyCachDongGoi; 
+                        int slDeXuat = (int) (Math.ceil((double) slCanBu / quyCachDongGoi) * quyCachDongGoi);
+
+                        navigationCallback.navigateTo("NhapHangSau", data.productName + "|" + slDeXuat);
+                    }
                 }));
             }
 
@@ -1661,6 +1706,7 @@ public class CanhBaoKhoPanel extends JPanel {
             g2.dispose();
         }
     }
+    
     public static void main(String[] args) {
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignored) {}
         SwingUtilities.invokeLater(() -> {

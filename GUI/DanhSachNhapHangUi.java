@@ -679,7 +679,7 @@ public class DanhSachNhapHangUi extends JPanel {
             this.tongSoLuong = tongSoLuong;
         }
     }
-
+    
     private class ModernCheckBox extends JCheckBox {
         public ModernCheckBox() { setOpaque(false); setCursor(new Cursor(Cursor.HAND_CURSOR)); }
         @Override protected void paintComponent(Graphics g) {

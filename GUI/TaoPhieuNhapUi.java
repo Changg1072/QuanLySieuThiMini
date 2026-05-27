@@ -18,6 +18,7 @@ import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.Point;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -30,6 +31,7 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
@@ -983,6 +985,195 @@ public class TaoPhieuNhapUi extends JPanel {
             }
             add(pnlDays, BorderLayout.CENTER);
         }
+    }
+        // =========================================================
+    // XỬ LÝ TÍN HIỆU ĐIỀU HƯỚNG & POPUP TRÔI NỔI (STICKY NOTE)
+    // =========================================================
+    public void nhanDuLieuNhapHangNgay(String dataString) {
+        // Tách chuỗi theo format: Mã SP | Tên SP | Số lượng
+        String[] parts = dataString.split("\\|");
+        
+        if (parts.length >= 3) {
+            String maSP = parts[0];
+            String tenSP = parts[1];
+            int slDeXuat = Integer.parseInt(parts[2]);
+
+            // 1. Tự động chọn luôn Sản phẩm vào ô Combo box cho sếp đỡ phải tìm
+            cbSanPham.selectItemById(maSP);
+            
+            // 2. Chuyển con trỏ chuột thẳng vào ô Số Lượng chờ gõ luôn
+            txtSoLuong.getField().requestFocusInWindow();
+
+            // 3. Bung lụa Sticky Note!
+            hienThiGoiYNhapHang(tenSP, slDeXuat);
+            
+        } else if (parts.length == 1) {
+            // Đề phòng trường hợp chỉ truyền mã SP
+            cbSanPham.selectItemById(parts[0]);
+        }
+    }
+
+    // =========================================================
+    // 🔥 STICKY NOTE GỢI Ý - STYLE SÁNG TƯƠI, TINH TẾ (FIX LỖI FONT)
+    // =========================================================
+    private int noteOffset = 0; 
+
+    public void hienThiGoiYNhapHang(String tenSP, int slDeXuat) {
+        Window parentWindow = SwingUtilities.getWindowAncestor(this);
+        JDialog popupGoiY = new JDialog(parentWindow);
+        popupGoiY.setUndecorated(true); 
+        popupGoiY.setAlwaysOnTop(true);
+        popupGoiY.setBackground(new Color(0, 0, 0, 0)); // Nền trong suốt để bo góc
+
+        // 1. TỰ VẼ PANEL NỀN (Màu Vàng Nhạt Tươi Sáng)
+        JPanel pnlNote = new JPanel(new BorderLayout(10, 12)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                // Vẽ bóng (Shadow nhạt và mịn hơn)
+                g2.setColor(new Color(0, 0, 0, 20)); 
+                g2.fillRoundRect(4, 4, getWidth() - 8, getHeight() - 8, 12, 12);
+                
+                // Nền chính (Màu vàng kem / Vàng Pastel siêu nhạt)
+                g2.setColor(new Color(254, 251, 230)); 
+                g2.fillRoundRect(0, 0, getWidth() - 8, getHeight() - 8, 8, 8); 
+                
+                // Viền highlight mỏng ở trên cùng (Line màu vàng cam)
+                g2.setColor(new Color(245, 158, 11)); // Amber 500
+                g2.fillRoundRect(0, 0, getWidth() - 8, 4, 8, 8); 
+                
+                // Vẽ viền bao quanh mỏng tạo độ nét
+                g2.setColor(new Color(253, 230, 138)); 
+                g2.drawRoundRect(0, 0, getWidth() - 9, getHeight() - 9, 8, 8);
+                
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        pnlNote.setOpaque(false);
+        pnlNote.setBorder(BorderFactory.createEmptyBorder(12, 18, 15, 18)); // Bo hẹp viền lại cho thanh thoát
+
+        // 2. HEADER (Tiêu đề + Icon ghim)
+        JPanel pnlHeader = new JPanel(new BorderLayout(5, 0));
+        pnlHeader.setOpaque(false);
+        
+        // 🎯 FIX LỖI Ô VUÔNG: Ép dùng font Segoe UI Emoji cho Icon
+        JLabel lblIcon = new JLabel("💡"); 
+        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        
+        JLabel lblTitle = new JLabel("GỢI Ý NHẬP KHO");
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 12)); // Thu nhỏ gọn gàng
+        lblTitle.setForeground(new Color(180, 83, 9)); // Màu nâu cam đậm
+
+        JPanel pnlTitleWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        pnlTitleWrap.setOpaque(false);
+        pnlTitleWrap.add(lblIcon);
+        pnlTitleWrap.add(lblTitle);
+
+        JLabel lblClose = new JLabel("📌"); 
+        lblClose.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 15));
+        lblClose.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        lblClose.setForeground(new Color(156, 163, 175));
+        lblClose.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) { popupGoiY.dispose(); }
+        });
+
+        pnlHeader.add(pnlTitleWrap, BorderLayout.WEST);
+        pnlHeader.add(lblClose, BorderLayout.EAST);
+
+        // 3. CONTENT (Thông tin sản phẩm)
+        JPanel pnlContent = new JPanel(new BorderLayout(15, 0));
+        pnlContent.setOpaque(false);
+
+        // --- Bên trái (Tên Sản phẩm & Cảnh báo) ---
+        JPanel pnlLeft = new JPanel(new GridLayout(2, 1, 0, 2));
+        pnlLeft.setOpaque(false);
+        
+        JLabel lblName = new JLabel(tenSP);
+        lblName.setFont(new Font("Segoe UI", Font.BOLD, 15)); // Giảm size, in đậm để nổi bật
+        lblName.setForeground(new Color(15, 23, 42)); // Đổi thành màu Đen/Xanh đậm 
+        
+        // 🎯 FIX LỖI Ô VUÔNG TIẾP TỤC Ở ĐÂY
+        JLabel lblSubIcon = new JLabel("⚡"); 
+        lblSubIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 12));
+        lblSubIcon.setForeground(new Color(234, 88, 12));
+        
+        JLabel lblSubText = new JLabel("Cần nhập thêm");
+        lblSubText.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblSubText.setForeground(new Color(234, 88, 12)); // Màu cam
+
+        JPanel pnlSubWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
+        pnlSubWrap.setOpaque(false);
+        pnlSubWrap.add(lblSubIcon);
+        pnlSubWrap.add(lblSubText);
+        
+        pnlLeft.add(lblName);
+        pnlLeft.add(pnlSubWrap);
+
+        // --- Bên phải (Chữ NHẬP nhỏ & Số lượng bự) ---
+        JPanel pnlRight = new JPanel(new BorderLayout()); 
+        pnlRight.setOpaque(false);
+        
+        JLabel lblAction = new JLabel("NHẬP", SwingConstants.CENTER);
+        lblAction.setFont(new Font("Segoe UI", Font.BOLD, 10)); // Chữ bé xíu tinh tế
+        lblAction.setForeground(new Color(148, 163, 184)); // Xám nhạt
+
+        JLabel lblQty = new JLabel(String.valueOf(slDeXuat), SwingConstants.CENTER);
+        lblQty.setFont(new Font("Segoe UI", Font.BOLD, 22)); // Size thu lại vừa vặn hơn (22 thay vì 24)
+        lblQty.setForeground(new Color(234, 88, 12)); 
+
+        pnlRight.add(lblAction, BorderLayout.NORTH);
+        pnlRight.add(lblQty, BorderLayout.CENTER);
+
+        pnlContent.add(pnlLeft, BorderLayout.CENTER);
+        pnlContent.add(pnlRight, BorderLayout.EAST);
+
+        // 4. LẮP RÁP & KÍCH THƯỚC
+        pnlNote.add(pnlHeader, BorderLayout.NORTH);
+        pnlNote.add(pnlContent, BorderLayout.CENTER);
+        
+        popupGoiY.add(pnlNote);
+        popupGoiY.pack();
+        // Căn chỉnh form gọn gàng hơn
+        popupGoiY.setSize(Math.max(popupGoiY.getWidth() + 30, 280), popupGoiY.getHeight()); 
+
+        // 5. HIỆU ỨNG KÉO THẢ (Drag)
+        java.awt.event.MouseAdapter dragListener = new java.awt.event.MouseAdapter() {
+            Point startPoint;
+            public void mousePressed(java.awt.event.MouseEvent e) { startPoint = e.getPoint(); }
+            public void mouseDragged(java.awt.event.MouseEvent e) {
+                Point current = e.getLocationOnScreen();
+                popupGoiY.setLocation(current.x - startPoint.x, current.y - startPoint.y);
+            }
+        };
+        pnlNote.addMouseListener(dragListener);
+        pnlNote.addMouseMotionListener(dragListener);
+
+        // 6. ẢO THUẬT XẾP CHỒNG
+        Runnable tinhViTriVaHienThi = () -> {
+            if (this.isShowing()) {
+                try {
+                    Point loc = this.getLocationOnScreen();
+                    popupGoiY.setLocation(loc.x + this.getWidth() - popupGoiY.getWidth() - 30, loc.y + 20 + noteOffset);
+                    noteOffset = (noteOffset + popupGoiY.getHeight() - 5) % 500; 
+                    popupGoiY.setVisible(true);
+                } catch (java.awt.IllegalComponentStateException e) {}
+            }
+        };
+
+        this.addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0) {
+                if (this.isShowing()) {
+                    SwingUtilities.invokeLater(tinhViTriVaHienThi);
+                } else {
+                    popupGoiY.setVisible(false);
+                }
+            }
+        });
+
+        SwingUtilities.invokeLater(tinhViTriVaHienThi);
     }
     class ComboItem { String id; String name; public ComboItem(String id, String name) { this.id = id; this.name = name; } @Override public String toString() { return name; } }
 }

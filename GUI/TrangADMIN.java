@@ -132,7 +132,7 @@ public class TrangADMIN extends JFrame {
         return sidebar;
     }
 
-    // =========================================================
+        // =========================================================
     //  PHẦN 1 — HEADER
     // =========================================================
     private JPanel taoHeader() {
@@ -145,6 +145,9 @@ public class TrangADMIN extends JFrame {
         JPanel pnlTitleRow = new JPanel(new BorderLayout());
         pnlTitleRow.setOpaque(false);
         pnlTitleRow.setMaximumSize(new Dimension(SIDEBAR_W, 36));
+        
+        // 🎯 THÊM DÒNG NÀY ĐỂ ÉP TOÀN BỘ HEADER ÉP SÁT LỀ TRÁI CHUẨN XÁC
+        pnlTitleRow.setAlignmentX(Component.LEFT_ALIGNMENT); 
 
         JLabel lblTieuDe = taoLabel("QUẢN LÝ SIÊU THỊ", 13, Font.BOLD, CLR_ACCENT);
         NotificationBell bell = new NotificationBell(); // Gọi chiếc chuông thần thánh
@@ -211,7 +214,22 @@ public class TrangADMIN extends JFrame {
                         kiemKeUi.nhanDuLieuCanhBaoLechKho(parts[0], parts[1]);
                     }
                 }
-                
+                else if ("NhapHangNgay".equals(moduleName)) {
+                    // 🔥 SỬA TÊN Ở ĐÂY THÀNH "NHAP_HANG_MODULE"
+                    taoMucDropdown("Nhập hàng", "NHAP_HANG_MODULE").doClick();
+                    if (nhapHangModuleUi != null) { 
+                        nhapHangModuleUi.chuyenDuLieuNhapHangNgay(identifier);
+                    }
+                }
+                // 🚀 TÍNH NĂNG MỚI: NHẬP HÀNG SAU (TẠO POPUP GỢI Ý NGẦM)
+                else if ("NhapHangSau".equals(moduleName)) {
+                    if (nhapHangModuleUi == null) {
+                        nhapHangModuleUi = new QuanLyNhapHangModule();
+                        // 🔥 SỬA TÊN Ở ĐÂY THÀNH "NHAP_HANG_MODULE"
+                        pnlCards.add(nhapHangModuleUi, "NHAP_HANG_MODULE");
+                    }
+                    nhapHangModuleUi.chuyenDuLieuNhapHangSau(identifier);
+                }
             });
             pnlCards.add(canhBaoKhoPanel, "CANH_BAO");
         }

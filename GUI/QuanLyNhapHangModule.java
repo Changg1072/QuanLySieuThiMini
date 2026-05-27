@@ -131,7 +131,24 @@ public class QuanLyNhapHangModule extends JPanel {
             }
         }
     }
+    
+    public void chuyenDuLieuNhapHangNgay(String dataString) {
+        tabMenu.setActiveTab("TAO_PHIEU");
+        cardLayout.show(pnlContent, "TAO_PHIEU");
+        if (tabTaoPhieu != null) {
+            tabTaoPhieu.nhanDuLieuNhapHangNgay(dataString);
+        }
+    }
 
+    public void chuyenDuLieuNhapHangSau(String dataString) {
+        // Tách chuỗi: Tên SP | Số Lượng Đề Xuất
+        String[] parts = dataString.split("\\|");
+        if (parts.length == 2 && tabTaoPhieu != null) {
+            String tenSP = parts[0];
+            int slDeXuat = Integer.parseInt(parts[1]);
+            tabTaoPhieu.hienThiGoiYNhapHang(tenSP, slDeXuat);
+        }
+    }
  // Class phụ trợ vẽ Icon chuẩn kích thước
     private class EmojiIcon implements Icon {
         private String emoji; private Color color; private int size;
