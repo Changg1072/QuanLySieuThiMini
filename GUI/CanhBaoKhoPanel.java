@@ -67,7 +67,14 @@ public class CanhBaoKhoPanel extends JPanel {
     private AlertType currentFilterType = null;         // null = Tất cả
     private AlertPriority currentFilterPriority = null; // null = Tất cả
     private List<JButton> lstPriorityChips = new ArrayList<>(); // Lưu list chip để đổi màu động
-
+    public interface NavigationCallback {
+        void navigateTo(String moduleName, String maSP);
+    }
+    private NavigationCallback navigationCallback;
+    public CanhBaoKhoPanel(NavigationCallback callback) {
+        this();
+        this.navigationCallback = callback;
+    }
     public CanhBaoKhoPanel() {
         setLayout(new BorderLayout(20, 20));
         setBackground(BG_MAIN);
@@ -114,6 +121,8 @@ public class CanhBaoKhoPanel extends JPanel {
             protected List<AlertItem> doInBackground() throws Exception {
                 List<AlertItem> list = new ArrayList<>();
                 TruyVanSieuTocDAO.DuLieuKiemKeSieuTocDTO duLieuSQL = TruyVanSieuTocDAO.getInstance().loadDuLieuKiemKeSieuToc();
+                java.util.Set<String> dsDangGiamGia = TruyVanSieuTocDAO.getInstance()
+                    .getTapHopSanPhamDangGiamGia();
                 LocalDate today = LocalDate.now();
 
                 // 1. QUÉT HẠN SỬ DỤNG & TỒN THẤP (Như cũ)
@@ -131,25 +140,44 @@ public class CanhBaoKhoPanel extends JPanel {
                             long daysBetween = ChronoUnit.DAYS.between(today, lo.getHSD());
 
                             if (daysBetween < 0) {
+                                // Hết hạn → vẫn cảnh báo bình thường (cần tiêu hủy, không phải giảm giá)
                                 long expiredDays = Math.abs(daysBetween);
-                                // 1. Truyền thêm mã SP, Tồn kho, Giá nhập cho Hết hạn
-                                list.add(new AlertItem(sp.getTenSP(), "Đã hết hạn " + expiredDays + " ngày", lo.getMaLoHang(), "Kho chính", AlertPriority.HIGH, AlertType.EXPIRED, sp.getMaSP(), tonKho, lo.getGiaNhap()));
+                                list.add(new AlertItem(
+                                    sp.getTenSP(), "Đã hết hạn " + expiredDays + " ngày",
+                                    lo.getMaLoHang(), "Kho chính",
+                                    AlertPriority.HIGH, AlertType.EXPIRED,
+                                    sp.getMaSP(), tonKho, lo.getGiaNhap()
+                                ));
                                 daCanhBaoDate = true;
+
                             } else if (daysBetween <= 30) {
+                                // 🎯 Sắp hết hạn nhưng đã đang giảm giá → bỏ qua
+                                if (dsDangGiamGia.contains(sp.getMaSP())) {
+                                    daCanhBaoDate = true; // Tránh rơi vào cảnh báo tồn thấp phía dưới
+                                    continue;
+                                }
+
                                 AlertPriority pri = (daysBetween <= 7) ? AlertPriority.HIGH : AlertPriority.MEDIUM;
-                                // 2. Truyền cho Cận date
-                                list.add(new AlertItem(sp.getTenSP(), "Còn " + daysBetween + " ngày hết hạn", lo.getMaLoHang(), "Kho chính", pri, AlertType.EXPIRING_SOON, sp.getMaSP(), tonKho, lo.getGiaNhap()));
+                                list.add(new AlertItem(
+                                    sp.getTenSP(), "Còn " + daysBetween + " ngày hết hạn",
+                                    lo.getMaLoHang(), "Kho chính",
+                                    pri, AlertType.EXPIRING_SOON,
+                                    sp.getMaSP(), tonKho, lo.getGiaNhap()
+                                ));
                                 daCanhBaoDate = true;
                             }
                         }
 
                         if (!daCanhBaoDate && tonKho <= 15) {
-                            // 3. Truyền cho Tồn kho thấp
-                            list.add(new AlertItem(sp.getTenSP(), "Tồn kho thấp (" + tonKho + " " + sp.getDonViTinh() + ")", lo.getMaLoHang(), "Kho chính", AlertPriority.LOW, AlertType.LOW_STOCK, sp.getMaSP(), tonKho, lo.getGiaNhap()));
+                            list.add(new AlertItem(
+                                sp.getTenSP(), "Tồn kho thấp (" + tonKho + " " + sp.getDonViTinh() + ")",
+                                lo.getMaLoHang(), "Kho chính",
+                                AlertPriority.LOW, AlertType.LOW_STOCK,
+                                sp.getMaSP(), tonKho, lo.getGiaNhap()
+                            ));
                         }
                     }
                 }
-
                 // 2. 🎯 ĐỘNG CƠ QUÉT LỆCH KHO TỪ BẢNG KiemKeKho
                 String sqlLechKho = "SELECT k.MaSP, s.TenSP, k.MaLoHang, k.SoLuongHeThong, k.SoLuongThucTe, k.LyDo " +
                                     "FROM KiemKeKho k JOIN SanPham s ON k.MaSP = s.MaSP " +
@@ -740,8 +768,8 @@ public class CanhBaoKhoPanel extends JPanel {
     class ModernActionPopup extends JPopupMenu {
         public ModernActionPopup(AlertCard parentCard, AlertItem data) {
             setOpaque(false);
-            setBorder(new EmptyBorder(5, 5, 5, 5)); // Không gian cho shadow giả
-            setBackground(new Color(0,0,0,0));
+            setBorder(new EmptyBorder(5, 5, 5, 5));
+            setBackground(new Color(0, 0, 0, 0));
 
             JPanel pnlContainer = new RoundedPanel(12, Color.WHITE);
             pnlContainer.setLayout(new BoxLayout(pnlContainer, BoxLayout.Y_AXIS));
@@ -750,25 +778,518 @@ public class CanhBaoKhoPanel extends JPanel {
                 new EmptyBorder(5, 5, 5, 5)
             ));
 
-            // Khởi tạo các options dựa theo loại cảnh báo
             if (data.type == AlertType.EXPIRING_SOON) {
-                pnlContainer.add(createPopupItem("🔥 Giảm giá xả kho", e -> executeAction(parentCard, data, AlertType.EXPIRING_SOON)));
-                pnlContainer.add(createPopupItem("📦 Chuyển kho / Đảo hàng", e -> executeAction(parentCard, data, null)));
+                // ✅ OPTION 1: Giảm giá NGAY tại chỗ (có dialog xác nhận)
+                pnlContainer.add(createPopupItem("🔥 Giảm giá ngay", e -> {
+                    setVisible(false);
+                    xuLyGiamGiaNgay(parentCard, data);
+                }));
+                // ✅ OPTION 2: Chuyển sang GiamGiaUI để điều chỉnh tay
+                pnlContainer.add(createPopupItem("📋 Điều chỉnh trong Giảm Giá", e -> {
+                    setVisible(false);
+                    chuyenSangGiamGiaUI(data);
+                }));
+                pnlContainer.add(createPopupItem("📦 Chuyển kho / Đảo hàng", e -> {
+                    setVisible(false);
+                    WarehouseAlertActionHandler.routeAction(null, data, parentCard);
+                }));
+
             } else if (data.type == AlertType.EXPIRED) {
-                pnlContainer.add(createPopupItem("🗑️ Lập phiếu tiêu hủy", e -> executeAction(parentCard, data, AlertType.EXPIRED)));
+                pnlContainer.add(createPopupItem("🗑️ Lập phiếu tiêu hủy", e -> {
+                    setVisible(false);
+                    parentCard.markAsPending();
+                    WarehouseAlertActionHandler.routeAction(AlertType.EXPIRED, data, parentCard);
+                }));
+
             } else if (data.type == AlertType.LECH_KHO) {
-                // 🎯 THÊM MENU KIỂM KÊ CHO LỆCH KHO
-                pnlContainer.add(createPopupItem("⚖️ Mở phiếu Kiểm kê", e -> executeAction(parentCard, data, AlertType.LECH_KHO)));
-                pnlContainer.add(createPopupItem("📄 Lập phiếu điều tra", e -> executeAction(parentCard, data, null)));
-            } else {
-                pnlContainer.add(createPopupItem("📋 Kiểm kê lại kho", e -> executeAction(parentCard, data, AlertType.LECH_KHO)));
-                pnlContainer.add(createPopupItem("📥 Nhập thêm hàng", e -> executeAction(parentCard, data, AlertType.LOW_STOCK)));
+                pnlContainer.add(createPopupItem("⚖️ Mở phiếu Kiểm kê", e -> {
+                    setVisible(false);
+                    WarehouseAlertActionHandler.routeAction(AlertType.LECH_KHO, data, parentCard);
+                }));
+                pnlContainer.add(createPopupItem("📄 Lập phiếu điều tra", e -> {
+                    setVisible(false);
+                    WarehouseAlertActionHandler.routeAction(null, data, parentCard);
+                }));
+
+            } else { // LOW_STOCK
+                pnlContainer.add(createPopupItem("📋 Kiểm kê lại kho", e -> {
+                    setVisible(false);
+                    WarehouseAlertActionHandler.routeAction(AlertType.LECH_KHO, data, parentCard);
+                }));
+                pnlContainer.add(createPopupItem("📥 Nhập thêm hàng", e -> {
+                    setVisible(false);
+                    WarehouseAlertActionHandler.routeAction(AlertType.LOW_STOCK, data, parentCard);
+                }));
             }
 
             add(pnlContainer);
         }
 
-        private JButton createPopupItem(String text, ActionListener action) {
+        // =============================================
+        // 🔥 XỬ LÝ GIẢM GIÁ NGAY: Tính tự động + Dialog xác nhận
+        // =============================================
+        private void xuLyGiamGiaNgay(AlertCard parentCard, AlertItem data) {
+            // 1. Chạy engine tính mức giảm tối ưu trong luồng nền
+            SwingWorker<Logic.GiamGiaLogic, Void> calcWorker = new SwingWorker<>() {
+                @Override
+                protected Logic.GiamGiaLogic doInBackground() {
+                    return new Logic.GiamGiaLogic();
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        Logic.GiamGiaLogic logic = get();
+
+                        // Lấy thêm thông tin từ DB để tính đúng
+                        int soNgayConLai = 0;
+                        java.math.BigDecimal giaBan = java.math.BigDecimal.ZERO;
+
+                        try (java.sql.Connection con = Dao.ConnectDB.getInstance().getConnection();
+                            java.sql.PreparedStatement ps = con.prepareStatement(
+                                "SELECT TOP 1 ct.HSD, sp.GiaBan FROM ChiTietLoHang ct " +
+                                "JOIN SanPham sp ON ct.MaSP = sp.MaSP " +
+                                "WHERE ct.MaLoHang = ?")) {
+                            ps.setString(1, data.lotNumber);
+                            java.sql.ResultSet rs = ps.executeQuery();
+                            if (rs.next()) {
+                                java.sql.Date hsd = rs.getDate("HSD");
+                                if (hsd != null) {
+                                    soNgayConLai = (int) java.time.temporal.ChronoUnit.DAYS
+                                        .between(java.time.LocalDate.now(), hsd.toLocalDate());
+                                }
+                                giaBan = rs.getBigDecimal("GiaBan");
+                            }
+                        } catch (Exception ignored) {}
+
+                        // Tính mức giảm đề xuất
+                        double giaNhapDouble = data.giaNhap != null ? data.giaNhap.doubleValue() : 0.0;
+                        double giaBanDouble  = giaBan.doubleValue();
+                        double phanTramDeXuat = logic.tinhGiaGiamTuDong(
+                            soNgayConLai, data.soLuongTon, giaNhapDouble, giaBanDouble
+                        );
+                        int phanTramInt = (int) Math.round(phanTramDeXuat * 100);
+
+                        // 2. Hiện dialog xác nhận với mức giảm đề xuất
+                        hienDialogXacNhanGiamGia(parentCard, data, phanTramInt, giaBanDouble, logic);
+
+                    } catch (Exception e) {
+                        GUI.HoTro.TienIchGiaoDien.hienThiThongBao(parentCard,
+                            "Lỗi tính mức giảm: " + e.getMessage(), "ERROR");
+                    }
+                }
+            };
+            calcWorker.execute();
+        }
+
+        private void hienDialogXacNhanGiamGia(AlertCard parentCard, AlertItem data,
+                                            int phanTramDeXuat, double giaBan,
+                                            Logic.GiamGiaLogic logic) {
+
+            // ========== KHỞI TẠO DIALOG ==========
+            Window parentWindow = SwingUtilities.getWindowAncestor(parentCard);
+
+            JDialog dialog = new JDialog(
+                    parentWindow instanceof Frame ? (Frame) parentWindow : null,
+                    "Xác nhận Giảm giá Ngay",
+                    true
+            );
+
+            dialog.setUndecorated(true);
+            dialog.setSize(420, 340);
+            dialog.setLocationRelativeTo(parentCard);
+
+            // ========== BẢNG MÀU LIGHT THEME ==========
+            Color BG_MAIN = new Color(255, 255, 255);
+            Color BG_INPUT = new Color(248, 250, 252);
+            Color BORDER = new Color(226, 232, 240);
+
+            Color TEXT_PRIMARY = new Color(15, 23, 42);
+            Color TEXT_SECONDARY = new Color(100, 116, 139);
+
+            Color ACCENT_BLUE = new Color(37, 99, 235);
+            Color ACCENT_BLUE_HOVER = new Color(29, 78, 216);
+
+            Color ACCENT_RED = new Color(220, 38, 38);
+
+            // ========== PANEL CHÍNH ==========
+            JPanel mainPanel = new JPanel(new BorderLayout()) {
+
+                @Override
+                protected void paintComponent(Graphics g) {
+
+                    Graphics2D g2 = (Graphics2D) g.create();
+
+                    g2.setRenderingHint(
+                            RenderingHints.KEY_ANTIALIASING,
+                            RenderingHints.VALUE_ANTIALIAS_ON
+                    );
+
+                    // Shadow
+                    g2.setColor(new Color(0, 0, 0, 18));
+                    g2.fillRoundRect(4, 6, getWidth() - 8, getHeight() - 8, 22, 22);
+
+                    // Background
+                    g2.setColor(BG_MAIN);
+                    g2.fillRoundRect(0, 0, getWidth() - 4, getHeight() - 4, 20, 20);
+
+                    // Border
+                    g2.setColor(BORDER);
+                    g2.setStroke(new BasicStroke(1.2f));
+                    g2.drawRoundRect(0, 0, getWidth() - 5, getHeight() - 5, 20, 20);
+
+                    g2.dispose();
+                }
+            };
+
+            mainPanel.setOpaque(false);
+            mainPanel.setBorder(new EmptyBorder(22, 24, 20, 24));
+
+            // ========== HEADER ==========
+            JPanel headerPanel = new JPanel(new BorderLayout());
+            headerPanel.setOpaque(false);
+
+            JPanel titleWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            titleWrap.setOpaque(false);
+
+            JLabel iconTitle = new JLabel("🏷 ");
+            iconTitle.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 18));
+
+            JLabel lblTitle = new JLabel("Xác nhận Giảm giá Ngay");
+            lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 17));
+            lblTitle.setForeground(TEXT_PRIMARY);
+
+            titleWrap.add(iconTitle);
+            titleWrap.add(lblTitle);
+
+            JButton btnClose = new JButton("✕");
+
+            btnClose.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            btnClose.setForeground(TEXT_SECONDARY);
+            btnClose.setBorder(null);
+            btnClose.setFocusPainted(false);
+            btnClose.setContentAreaFilled(false);
+            btnClose.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            btnClose.addMouseListener(new MouseAdapter() {
+
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    btnClose.setForeground(TEXT_PRIMARY);
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    btnClose.setForeground(TEXT_SECONDARY);
+                }
+            });
+
+            btnClose.addActionListener(e -> dialog.dispose());
+
+            headerPanel.add(titleWrap, BorderLayout.WEST);
+            headerPanel.add(btnClose, BorderLayout.EAST);
+
+            // ========== CONTENT ==========
+            JPanel contentPanel = new JPanel();
+            contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
+            contentPanel.setOpaque(false);
+            contentPanel.setBorder(new EmptyBorder(18, 0, 10, 0));
+
+            // ========== CARD THÔNG TIN ==========
+            JPanel infoCard = new JPanel();
+            infoCard.setLayout(new BoxLayout(infoCard, BoxLayout.Y_AXIS));
+            infoCard.setOpaque(true);
+            infoCard.setBackground(BG_INPUT);
+            infoCard.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(BORDER, 1, true),
+                    new EmptyBorder(14, 16, 14, 16)
+            ));
+
+            infoCard.setAlignmentX(Component.LEFT_ALIGNMENT);
+            infoCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
+
+            JLabel lblSanPham = new JLabel("Sản phẩm: " + data.productName);
+            lblSanPham.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            lblSanPham.setForeground(TEXT_PRIMARY);
+
+            JLabel lblLoHang = new JLabel("Lô hàng: " + data.lotNumber);
+            lblLoHang.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            lblLoHang.setForeground(TEXT_SECONDARY);
+            lblLoHang.setBorder(new EmptyBorder(6, 0, 0, 0));
+
+            infoCard.add(lblSanPham);
+            infoCard.add(lblLoHang);
+
+            // ========== PANEL ĐỀ XUẤT ==========
+            JPanel deXuatPanel = new JPanel(new BorderLayout());
+            deXuatPanel.setOpaque(false);
+            deXuatPanel.setBorder(new EmptyBorder(18, 0, 0, 0));
+            deXuatPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            deXuatPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+
+            JLabel lblDeXuatText = new JLabel("✨ Mức giảm đề xuất");
+            lblDeXuatText.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            lblDeXuatText.setForeground(TEXT_SECONDARY);
+
+            JLabel lblDeXuatValue = new JLabel(phanTramDeXuat + "%");
+            lblDeXuatValue.setFont(new Font("Segoe UI", Font.BOLD, 16));
+            lblDeXuatValue.setForeground(ACCENT_RED);
+
+            deXuatPanel.add(lblDeXuatText, BorderLayout.WEST);
+            deXuatPanel.add(lblDeXuatValue, BorderLayout.EAST);
+
+            // ========== INPUT ==========
+            JPanel inputPanel = new JPanel(new BorderLayout(0, 8));
+            inputPanel.setOpaque(false);
+            inputPanel.setBorder(new EmptyBorder(18, 0, 0, 0));
+            inputPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            inputPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
+
+            JLabel lblInputTitle = new JLabel("Mức giảm (%)");
+            lblInputTitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            lblInputTitle.setForeground(TEXT_SECONDARY);
+
+            JSpinner spinnerMucGiam = new JSpinner(
+                    new SpinnerNumberModel(
+                            Math.max(1, phanTramDeXuat),
+                            1,
+                            90,
+                            1
+                    )
+            );
+
+            spinnerMucGiam.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            spinnerMucGiam.setPreferredSize(new Dimension(110, 42));
+
+            JComponent editor = spinnerMucGiam.getEditor();
+
+            if (editor instanceof JSpinner.DefaultEditor) {
+
+                JTextField tf = ((JSpinner.DefaultEditor) editor).getTextField();
+
+                tf.setBackground(BG_INPUT);
+                tf.setForeground(TEXT_PRIMARY);
+                tf.setCaretColor(TEXT_PRIMARY);
+
+                tf.setBorder(new EmptyBorder(10, 14, 10, 14));
+                tf.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            }
+
+            spinnerMucGiam.setBackground(BG_INPUT);
+
+            spinnerMucGiam.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(BORDER, 1, true),
+                    new EmptyBorder(0, 0, 0, 0)
+            ));
+
+            inputPanel.add(lblInputTitle, BorderLayout.NORTH);
+            inputPanel.add(spinnerMucGiam, BorderLayout.CENTER);
+
+            // ========== NOTE ==========
+            JLabel lblNote = new JLabel(
+                    "<html>" +
+                    "<span style='color:#64748B;'>" +
+                    "ⓘ Thay đổi này sẽ áp dụng ngay lập tức cho báo giá tiếp theo trong hệ thống." +
+                    "</span>" +
+                    "</html>"
+            );
+
+            lblNote.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+            lblNote.setBorder(new EmptyBorder(18, 0, 0, 0));
+            lblNote.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+            // ========== ADD CONTENT ==========
+            contentPanel.add(infoCard);
+            contentPanel.add(deXuatPanel);
+            contentPanel.add(inputPanel);
+            contentPanel.add(lblNote);
+
+            // ========== FOOTER ==========
+            JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+            footerPanel.setOpaque(false);
+            footerPanel.setBorder(new EmptyBorder(18, 0, 0, 0));
+
+            // ========== BUTTON HỦY ==========
+            JButton btnHuy = new JButton("Hủy") {
+
+                @Override
+                protected void paintComponent(Graphics g) {
+
+                    Graphics2D g2 = (Graphics2D) g.create();
+
+                    g2.setRenderingHint(
+                            RenderingHints.KEY_ANTIALIASING,
+                            RenderingHints.VALUE_ANTIALIAS_ON
+                    );
+
+                    g2.setColor(BG_INPUT);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+
+                    g2.setColor(BORDER);
+                    g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+
+                    g2.dispose();
+
+                    super.paintComponent(g);
+                }
+            };
+
+            btnHuy.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            btnHuy.setForeground(TEXT_PRIMARY);
+
+            btnHuy.setPreferredSize(new Dimension(90, 38));
+
+            btnHuy.setBorder(new EmptyBorder(8, 16, 8, 16));
+
+            btnHuy.setFocusPainted(false);
+            btnHuy.setContentAreaFilled(false);
+
+            btnHuy.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            btnHuy.addActionListener(e -> dialog.dispose());
+
+            // ========== BUTTON OK ==========
+            JButton btnOK = new JButton("Áp dụng") {
+
+                @Override
+                protected void paintComponent(Graphics g) {
+
+                    Graphics2D g2 = (Graphics2D) g.create();
+
+                    g2.setRenderingHint(
+                            RenderingHints.KEY_ANTIALIASING,
+                            RenderingHints.VALUE_ANTIALIAS_ON
+                    );
+
+                    ButtonModel model = getModel();
+
+                    if (model.isRollover()) {
+                        g2.setColor(ACCENT_BLUE_HOVER);
+                    } else {
+                        g2.setColor(ACCENT_BLUE);
+                    }
+
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+
+                    g2.dispose();
+
+                    super.paintComponent(g);
+                }
+            };
+
+            btnOK.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            btnOK.setForeground(Color.WHITE);
+
+            btnOK.setPreferredSize(new Dimension(100, 38));
+
+            btnOK.setBorder(new EmptyBorder(8, 16, 8, 16));
+
+            btnOK.setFocusPainted(false);
+            btnOK.setContentAreaFilled(false);
+
+            btnOK.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            btnOK.addActionListener(e -> {
+
+                int mucGiamCuoiCung = (int) spinnerMucGiam.getValue();
+
+                dialog.dispose();
+
+                luuGiamGiaVaoDB(
+                        parentCard,
+                        data,
+                        mucGiamCuoiCung,
+                        logic
+                );
+            });
+
+            footerPanel.add(btnHuy);
+            footerPanel.add(btnOK);
+
+            // ========== GỘP ==========
+            mainPanel.add(headerPanel, BorderLayout.NORTH);
+            mainPanel.add(contentPanel, BorderLayout.CENTER);
+            mainPanel.add(footerPanel, BorderLayout.SOUTH);
+
+            dialog.setContentPane(mainPanel);
+
+            // Transparent để bo góc đẹp
+            dialog.setBackground(new Color(0, 0, 0, 0));
+
+            dialog.setVisible(true);
+        }
+
+        private void luuGiamGiaVaoDB(AlertCard parentCard, AlertItem data,
+                                    int phanTramGiam, Logic.GiamGiaLogic logic) {
+            SwingWorker<String, Void> saveWorker = new SwingWorker<>() {
+                @Override
+                protected String doInBackground() throws Exception {
+                    String maGG = Logic.TaoMaTuDongLogic.taoMaGiamGia();
+
+                    Data.GiamGia gg = new Data.GiamGia();
+                    gg.setMaGiamGia(maGG);
+                    gg.setMaSP(data.maSP);
+                    gg.setBatDau(java.time.LocalDateTime.now());
+                    // Hết hạn 3 ngày hoặc đúng ngày HSD sản phẩm
+                    gg.setKetThuc(java.time.LocalDateTime.now().plusDays(3));
+                    gg.setGiamGia(new java.math.BigDecimal(phanTramGiam));
+                    gg.setLoaiGiamGia("Xả kho cận date");
+                    gg.setTrangThaiGiamGia("Đang diễn ra");
+                    gg.setSoLuongApDung(data.soLuongTon);
+
+                    logic.themGiamGia(gg);
+                    return maGG;
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        String maGG = get();
+                        parentCard.markAsPending();
+                        GUI.HoTro.TienIchGiaoDien.hienThiThongBao(parentCard,
+                            "Đã áp dụng giảm giá <b>" + phanTramGiam + "%</b> cho lô <b>"
+                            + data.lotNumber + "</b>. Mã KM: " + maGG, "SUCCESS");
+
+                        // Tải lại panel sau 1s để thẻ phản ánh trạng thái mới
+                        Timer t = new Timer(1000, e -> {
+                            Container p = parentCard.getParent();
+                            while (p != null && !(p instanceof CanhBaoKhoPanel)) p = p.getParent();
+                            if (p instanceof CanhBaoKhoPanel) ((CanhBaoKhoPanel) p).taiDuLieuThucTeTuKho();
+                        });
+                        t.setRepeats(false);
+                        t.start();
+
+                    } catch (Exception ex) {
+                        GUI.HoTro.TienIchGiaoDien.hienThiThongBao(parentCard,
+                            "Lỗi lưu giảm giá: " + ex.getMessage(), "ERROR");
+                    }
+                }
+            };
+            saveWorker.execute();
+        }
+
+        // =============================================
+        // 📋 CHUYỂN SANG GiamGiaUI (khi không xác nhận giảm ngay)
+        // =============================================
+        private void chuyenSangGiamGiaUI(AlertItem data) {
+            // Tìm CanhBaoKhoPanel cha để lấy callback
+            Container p = CanhBaoKhoPanel.this;
+            if (p instanceof CanhBaoKhoPanel) {
+                CanhBaoKhoPanel panel = (CanhBaoKhoPanel) p;
+                if (panel.navigationCallback != null) {
+                    // Gọi navigate với maSP để GiamGiaUI tự filter/highlight SP đó
+                    panel.navigationCallback.navigateTo("GiamGia", data.maSP);
+                } else {
+                    // Fallback: thông báo nếu chưa gắn callback
+                    JOptionPane.showMessageDialog(null,
+                        "<html>Chuyển sang module <b>Giảm Giá</b>.<br>" +
+                        "Tìm kiếm mã SP: <b>" + data.maSP + "</b></html>",
+                        "Điều hướng", JOptionPane.INFORMATION_MESSAGE);
+                }
+            }
+        }
+
+        private JButton createPopupItem(String text, java.awt.event.ActionListener action) {
             JButton btn = new JButton(text);
             btn.setFont(FONT_REGULAR.deriveFont(13f));
             btn.setForeground(TEXT_MAIN);
@@ -779,35 +1300,23 @@ public class CanhBaoKhoPanel extends JPanel {
             btn.setContentAreaFilled(false);
             btn.setOpaque(true);
             btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            btn.setMaximumSize(new Dimension(180, 35));
+            btn.setMaximumSize(new Dimension(200, 35));
             btn.setBorder(new EmptyBorder(8, 15, 8, 15));
-
             btn.addMouseListener(new MouseAdapter() {
-                public void mouseEntered(MouseEvent e) { btn.setBackground(new Color(248, 250, 252)); btn.setForeground(INFO_FG); }
-                public void mouseExited(MouseEvent e) { btn.setBackground(Color.WHITE); btn.setForeground(TEXT_MAIN); }
+                public void mouseEntered(MouseEvent e) {
+                    btn.setBackground(new Color(248, 250, 252));
+                    btn.setForeground(INFO_FG);
+                }
+                public void mouseExited(MouseEvent e) {
+                    btn.setBackground(Color.WHITE);
+                    btn.setForeground(TEXT_MAIN);
+                }
             });
-
-            btn.addActionListener(e -> {
-                setVisible(false);
-                action.actionPerformed(e);
-            });
+            btn.addActionListener(action);
             return btn;
         }
 
-        private void executeAction(AlertCard card, AlertItem data, AlertType targetType) {
-            // Đổi trạng thái UI ngay lập tức mượt mà
-            WarehouseAlertActionHandler.routeAction(targetType, data, card);
-            // Đẩy vào workflow routing
-            if (targetType != null) {
-                WarehouseAlertActionHandler.routeAction(targetType, data, card);
-            }
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            // Kế thừa background trong suốt để vẽ RoundedPanel mượt
-            super.paintComponent(g);
-        }
+        @Override protected void paintComponent(Graphics g) { super.paintComponent(g); }
     }
     // ==========================================
     // COMPONENT: CARD CẢNH BÁO (ĐÃ NÂNG CẤP WORKFLOW)

@@ -61,8 +61,13 @@ public class GiamGiaUI extends JPanel {
 
     private TextFieldBoGoc    txtGiam, txtSoLuong;
     private ChonNgayGioCustom txtBatDau, txtKetThuc;
+    private static GiamGiaUI instance;
 
+    public static GiamGiaUI getInstance() {
+        return instance;
+    }
     public GiamGiaUI() {
+        instance = this;
         KhoiTaoFont();
 
         setLayout(new BorderLayout(20, 20));
@@ -949,7 +954,12 @@ public class GiamGiaUI extends JPanel {
             pnlNgay.revalidate(); pnlNgay.repaint();
         }
     }
-
+    public void timKiemTheoMaSP(String maSP) {
+        if (txtTimKiem != null) {
+            txtTimKiem.setText(maSP);
+            TaiDanhSachSanPham(); // trigger reload với filter
+        }
+    }
     public static void main(String[] args) {
         System.setProperty("awt.useSystemAAFontSettings", "on"); System.setProperty("swing.aatext", "true");
         SwingUtilities.invokeLater(() -> {

@@ -849,7 +849,54 @@ public class TieuHuySanPhamGUI extends JPanel {
             g2.dispose();
         }
     }
+    // =====================================================================
+    // HÀM GIAO TIẾP VỚI MODULE KHÁC (ROUTING TỪ CẢNH BÁO KHO)
+    // =====================================================================
+    public void chonNhanhVaSetLyDo(String maLo, String lyDo) {
+        // Dùng Timer để đợi dữ liệu Turbo load xong lên RAM rồi mới select
+        Timer waitTimer = new Timer(100, null);
+        waitTimer.addActionListener(e -> {
+            if (danhSachGocCache != null && !danhSachGocCache.isEmpty()) {
+                waitTimer.stop(); // Dừng bộ đếm
+                
+                ChiTietLoHang itemCuaToi = null;
+                for (ChiTietLoHang lo : danhSachGocCache) {
+                    if (lo.getMaLoHang().equals(maLo)) {
+                        itemCuaToi = lo;
+                        break;
+                    }
+                }
 
+                if (itemCuaToi != null) {
+                    // 1. Thêm vào danh sách chọn (nếu chưa có)
+                    if (!danhSachChon.contains(itemCuaToi)) {
+                        danhSachChon.add(itemCuaToi);
+                    }
+                    
+                    // 2. Set lý do tiêu hủy trên ComboBox
+                    if (lyDo != null) {
+                        cbLyDoHuy.setSelectedItem(lyDo);
+                    }
+
+                    // 3. Cập nhật lại UI để thẻ nháy viền xanh và đẩy sang panel phải
+                    timKiemRealtime();
+                    capNhatPanelPhaiDaChon();
+                    
+                    // 4. 🔥 HIỆN THÔNG BÁO CHO USER BIẾT HỆ THỐNG ĐÃ AUTO-FILL THÀNH CÔNG
+                    GUI.HoTro.TienIchGiaoDien.hienThiThongBao(this, 
+                        "Đã nhận tín hiệu từ Cảnh Báo Kho!<br>Tự động chọn lô: <b>" + maLo + "</b><br>Lý do: <b>" + lyDo + "</b>", 
+                        "SUCCESS");
+
+                } else {
+                    // Cập nhật luôn thông báo lỗi cho đồng bộ UI
+                    GUI.HoTro.TienIchGiaoDien.hienThiThongBao(this, 
+                        "Không tìm thấy Lô hàng " + maLo + " trong kho!", 
+                        "ERROR");
+                }
+            }
+        });
+        waitTimer.start();
+    }
     // MAIN ĐỂ TEST GIAO DIỆN CHẠY ĐỘC LẬP
     public static void main(String[] args) {
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}
