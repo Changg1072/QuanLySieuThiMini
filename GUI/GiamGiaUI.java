@@ -264,13 +264,27 @@ public class GiamGiaUI extends JPanel {
                 try {
                     List<Object[]> data = get();
                     pnlDanhSachSanPham.removeAll();
+                    
+                    // 🔥 BACKUP: Lưu lại các sản phẩm đã chọn ngầm trước khi xóa trắng
+                    List<String> backupDaChon = new ArrayList<>(danhSachSPDuocChon);
+                    
                     danhSachSPDuocChon.clear();
                     danhSachRowCheckboxes.clear();
                     if (chkAll != null) chkAll.setSelected(false);
                     
                     for (Object[] rowData : data) {
-                        pnlDanhSachSanPham.add(TaoDongSanPham(rowData));
+                        String maSP = (String) rowData[7]; // Mã SP nằm ở vị trí số 7
+                        JPanel row = TaoDongSanPham(rowData);
+                        
+                        pnlDanhSachSanPham.add(row);
                         pnlDanhSachSanPham.add(Box.createRigidArea(new Dimension(0, 8)));
+                        
+                        // 🔥 PHỤC HỒI: Tự động tick lại nếu sản phẩm được chuyển ngầm sang
+                        if (backupDaChon.contains(maSP)) {
+                            if (!danhSachRowCheckboxes.isEmpty()) {
+                                danhSachRowCheckboxes.get(danhSachRowCheckboxes.size() - 1).setSelected(true);
+                            }
+                        }
                     }
                     pnlDanhSachSanPham.revalidate();
                     pnlDanhSachSanPham.repaint();
@@ -959,6 +973,24 @@ public class GiamGiaUI extends JPanel {
             txtTimKiem.setText(maSP);
             TaiDanhSachSanPham(); // trigger reload với filter
         }
+    }
+    public void nhanDuLieuChoGiamGiaNgam(String maSP) {
+        // 1. Nhét mã SP vào danh sách chờ
+        if (!danhSachSPDuocChon.contains(maSP)) {
+            danhSachSPDuocChon.add(maSP);
+        }
+        
+        // 2. Kích hoạt vẽ lại danh sách
+        SwingUtilities.invokeLater(() -> {
+            TaiDanhSachSanPham();
+        });
+        
+        // 3. Hiện thông báo nhỏ góc màn hình
+        GUI.HoTro.TienIchGiaoDien.hienThiThongBao(
+            SwingUtilities.getWindowAncestor(this), 
+            "Đã chuyển mã sản phẩm <b>" + maSP + "</b> vào danh sách chờ Giảm Giá!", 
+            "SUCCESS"
+        );
     }
     public static void main(String[] args) {
         System.setProperty("awt.useSystemAAFontSettings", "on"); System.setProperty("swing.aatext", "true");

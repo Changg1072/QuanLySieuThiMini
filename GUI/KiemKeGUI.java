@@ -1224,7 +1224,50 @@ public class KiemKeGUI extends JPanel {
             return jbutton;
         }
     }
-
+    // ==============================================================
+    // 🔄 ĐỒNG BỘ REALTIME TỪ TRUNG TÂM CẢNH BÁO KHO (LỆCH KHO)
+    // ==============================================================
+    public void nhanDuLieuCanhBaoLechKho(String maSP, String maLo) {
+        // Dùng Timer để đợi vì dữ liệu kho siêu tốc tải bằng luồng nền (Async)
+        Timer waitTimer = new Timer(100, null);
+        waitTimer.addActionListener(e -> {
+            
+            // Đợi đến khi dữ liệu (duLieuSQL) được tải xong
+            if (duLieuSQL != null && duLieuSQL.dsSanPham != null && !duLieuSQL.dsSanPham.isEmpty()) {
+                ((Timer) e.getSource()).stop(); // Dừng vòng lặp chờ
+                
+                SwingUtilities.invokeLater(() -> {
+                    // 1. Nhập từ khóa vào ô tìm kiếm để giao diện gọn gàng lại
+                    txtTimKiem.setText(maSP);
+                    timKiemRealtime();
+                    
+                    // 2. Tự động Click chọn Sản phẩm đó ở thanh bên trái
+                    chonSanPham(maSP);
+                    
+                    // 3. Tự động xổ ComboBox Lô Hàng và chọn đúng Lô bị lệch
+                    for (int i = 0; i < cboLoHang.getItemCount(); i++) {
+                        String itemText = cboLoHang.getItemAt(i);
+                        // Vì itemText có dạng "Lô: LH2501-001 (HSD: ...)" nên ta dùng contains
+                        if (itemText.contains(maLo)) {
+                            cboLoHang.setSelectedIndex(i);
+                            break;
+                        }
+                    }
+                    
+                    // 4. Focus con trỏ chuột thẳng vào ô đếm số (Tiện lợi tuyệt đối)
+                    txtKiemDem.requestFocus();
+                    
+                    // 5. Hiển thị thông báo nhỏ
+                    GUI.HoTro.TienIchGiaoDien.hienThiThongBao(
+                        SwingUtilities.getWindowAncestor(this), 
+                        "Đã khóa mục tiêu Lệch Kho!<br>Mời đếm lại: <b>" + maSP + " - Lô " + maLo + "</b>", 
+                        "SUCCESS"
+                    );
+                });
+            }
+        });
+        waitTimer.start();
+    }
     public static void main(String[] args) {
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}
         SwingUtilities.invokeLater(() -> new KiemKeGUI().setVisible(true));

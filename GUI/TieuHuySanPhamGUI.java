@@ -853,50 +853,79 @@ public class TieuHuySanPhamGUI extends JPanel {
     // HÀM GIAO TIẾP VỚI MODULE KHÁC (ROUTING TỪ CẢNH BÁO KHO)
     // =====================================================================
     public void chonNhanhVaSetLyDo(String maLo, String lyDo) {
-        // Dùng Timer để đợi dữ liệu Turbo load xong lên RAM rồi mới select
         Timer waitTimer = new Timer(100, null);
         waitTimer.addActionListener(e -> {
+            
+            // Đợi đến khi Động cơ Turbo load xong danh sách kho lên RAM
             if (danhSachGocCache != null && !danhSachGocCache.isEmpty()) {
-                waitTimer.stop(); // Dừng bộ đếm
+                ((Timer) e.getSource()).stop(); // 🎯 Tắt vòng lặp Timer an toàn
                 
                 ChiTietLoHang itemCuaToi = null;
                 for (ChiTietLoHang lo : danhSachGocCache) {
-                    if (lo.getMaLoHang().equals(maLo)) {
+                    // Dùng trim() và equalsIgnoreCase để tránh mọi lỗi khoảng trắng vô hình
+                    if (lo.getMaLoHang().trim().equalsIgnoreCase(maLo.trim())) {
                         itemCuaToi = lo;
                         break;
                     }
                 }
 
                 if (itemCuaToi != null) {
-                    // 1. Thêm vào danh sách chọn (nếu chưa có)
+                    // 1. Check vào ô vuông (Thêm vào danh sách chọn)
                     if (!danhSachChon.contains(itemCuaToi)) {
                         danhSachChon.add(itemCuaToi);
                     }
                     
-                    // 2. Set lý do tiêu hủy trên ComboBox
+                    // 2. Tự động Set lý do tiêu hủy
                     if (lyDo != null) {
                         cbLyDoHuy.setSelectedItem(lyDo);
                     }
 
-                    // 3. Cập nhật lại UI để thẻ nháy viền xanh và đẩy sang panel phải
+                    // 3. Render lại 2 panel để hiển thị viền xanh và Form tính tiền bên phải
                     timKiemRealtime();
                     capNhatPanelPhaiDaChon();
                     
-                    // 4. 🔥 HIỆN THÔNG BÁO CHO USER BIẾT HỆ THỐNG ĐÃ AUTO-FILL THÀNH CÔNG
                     GUI.HoTro.TienIchGiaoDien.hienThiThongBao(this, 
-                        "Đã nhận tín hiệu từ Cảnh Báo Kho!<br>Tự động chọn lô: <b>" + maLo + "</b><br>Lý do: <b>" + lyDo + "</b>", 
+                        "Đã nhận lệnh từ Cảnh Báo Kho!<br>Tự động chọn lô: <b>" + maLo + "</b>", 
                         "SUCCESS");
-
                 } else {
-                    // Cập nhật luôn thông báo lỗi cho đồng bộ UI
                     GUI.HoTro.TienIchGiaoDien.hienThiThongBao(this, 
-                        "Không tìm thấy Lô hàng " + maLo + " trong kho!", 
+                        "Lô hàng <b>" + maLo + "</b> không tồn tại hoặc đã hết!", 
                         "ERROR");
                 }
             }
         });
         waitTimer.start();
     }
+        // ==============================================================
+    // 🔄 ĐỒNG BỘ REALTIME TỪ TRUNG TÂM CẢNH BÁO KHO
+    // ==============================================================
+    public void nhanDuLieuChoTieuHuyNgam(String maLo, String lyDo) {
+        Timer waitTimer = new Timer(100, null);
+        waitTimer.addActionListener(e -> {
+            // Đợi dữ liệu load xong từ "Động cơ Turbo"
+            if (danhSachGocCache != null && !danhSachGocCache.isEmpty()) {
+                ((Timer) e.getSource()).stop(); 
+                
+                for (Data.ChiTietLoHang lo : danhSachGocCache) {
+                    if (lo.getMaLoHang().trim().equalsIgnoreCase(maLo.trim())) {
+                        // Đẩy vào danh sách chọn
+                        if (!danhSachChon.contains(lo)) {
+                            danhSachChon.add(0, lo);
+                        }
+                        
+                        SwingUtilities.invokeLater(() -> {
+                            timKiemRealtime();         // Làm mới danh sách bên trái
+                            capNhatPanelPhaiDaChon();  // Đẩy sang form bên phải
+                            cbLyDoHuy.setSelectedItem(lyDo != null ? lyDo : "Hàng hết hạn");
+                        });
+                        break;
+                    }
+                }
+            }
+        });
+        waitTimer.start();
+    }
+
     // MAIN ĐỂ TEST GIAO DIỆN CHẠY ĐỘC LẬP
     public static void main(String[] args) {
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}

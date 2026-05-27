@@ -689,63 +689,160 @@ public class CanhBaoKhoPanel extends JPanel {
             
             switch (type) {
                 case EXPIRED:
-                    // 🔥 XỬ LÝ TIÊU HỦY TRỰC TIẾP TẠI CHỖ
-                    GUI.HoTro.TienIchGiaoDien.hienThiXacNhan(parent, 
-                        "Xác nhận <b>tiêu hủy ngay lập tức</b> toàn bộ " + data.soLuongTon + " sản phẩm của Lô " + data.lotNumber + "?", 
-                        () -> {
-                            SwingWorker<Void, Void> worker = new SwingWorker<>() {
-                                @Override
-                                protected Void doInBackground() throws Exception {
-                                    BigDecimal giaTriHuy = data.giaNhap.multiply(new BigDecimal(data.soLuongTon));
-                                    
-                                    // 1. Tạo phiếu tổng
-                                    Data.PhieuTieuHuy phieu = new Data.PhieuTieuHuy();
-                                    phieu.setMaNV("NV001"); // Lấy mã NV thực tế của hệ thống
-                                    phieu.setTongSoLuong(data.soLuongTon);
-                                    phieu.setTongGiaTriHuy(giaTriHuy);
-                                    phieu.setLyDoHuy("Hàng hết hạn");
-                                    Logic.PhieuTieuHuyLogic.getInstance().taoPhieuTieuHuy(phieu);
-                                    
-                                    // 2. Tạo chi tiết phiếu
-                                    Data.ChiTietPhieuHuy ct = new Data.ChiTietPhieuHuy();
-                                    ct.setMaPhieuHuy(phieu.getMaPhieuHuy());
-                                    ct.setMaLoHang(data.lotNumber);
-                                    ct.setMaSP(data.maSP);
-                                    ct.setSoLuongHuy(data.soLuongTon);
-                                    ct.setGiaTriHuy(giaTriHuy);
-                                    ct.setLyDoChiTiet("Hàng hết hạn");
-                                    Logic.ChiTietPhieuHuyLogic.getInstance().themChiTietPhieuHuy(ct);
-                                    
-                                    // 3. Hoàn tất (Đổi trạng thái DA_TIEU_HUY để cập nhật tồn kho)
-                                    Logic.PhieuTieuHuyLogic.getInstance().hoanTatPhieuTieuHuy(phieu.getMaPhieuHuy());
-                                    return null;
-                                }
+                    // 🔥 BẢNG XÁC NHẬN CUSTOM: NỀN TRẮNG, BO GÓC MỊN THEO LAYOUT MỚI
+                    JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(parent), Dialog.ModalityType.APPLICATION_MODAL);
+                    dialog.setUndecorated(true);
+                    dialog.setBackground(new Color(0, 0, 0, 0)); // Trong suốt để vẽ bo góc
 
-                                @Override
-                                protected void done() {
-                                    try {
-                                        get();
-                                        // 4. Báo thành công
-                                        GUI.HoTro.TienIchGiaoDien.hienThiThongBao(parent, 
-                                            "Đã tiêu hủy thành công Lô <b>" + data.lotNumber + "</b>!", 
-                                            "SUCCESS");
-                                            
-                                        // 5. Tự động tải lại Panel để thẻ vừa hủy biến mất
-                                        Container p = parent.getParent();
-                                        while (p != null && !(p instanceof CanhBaoKhoPanel)) {
-                                            p = p.getParent();
-                                        }
-                                        if (p instanceof CanhBaoKhoPanel) {
-                                            ((CanhBaoKhoPanel) p).taiDuLieuThucTeTuKho();
-                                        }
-                                    } catch (Exception ex) {
-                                        GUI.HoTro.TienIchGiaoDien.hienThiThongBao(parent, "Lỗi tiêu hủy: " + ex.getMessage(), "ERROR");
-                                    }
-                                }
-                            };
-                            worker.execute();
+                    // Panel chính tự vẽ nền bo góc
+                    JPanel panel = new JPanel(new BorderLayout(0, 25)) {
+                        @Override
+                        protected void paintComponent(Graphics g) {
+                            Graphics2D g2 = (Graphics2D) g.create();
+                            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                            
+                            // Vẽ bóng mờ (Shadow) nhẹ
+                            g2.setColor(new Color(0, 0, 0, 15));
+                            g2.fillRoundRect(2, 2, getWidth() - 4, getHeight() - 4, 16, 16);
+                            
+                            // Nền trắng chính
+                            g2.setColor(Color.WHITE);
+                            g2.fillRoundRect(0, 0, getWidth() - 2, getHeight() - 2, 16, 16);
+                            
+                            // Viền xám mỏng
+                            g2.setColor(new Color(226, 232, 240));
+                            g2.setStroke(new BasicStroke(1.2f));
+                            g2.drawRoundRect(0, 0, getWidth() - 3, getHeight() - 3, 16, 16);
+                            
+                            g2.dispose();
                         }
-                    );
+                    };
+                    panel.setOpaque(false);
+                    panel.setBorder(new EmptyBorder(30, 35, 25, 35));
+
+                    // Dùng HTML để format Text giống hệt ảnh mẫu
+                    String htmlText = "<html><div style='text-align: center; width: 320px;'>"
+                        + "<span style='font-family: Segoe UI; font-size: 15px; font-weight: bold; color: #0F172A;'>"
+                        + "Bạn muốn <span style='color: #DC2626;'>tiêu hủy trực tiếp (SQL)</span><br>"
+                        + "toàn bộ " + data.soLuongTon + " sản phẩm của Lô " + data.lotNumber + "?</span><br><br>"
+                        + "<span style='font-family: Segoe UI; font-size: 12px; font-style: italic; color: #64748B;'>"
+                        + "(Ấn Xác nhận để xóa DB ngay, ấn Hủy bỏ để đưa vào danh sách chờ)</span>"
+                        + "</div></html>";
+                        
+                    JLabel lblMsg = new JLabel(htmlText, SwingConstants.CENTER);
+
+                    JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+                    pnlButtons.setOpaque(false);
+
+                    // ♻️ NÚT HỦY BỎ (Style Viền xám nhạt, nền trắng, chữ xám đậm)
+                    JButton btnNo = new JButton("Hủy bỏ") {
+                        @Override
+                        protected void paintComponent(Graphics g) {
+                            Graphics2D g2 = (Graphics2D) g.create();
+                            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                            g2.setColor(getModel().isRollover() ? new Color(248, 250, 252) : Color.WHITE);
+                            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                            
+                            g2.setColor(new Color(203, 213, 225)); // Viền
+                            g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
+                            g2.dispose();
+                            super.paintComponent(g);
+                        }
+                    };
+                    btnNo.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                    btnNo.setForeground(new Color(71, 85, 105));
+                    btnNo.setPreferredSize(new Dimension(120, 38));
+                    btnNo.setContentAreaFilled(false);
+                    btnNo.setFocusPainted(false);
+                    btnNo.setBorderPainted(false);
+                    btnNo.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    
+                    btnNo.addActionListener(e -> {
+                        dialog.dispose();
+                        if (parent instanceof AlertCard) {
+                            ((AlertCard) parent).markAsPending("CHỜ TIÊU HỦY", "Đã lưu vào form");
+                        }
+                        Container p = parent.getParent();
+                        while (p != null && !(p instanceof CanhBaoKhoPanel)) { p = p.getParent(); }
+                        if (p instanceof CanhBaoKhoPanel) {
+                            CanhBaoKhoPanel panelGoc = (CanhBaoKhoPanel) p;
+                            if (panelGoc.navigationCallback != null) {
+                                panelGoc.navigationCallback.navigateTo("TieuHuyNgam", data.lotNumber);
+                            }
+                        }
+                    });
+
+                    // 🛑 NÚT XÁC NHẬN (Style nền Xanh dương, chữ trắng)
+                    JButton btnYes = new JButton("Xác nhận") {
+                        @Override
+                        protected void paintComponent(Graphics g) {
+                            Graphics2D g2 = (Graphics2D) g.create();
+                            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                            g2.setColor(getModel().isRollover() ? new Color(29, 78, 216) : new Color(37, 99, 235));
+                            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                            g2.dispose();
+                            super.paintComponent(g);
+                        }
+                    };
+                    btnYes.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                    btnYes.setForeground(Color.WHITE);
+                    btnYes.setPreferredSize(new Dimension(120, 38));
+                    btnYes.setContentAreaFilled(false);
+                    btnYes.setFocusPainted(false);
+                    btnYes.setBorderPainted(false);
+                    btnYes.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    
+                    btnYes.addActionListener(e -> {
+                        dialog.dispose();
+                        if (parent instanceof AlertCard) ((AlertCard) parent).markAsPending();
+                        
+                        SwingWorker<Void, Void> worker = new SwingWorker<>() {
+                            @Override protected Void doInBackground() throws Exception {
+                                BigDecimal giaTriHuy = data.giaNhap.multiply(new BigDecimal(data.soLuongTon));
+                                Data.PhieuTieuHuy phieu = new Data.PhieuTieuHuy();
+                                phieu.setMaNV("NV001"); 
+                                phieu.setTongSoLuong(data.soLuongTon);
+                                phieu.setTongGiaTriHuy(giaTriHuy);
+                                phieu.setLyDoHuy("Hàng hết hạn");
+                                Logic.PhieuTieuHuyLogic.getInstance().taoPhieuTieuHuy(phieu);
+                                
+                                Data.ChiTietPhieuHuy ct = new Data.ChiTietPhieuHuy();
+                                ct.setMaPhieuHuy(phieu.getMaPhieuHuy());
+                                ct.setMaLoHang(data.lotNumber);
+                                ct.setMaSP(data.maSP);
+                                ct.setSoLuongHuy(data.soLuongTon);
+                                ct.setGiaTriHuy(giaTriHuy);
+                                ct.setLyDoChiTiet("Hàng hết hạn");
+                                Logic.ChiTietPhieuHuyLogic.getInstance().themChiTietPhieuHuy(ct);
+                                
+                                Logic.PhieuTieuHuyLogic.getInstance().hoanTatPhieuTieuHuy(phieu.getMaPhieuHuy());
+                                return null;
+                            }
+                            @Override protected void done() {
+                                try {
+                                    get();
+                                    GUI.HoTro.TienIchGiaoDien.hienThiThongBao(parent, "Đã tiêu hủy thành công Lô <b>" + data.lotNumber + "</b>!", "SUCCESS");
+                                    Container p = parent.getParent();
+                                    while (p != null && !(p instanceof CanhBaoKhoPanel)) p = p.getParent();
+                                    if (p instanceof CanhBaoKhoPanel) ((CanhBaoKhoPanel) p).taiDuLieuThucTeTuKho();
+                                } catch (Exception ex) {
+                                    GUI.HoTro.TienIchGiaoDien.hienThiThongBao(parent, "Lỗi tiêu hủy: " + ex.getMessage(), "ERROR");
+                                }
+                            }
+                        };
+                        worker.execute();
+                    });
+
+                    pnlButtons.add(btnNo);
+                    pnlButtons.add(btnYes);
+
+                    panel.add(lblMsg, BorderLayout.CENTER);
+                    panel.add(pnlButtons, BorderLayout.SOUTH);
+
+                    dialog.setContentPane(panel);
+                    dialog.pack();
+                    dialog.setLocationRelativeTo(parent);
+                    dialog.setVisible(true);
                     break;
                 
                 case LOW_STOCK:
@@ -779,36 +876,48 @@ public class CanhBaoKhoPanel extends JPanel {
             ));
 
             if (data.type == AlertType.EXPIRING_SOON) {
-                // ✅ OPTION 1: Giảm giá NGAY tại chỗ (có dialog xác nhận)
-                pnlContainer.add(createPopupItem("🔥 Giảm giá ngay", e -> {
+                // ✅ OPTION 1: Giảm giá NGAY tại chỗ (Mở Popup Realtime mới) giữ nguyên...
+                pnlContainer.add(createPopupItem("⚡ Giảm giá ngay lập tức", e -> {
                     setVisible(false);
                     xuLyGiamGiaNgay(parentCard, data);
                 }));
-                // ✅ OPTION 2: Chuyển sang GiamGiaUI để điều chỉnh tay
-                pnlContainer.add(createPopupItem("📋 Điều chỉnh trong Giảm Giá", e -> {
+                
+                // ✅ OPTION 2: GỬI NGẦM SANG MODULE GIẢM GIÁ (ĐÃ FIX)
+                pnlContainer.add(createPopupItem("📤 Gửi sang khu vực Xử lý Giảm giá", e -> {
                     setVisible(false);
-                    chuyenSangGiamGiaUI(data);
+                    // 1. Đổi UI Card sang trạng thái khóa (Màu cam/vàng) tại chỗ
+                    parentCard.markAsPending("CHỜ GIẢM GIÁ", "Đã lưu vào form");
+                    
+                    // 2. Bắn tín hiệu ngầm (Không dùng hàm chuyenSangGiamGiaUI cũ nữa)
+                    if (navigationCallback != null) {
+                        navigationCallback.navigateTo("GiamGiaNgam", data.maSP);
+                    }
                 }));
-                pnlContainer.add(createPopupItem("📦 Chuyển kho / Đảo hàng", e -> {
-                    setVisible(false);
-                    WarehouseAlertActionHandler.routeAction(null, data, parentCard);
-                }));
-
+                
+                // ❌ ĐÃ XÓA TÙY CHỌN: "Chuyển kho / Đảo hàng" (Không hợp lý với hàng cận Date)
             } else if (data.type == AlertType.EXPIRED) {
-                pnlContainer.add(createPopupItem("🗑️ Lập phiếu tiêu hủy", e -> {
+                pnlContainer.add(createPopupItem("⏳ Chờ tiêu hủy", e -> {
                     setVisible(false);
-                    parentCard.markAsPending();
-                    WarehouseAlertActionHandler.routeAction(AlertType.EXPIRED, data, parentCard);
+                    
+                    // 1. Đổi UI tại chỗ
+                    parentCard.markAsPending("CHỜ TIÊU HỦY", "Đã gửi vào danh sách");
+                    
+                    // 2. 🔥 Cải tiến: Gọi thẳng callback để chuyển tab và đẩy dữ liệu
+                    if (navigationCallback != null) {
+                        // Truyền cả mã lô và lý do mặc định
+                        navigationCallback.navigateTo("TieuHuy", data.lotNumber);
+                    }
                 }));
-
             } else if (data.type == AlertType.LECH_KHO) {
-                pnlContainer.add(createPopupItem("⚖️ Mở phiếu Kiểm kê", e -> {
+                pnlContainer.add(createPopupItem("📋 Mở phiếu kiểm kê", e -> {
                     setVisible(false);
-                    WarehouseAlertActionHandler.routeAction(AlertType.LECH_KHO, data, parentCard);
-                }));
-                pnlContainer.add(createPopupItem("📄 Lập phiếu điều tra", e -> {
-                    setVisible(false);
-                    WarehouseAlertActionHandler.routeAction(null, data, parentCard);
+                    // 1. Đổi UI tại chỗ báo hiệu đang xử lý
+                    parentCard.markAsPending("ĐANG KIỂM KÊ", "Đã mở form");
+                    
+                    // 2. Bắn tín hiệu ngầm: Ghép Mã SP và Mã Lô bằng dấu "_"
+                    if (navigationCallback != null) {
+                        navigationCallback.navigateTo("KiemKeNgam", data.maSP + "_" + data.lotNumber);
+                    }
                 }));
 
             } else { // LOW_STOCK
@@ -1039,6 +1148,7 @@ public class CanhBaoKhoPanel extends JPanel {
             deXuatPanel.add(lblDeXuatValue, BorderLayout.EAST);
 
             // ========== INPUT ==========
+            // ========== INPUT (ĐÃ CHỈNH SỬA) ==========
             JPanel inputPanel = new JPanel(new BorderLayout(0, 8));
             inputPanel.setOpaque(false);
             inputPanel.setBorder(new EmptyBorder(18, 0, 0, 0));
@@ -1050,37 +1160,27 @@ public class CanhBaoKhoPanel extends JPanel {
             lblInputTitle.setForeground(TEXT_SECONDARY);
 
             JSpinner spinnerMucGiam = new JSpinner(
-                    new SpinnerNumberModel(
-                            Math.max(1, phanTramDeXuat),
-                            1,
-                            90,
-                            1
-                    )
+                    new SpinnerNumberModel(Math.max(1, phanTramDeXuat), 1, 90, 1)
             );
 
             spinnerMucGiam.setFont(new Font("Segoe UI", Font.PLAIN, 14));
             spinnerMucGiam.setPreferredSize(new Dimension(110, 42));
 
             JComponent editor = spinnerMucGiam.getEditor();
-
             if (editor instanceof JSpinner.DefaultEditor) {
-
                 JTextField tf = ((JSpinner.DefaultEditor) editor).getTextField();
-
                 tf.setBackground(BG_INPUT);
                 tf.setForeground(TEXT_PRIMARY);
                 tf.setCaretColor(TEXT_PRIMARY);
-
-                tf.setBorder(new EmptyBorder(10, 14, 10, 14));
                 tf.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+                
+                // THAY ĐỔI Ở ĐÂY: Sử dụng Margin thay vì đặt Border trực tiếp lên Textfield
+                tf.setMargin(new Insets(5, 10, 5, 10)); 
             }
 
+            // Chỉ set border cho bản thân cái JSpinner, không set vào TextField bên trong
+            spinnerMucGiam.setBorder(BorderFactory.createLineBorder(BORDER, 1));
             spinnerMucGiam.setBackground(BG_INPUT);
-
-            spinnerMucGiam.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(BORDER, 1, true),
-                    new EmptyBorder(0, 0, 0, 0)
-            ));
 
             inputPanel.add(lblInputTitle, BorderLayout.NORTH);
             inputPanel.add(spinnerMucGiam, BorderLayout.CENTER);
@@ -1288,10 +1388,23 @@ public class CanhBaoKhoPanel extends JPanel {
                 }
             }
         }
+        private void chuyenSangTieuHuyUI(AlertItem data) {
+            Container p = CanhBaoKhoPanel.this;
+            if (p instanceof CanhBaoKhoPanel) {
+                CanhBaoKhoPanel panel = (CanhBaoKhoPanel) p;
+                if (panel.navigationCallback != null) {
+                    // Truyền MÃ LÔ (lotNumber) sang vì module Tiêu Hủy thao tác theo Lô
+                    panel.navigationCallback.navigateTo("TieuHuy", data.lotNumber);
+                }
+            }
+        }
 
         private JButton createPopupItem(String text, java.awt.event.ActionListener action) {
             JButton btn = new JButton(text);
-            btn.setFont(FONT_REGULAR.deriveFont(13f));
+            
+            // 🎯 FIX LỖI 1: Đổi font sang Segoe UI Emoji để render icon màu mè mượt mà
+            btn.setFont(new Font("Segoe UI", Font.PLAIN, 14)); 
+            
             btn.setForeground(TEXT_MAIN);
             btn.setBackground(Color.WHITE);
             btn.setHorizontalAlignment(SwingConstants.LEFT);
@@ -1300,8 +1413,11 @@ public class CanhBaoKhoPanel extends JPanel {
             btn.setContentAreaFilled(false);
             btn.setOpaque(true);
             btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            btn.setMaximumSize(new Dimension(200, 35));
-            btn.setBorder(new EmptyBorder(8, 15, 8, 15));
+            
+            // 🎯 FIX LỖI 2: Cởi trói chiều ngang (Integer.MAX_VALUE), cho phép popup tự phình to theo chữ
+            btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38)); 
+            btn.setBorder(new EmptyBorder(8, 15, 8, 20)); // Tăng margin bên phải cho dễ thở
+            
             btn.addMouseListener(new MouseAdapter() {
                 public void mouseEntered(MouseEvent e) {
                     btn.setBackground(new Color(248, 250, 252));
@@ -1315,6 +1431,7 @@ public class CanhBaoKhoPanel extends JPanel {
             btn.addActionListener(action);
             return btn;
         }
+
 
         @Override protected void paintComponent(Graphics g) { super.paintComponent(g); }
     }
@@ -1424,12 +1541,11 @@ public class CanhBaoKhoPanel extends JPanel {
             // 🎯 ROUTING & POPUP THEO CHUẨN ERP
             // =====================================
             btnAction.addActionListener(e -> {
-                // Đã cập nhật: LECH_KHO cũng sẽ gọi menu dropdown
                 if (data.type == AlertType.EXPIRING_SOON || data.type == AlertType.LOW_STOCK || data.type == AlertType.LECH_KHO) {
                     ModernActionPopup popup = new ModernActionPopup(this, data);
                     popup.show(btnAction, 0, btnAction.getHeight() + 4);
                 } else {
-                    markAsPending();
+                    // Đối với EXPIRED, gọi xuống Handler để mở Bảng Xác Nhận
                     WarehouseAlertActionHandler.routeAction(data.type, data, this);
                 }
             });
@@ -1450,15 +1566,16 @@ public class CanhBaoKhoPanel extends JPanel {
         // =====================================
         // ✨ STATE MUTATION (KHÔNG RELOAD PANEL)
         // =====================================
-        public void markAsPending() {
+
+        public void markAsPending(String badgeText, String buttonText) {
             SwingUtilities.invokeLater(() -> {
                 // 1. Cập nhật Badge: Nền cam nhạt, chữ cam đậm, icon đồng hồ
-                lblStatus.updateStyle("⏳ ĐANG CHỜ XỬ LÝ", 
+                lblStatus.updateStyle("⏳ " + badgeText, 
                     new Color(217, 119, 6),   // Cam đậm (Warning Text)
                     new Color(254, 243, 199)); // Cam nhạt (Warning BG)
                 
-                // 2. Chuyển nút sang trạng thái Disabled chuẩn UI
-                btnAction.setText("Đã gửi xử lý");
+                // 2. Chuyển nút sang trạng thái Disabled chuẩn UI (Màu xám)
+                btnAction.setText(buttonText);
                 btnAction.setBackground(new Color(241, 245, 249)); // Slate 100
                 btnAction.setForeground(new Color(148, 163, 184)); // Slate 400
                 btnAction.setEnabled(false);
@@ -1466,9 +1583,9 @@ public class CanhBaoKhoPanel extends JPanel {
                 
                 btnView.setForeground(new Color(148, 163, 184)); // Mờ nút chi tiết đi
                 
-                // 3. Hiệu ứng flash nhẹ báo hiệu thành công
+                // 3. Hiệu ứng flash nhẹ báo hiệu chuyển State thành công
                 setBackground(new Color(254, 252, 232)); 
-                Timer t = new Timer(350, e -> setBackground(BG_CARD));
+                Timer t = new Timer(350, e -> setBackground(BG_CARD)); // BG_CARD là màu gốc
                 t.setRepeats(false);
                 t.start();
                 
@@ -1476,6 +1593,12 @@ public class CanhBaoKhoPanel extends JPanel {
                 repaint();
             });
         }
+
+        // Giữ lại hàm cũ dạng overload để không vỡ logic ở các chỗ khác gọi markAsPending()
+        public void markAsPending() {
+            markAsPending("ĐANG CHỜ XỬ LÝ", "Xử lý kho");
+        }
+
     }
     // ==========================================
     // 🎨 COMPONENT: BADGE TRẠNG THÁI BO GÓC

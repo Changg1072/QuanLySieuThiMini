@@ -48,6 +48,7 @@ public class TrangADMIN extends JFrame {
     private DanhSachNvUi danhSachNvUi = null;
     private QuanLyNhapHangModule nhapHangModuleUi = null;
     private DanhSachSPUi quanLySpUi = null;
+    private CanhBaoKhoPanel canhBaoKhoPanel = null;
     
     private KiemKeGUI kiemKeUi = null;
     private QuanLyGiamGiaModule quanLyGiamGiaModuleUi = null; 
@@ -140,9 +141,19 @@ public class TrangADMIN extends JFrame {
         pnl.setBackground(CLR_HEADER_BG);
         pnl.setBorder(new EmptyBorder(20, 16, 16, 16));
 
+        // 🔥 NÂNG CẤP: Gộp Tiêu đề và Chuông vào 1 dòng (BorderLayout)
+        JPanel pnlTitleRow = new JPanel(new BorderLayout());
+        pnlTitleRow.setOpaque(false);
+        pnlTitleRow.setMaximumSize(new Dimension(SIDEBAR_W, 36));
+
         JLabel lblTieuDe = taoLabel("QUẢN LÝ SIÊU THỊ", 13, Font.BOLD, CLR_ACCENT);
-        lblTieuDe.setBorder(new EmptyBorder(0, 0, 12, 0));
-        pnl.add(lblTieuDe);
+        NotificationBell bell = new NotificationBell(); // Gọi chiếc chuông thần thánh
+        
+        pnlTitleRow.add(lblTieuDe, BorderLayout.WEST);
+        pnlTitleRow.add(bell, BorderLayout.EAST);
+        
+        pnl.add(pnlTitleRow);
+        pnl.add(Box.createRigidArea(new Dimension(0, 8))); // Khoảng cách tới đường line
 
         pnl.add(taoSeparator());
         pnl.add(Box.createRigidArea(new Dimension(0, 12)));
@@ -156,6 +167,60 @@ public class TrangADMIN extends JFrame {
         pnl.add(taoBadgeVaiTro("QUẢN TRỊ VIÊN"));
 
         return pnl;
+    }
+        // =========================================================
+    //  HÀM ĐIỀU HƯỚNG: MỞ TRUNG TÂM CẢNH BÁO
+    // =========================================================
+    private void moTrangCanhBaoKho() {
+        if (canhBaoKhoPanel == null) {
+            canhBaoKhoPanel = new CanhBaoKhoPanel((moduleName, identifier) -> {
+                
+                if ("GiamGia".equals(moduleName)) {
+                    taoMucDropdown("Giảm giá", "GIAM_GIA").doClick(); 
+                } 
+                else if ("TieuHuy".equals(moduleName)) {
+                    taoMucDropdown("Tiêu hủy", "TIEU_HUY").doClick(); 
+                    if (tieuHuyUi != null) tieuHuyUi.chonNhanhVaSetLyDo(identifier, "Hàng hết hạn");
+                }
+                else if ("TieuHuyNgam".equals(moduleName)) {
+                    if (tieuHuyUi == null) {
+                        tieuHuyUi = new TieuHuySanPhamGUI(this.maNhanVien); 
+                        pnlCards.add(tieuHuyUi, "TIEU_HUY");
+                    }
+                    tieuHuyUi.nhanDuLieuChoTieuHuyNgam(identifier, "Chờ tiêu hủy");
+                }
+                // 🚀 TÍNH NĂNG MỚI: TRUYỀN DỮ LIỆU NGẦM SANG TAB GIẢM GIÁ
+                else if ("GiamGiaNgam".equals(moduleName)) {
+                    if (quanLyGiamGiaModuleUi == null) {
+                        quanLyGiamGiaModuleUi = new QuanLyGiamGiaModule(); 
+                        pnlCards.add(quanLyGiamGiaModuleUi, "GIAM_GIA");
+                    }
+                    if (GiamGiaUI.getInstance() != null) {
+                        GiamGiaUI.getInstance().nhanDuLieuChoGiamGiaNgam(identifier);
+                    }
+                }
+                // 🚀 TÍNH NĂNG MỚI: TRUYỀN DỮ LIỆU SANG TAB KIỂM KÊ (FIX LỆCH KHO)
+                else if ("KiemKeNgam".equals(moduleName)) {
+                    // 1. Gọi lệnh Click ảo để khởi tạo và mở trang Kiểm Kê
+                    taoMucDropdown("Kiểm kê kho", "KIEM_KE").doClick();
+                    
+                    // 2. Tách chuỗi identifier (Ví dụ: "SP001_LH2412-001")
+                    String[] parts = identifier.split("_");
+                    if (parts.length == 2 && kiemKeUi != null) {
+                        // Bắn dữ liệu vào UI Kiểm Kê
+                        kiemKeUi.nhanDuLieuCanhBaoLechKho(parts[0], parts[1]);
+                    }
+                }
+                
+            });
+            pnlCards.add(canhBaoKhoPanel, "CANH_BAO");
+        }
+        
+        for (JButton btn : danhSachNutMenu) {
+            btn.setBackground(CLR_SIDEBAR_BG);
+            btn.setForeground(CLR_TEXT_PRIMARY);
+        }
+        cardLayout.show(pnlCards, "CANH_BAO");
     }
 
     // =========================================================
@@ -756,5 +821,146 @@ public class TrangADMIN extends JFrame {
         pnl.add(pnlHeader, BorderLayout.NORTH);
         pnl.add(new JLabel("(Khu vực tính năng sẽ nằm ở đây)", SwingConstants.CENTER), BorderLayout.CENTER);
         return pnl;
+    }
+    // =========================================================
+    // 🔔 COMPONENT: CHUÔNG THÔNG BÁO HIỆN ĐẠI (NOTIFICATION HUB)
+    // =========================================================
+    class NotificationBell extends JPanel {
+        private int alertCount = 0;
+        private boolean isHovered = false;
+        private Timer syncTimer;
+
+        public NotificationBell() {
+            setPreferredSize(new Dimension(36, 36));
+            setMaximumSize(new Dimension(36, 36));
+            setOpaque(false);
+            setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            // Hiệu ứng Hover - Đổi màu nền mờ Glassmorphism
+            addMouseListener(new MouseAdapter() {
+                @Override public void mouseEntered(MouseEvent e) { 
+                    isHovered = true; repaint(); 
+                }
+                @Override public void mouseExited(MouseEvent e) { 
+                    isHovered = false; repaint(); 
+                }
+                @Override public void mouseClicked(MouseEvent e) {
+                    moTrangCanhBaoKho();
+                }
+            });
+
+            // ⏱️ TIMER ĐỒNG BỘ: Mỗi 15 giây quét nhẹ Database 1 lần để đếm cảnh báo
+            syncTimer = new Timer(15000, e -> refreshNotificationsAsync());
+            syncTimer.start();
+            
+            // Chạy ngay lần đầu khi mở app
+            refreshNotificationsAsync();
+        }
+
+        // Cập nhật số lượng và gọi UI vẽ lại
+        public void setNotificationCount(int count) {
+            if (this.alertCount != count) {
+                this.alertCount = count;
+                repaint();
+            }
+        }
+
+        // Kéo dữ liệu ngầm không làm đơ UI (Tận dụng hàm KiemKeSieuToc đã có)
+        private void refreshNotificationsAsync() {
+            SwingWorker<Integer, Void> worker = new SwingWorker<>() {
+                @Override
+                protected Integer doInBackground() {
+                    int count = 0;
+                    try {
+                        // Kéo siêu tốc từ DB
+                        Dao.TruyVanSieuTocDAO.DuLieuKiemKeSieuTocDTO duLieu = 
+                            Dao.TruyVanSieuTocDAO.getInstance().loadDuLieuKiemKeSieuToc();
+                        java.time.LocalDate today = java.time.LocalDate.now();
+
+                        for (Data.SanPham sp : duLieu.dsSanPham) {
+                            java.util.List<Data.ChiTietLoHang> dsLo = duLieu.mapDanhSachLo.get(sp.getMaSP());
+                            if (dsLo == null) continue;
+                            for (Data.ChiTietLoHang lo : dsLo) {
+                                if (lo.getSoLuongTon() <= 0) continue;
+                                // 1. Tồn thấp
+                                if (lo.getSoLuongTon() <= 15) count++;
+                                // 2. Cận date / Hết hạn
+                                else if (lo.getHSD() != null) {
+                                    long days = java.time.temporal.ChronoUnit.DAYS.between(today, lo.getHSD());
+                                    if (days <= 30) count++;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                    return count;
+                }
+                @Override
+                protected void done() {
+                    try { setNotificationCount(get()); } catch (Exception ignored) {}
+                }
+            };
+            worker.execute();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int w = getWidth();
+            int h = getHeight();
+
+            // 1. Nền Glassmorphism khi Hover
+            if (isHovered) {
+                g2.setColor(new Color(255, 255, 255, 15)); // Màu trắng mờ
+                g2.fillRoundRect(0, 0, w, h, 12, 12);
+            }
+
+            // 2. Vẽ Vector Chuông (Màu Accent Cyan khi hover, Muted khi bình thường)
+            g2.setColor(isHovered ? CLR_ACCENT : CLR_TEXT_MUTED);
+            g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            
+            // Toạ độ vẽ chuông
+            int bx = w/2 - 7;
+            int by = h/2 - 6;
+            
+            // Đỉnh chuông (Arc)
+            g2.drawArc(bx, by, 14, 14, 0, 180);
+            // Thân chuông (Line)
+            g2.drawLine(bx, by + 7, bx, by + 12);
+            g2.drawLine(bx + 14, by + 7, bx + 14, by + 12);
+            // Vành chuông dưới (Flared bottom)
+            g2.drawRoundRect(bx - 2, by + 12, 18, 3, 2, 2);
+            // Quả lắc (Clapper)
+            g2.drawArc(bx + 5, by + 15, 4, 4, 180, 180);
+
+            // 3. Vẽ Badge Đỏ nếu có cảnh báo (> 0)
+            if (alertCount > 0) {
+                String text = alertCount > 99 ? "99+" : String.valueOf(alertCount);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 9));
+                FontMetrics fm = g2.getFontMetrics();
+                int textW = fm.stringWidth(text);
+                
+                int badgeH = 14;
+                int badgeW = Math.max(badgeH, textW + 6); // Thành viên nhộng nếu text dài
+                int badgeX = w - badgeW - 2;
+                int badgeY = 2;
+
+                // Nền Đỏ Danger
+                g2.setColor(new Color(239, 68, 68)); // Đỏ hiện đại
+                g2.fillRoundRect(badgeX, badgeY, badgeW, badgeH, badgeH, badgeH);
+                
+                // Viền mỏng tách biệt với nền (Cutout effect)
+                g2.setColor(CLR_HEADER_BG);
+                g2.setStroke(new BasicStroke(1.5f));
+                g2.drawRoundRect(badgeX, badgeY, badgeW, badgeH, badgeH, badgeH);
+
+                // Chữ Trắng
+                g2.setColor(Color.WHITE);
+                g2.drawString(text, badgeX + (badgeW - textW) / 2, badgeY + badgeH - 3);
+            }
+            g2.dispose();
+        }
     }
 }
