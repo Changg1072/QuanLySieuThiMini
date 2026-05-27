@@ -3,6 +3,16 @@ package GUI;
 import Dao.TruyVanSieuTocDAO;
 import Data.ChiTietLoHang;
 import Data.SanPham;
+import GUI.CanhBaoKhoPanel.AlertItem;
+import GUI.CanhBaoKhoPanel.ModernActionPopup;
+import GUI.CanhBaoKhoPanel.ModernButton;
+import GUI.CanhBaoKhoPanel.WarehouseAlertActionHandler;
+import java.awt.event.ActionListener;
+import Data.PhieuTieuHuy;
+import Data.ChiTietPhieuHuy;
+import Logic.PhieuTieuHuyLogic;
+import Logic.ChiTietPhieuHuyLogic;
+import java.math.BigDecimal;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -37,6 +47,8 @@ public class CanhBaoKhoPanel extends JPanel {
     private static final Color WARNING_BG = new Color(254, 243, 199);     
     private static final Color INFO_FG = new Color(37, 99, 235);          
     private static final Color INFO_BG = new Color(219, 234, 254);        
+    private static final Color PURPLE_FG = new Color(147, 51, 234);       // Tím đậm (Lệch kho)
+    private static final Color PURPLE_BG = new Color(243, 232, 255);
 
     private static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD, 26);
     private static final Font FONT_SUBTITLE = new Font("Segoe UI", Font.PLAIN, 14);
@@ -48,8 +60,7 @@ public class CanhBaoKhoPanel extends JPanel {
     // ==========================================
     private JPanel pnlAlertList;
     private JLabel lblCountNghiemTrong, lblCountLuuY;
-    private JLabel lblCountTatCa, lblCountDaHetHan, lblCountSapHetHan, lblCountTonThap;
-    
+    private JLabel lblCountTatCa, lblCountDaHetHan, lblCountSapHetHan, lblCountTonThap, lblCountLechKho;
     private List<AlertItem> currentAlerts = new ArrayList<>();
     
     // 🔥 BIẾN LƯU TRẠNG THÁI LỌC 
@@ -87,7 +98,7 @@ public class CanhBaoKhoPanel extends JPanel {
     }
 
     // ==========================================
-    // 🔥 LOGIC LIÊN KẾT DATABASE VÀ XỬ LÝ NGÀY THÁNG
+    // 🔥 LOGIC LIÊN KẾT DATABASE VÀ XỬ LÝ NGÀY THÁNG + KIỂM KÊ
     // ==========================================
     private void taiDuLieuThucTeTuKho() {
         pnlAlertList.removeAll();
@@ -105,6 +116,7 @@ public class CanhBaoKhoPanel extends JPanel {
                 TruyVanSieuTocDAO.DuLieuKiemKeSieuTocDTO duLieuSQL = TruyVanSieuTocDAO.getInstance().loadDuLieuKiemKeSieuToc();
                 LocalDate today = LocalDate.now();
 
+                // 1. QUÉT HẠN SỬ DỤNG & TỒN THẤP (Như cũ)
                 for (SanPham sp : duLieuSQL.dsSanPham) {
                     List<ChiTietLoHang> dsLo = duLieuSQL.mapDanhSachLo.get(sp.getMaSP());
                     if (dsLo == null) continue;
@@ -120,20 +132,58 @@ public class CanhBaoKhoPanel extends JPanel {
 
                             if (daysBetween < 0) {
                                 long expiredDays = Math.abs(daysBetween);
-                                list.add(new AlertItem(sp.getTenSP(), "Đã hết hạn " + expiredDays + " ngày", lo.getMaLoHang(), "Khu vực chung", AlertPriority.HIGH, AlertType.EXPIRED));
+                                // 1. Truyền thêm mã SP, Tồn kho, Giá nhập cho Hết hạn
+                                list.add(new AlertItem(sp.getTenSP(), "Đã hết hạn " + expiredDays + " ngày", lo.getMaLoHang(), "Kho chính", AlertPriority.HIGH, AlertType.EXPIRED, sp.getMaSP(), tonKho, lo.getGiaNhap()));
                                 daCanhBaoDate = true;
                             } else if (daysBetween <= 30) {
                                 AlertPriority pri = (daysBetween <= 7) ? AlertPriority.HIGH : AlertPriority.MEDIUM;
-                                list.add(new AlertItem(sp.getTenSP(), "Còn " + daysBetween + " ngày hết hạn", lo.getMaLoHang(), "Khu vực chung", pri, AlertType.EXPIRING_SOON));
+                                // 2. Truyền cho Cận date
+                                list.add(new AlertItem(sp.getTenSP(), "Còn " + daysBetween + " ngày hết hạn", lo.getMaLoHang(), "Kho chính", pri, AlertType.EXPIRING_SOON, sp.getMaSP(), tonKho, lo.getGiaNhap()));
                                 daCanhBaoDate = true;
                             }
                         }
 
                         if (!daCanhBaoDate && tonKho <= 15) {
-                            list.add(new AlertItem(sp.getTenSP(), "Tồn kho thấp (" + tonKho + " " + sp.getDonViTinh() + ")", lo.getMaLoHang(), "Khu vực chung", AlertPriority.LOW, AlertType.LOW_STOCK));
+                            // 3. Truyền cho Tồn kho thấp
+                            list.add(new AlertItem(sp.getTenSP(), "Tồn kho thấp (" + tonKho + " " + sp.getDonViTinh() + ")", lo.getMaLoHang(), "Kho chính", AlertPriority.LOW, AlertType.LOW_STOCK, sp.getMaSP(), tonKho, lo.getGiaNhap()));
                         }
                     }
                 }
+
+                // 2. 🎯 ĐỘNG CƠ QUÉT LỆCH KHO TỪ BẢNG KiemKeKho
+                String sqlLechKho = "SELECT k.MaSP, s.TenSP, k.MaLoHang, k.SoLuongHeThong, k.SoLuongThucTe, k.LyDo " +
+                                    "FROM KiemKeKho k JOIN SanPham s ON k.MaSP = s.MaSP " +
+                                    "WHERE k.SoLuongHeThong <> k.SoLuongThucTe";
+                                    
+                try (java.sql.Connection con = Dao.ConnectDB.getInstance().getConnection();
+                     java.sql.Statement st = con.createStatement();
+                     java.sql.ResultSet rs = st.executeQuery(sqlLechKho)) {
+                     
+                    while (rs.next()) {
+                        String tenSP = rs.getString("TenSP");
+                        String maLo = rs.getString("MaLoHang");
+                        int slHT = rs.getInt("SoLuongHeThong");
+                        int slTT = rs.getInt("SoLuongThucTe");
+                        String lyDo = rs.getString("LyDo");
+                        
+                        // 🎯 CHẶN NGAY TẠI ĐÂY: Nếu đã tự động bù trừ "Huề kho" thì KHÔNG CẢNH BÁO NỮA
+                        if (lyDo != null && lyDo.contains("Huề kho")) {
+                            continue; // Bỏ qua luôn lô này, không đẩy vào list Cảnh báo
+                        }
+                        
+                        int lech = slTT - slHT; // Âm là thiếu, Dương là dư
+                        String textCanhBao = (lech > 0 ? "Phát hiện dư: +" : "Phát hiện thiếu: ") + lech + " SP";
+                        if (lyDo != null && !lyDo.trim().isEmpty()) {
+                            textCanhBao += " (" + lyDo + ")";
+                        }
+                        
+                        // Push vào danh sách với Loại = LECH_KHO (Tím)
+                        list.add(new AlertItem(tenSP, textCanhBao, maLo, "Kho chờ xử lý", AlertPriority.HIGH, AlertType.LECH_KHO, rs.getString("MaSP"), slHT, BigDecimal.ZERO));
+                    }
+                } catch(Exception e) {
+                    System.err.println("Lỗi quét lệch kho: " + e.getMessage());
+                }
+
                 return list;
             }
 
@@ -155,7 +205,7 @@ public class CanhBaoKhoPanel extends JPanel {
 
     private void capNhatGiaoDienVoiDuLieuMoi() {
         int nghiemTrong = 0, luuY = 0;
-        int daHetHan = 0, sapHetHan = 0, tonThap = 0;
+        int daHetHan = 0, sapHetHan = 0, tonThap = 0, lechKho = 0; // Thêm lechKho
 
         for (AlertItem a : currentAlerts) {
             if (a.priority == AlertPriority.HIGH) nghiemTrong++;
@@ -164,6 +214,7 @@ public class CanhBaoKhoPanel extends JPanel {
             if (a.type == AlertType.EXPIRED) daHetHan++;
             else if (a.type == AlertType.EXPIRING_SOON) sapHetHan++;
             else if (a.type == AlertType.LOW_STOCK) tonThap++;
+            else if (a.type == AlertType.LECH_KHO) lechKho++; // 🎯 Đếm lệch kho
         }
 
         lblCountNghiemTrong.setText("Nghiêm trọng: " + nghiemTrong);
@@ -173,8 +224,12 @@ public class CanhBaoKhoPanel extends JPanel {
         lblCountDaHetHan.setText(String.valueOf(daHetHan));
         lblCountSapHetHan.setText(String.valueOf(sapHetHan));
         lblCountTonThap.setText(String.valueOf(tonThap));
+        
+        // 🎯 Gắn số lên Badge Lệch Kho
+        if (lblCountLechKho != null) {
+            lblCountLechKho.setText(String.valueOf(lechKho));
+        }
 
-        // Bỏ việc gọi list trực tiếp ở đây, nhường cho hàm Lọc Data quyết định
         hienThiDanhSachDaLoc();
     }
 
@@ -287,10 +342,10 @@ public class CanhBaoKhoPanel extends JPanel {
         lblCountDaHetHan  = taoLabelBadge("0", new Color(220, 38, 38),  new Color(254, 226, 226));
         lblCountSapHetHan = taoLabelBadge("0", new Color(217, 119, 6),  new Color(254, 243, 199));
         lblCountTonThap   = taoLabelBadge("0", new Color(37, 99, 235),  new Color(219, 234, 254));
+        lblCountLechKho   = taoLabelBadge("0", PURPLE_FG, PURPLE_BG); // 🎯 Thêm Badge Màu Tím
 
         ButtonGroup groupFilter = new ButtonGroup();
         
-        // Nối dây: Truyền AlertType tương ứng vào để RadioButton tự bắt sự kiện
         box1.add(taoFilterRow("Tất cả",       lblCountTatCa,     true,  groupFilter, null));
         box1.add(Box.createVerticalStrut(6));
         box1.add(taoFilterRow("Đã hết hạn",   lblCountDaHetHan,  false, groupFilter, AlertType.EXPIRED));
@@ -298,6 +353,8 @@ public class CanhBaoKhoPanel extends JPanel {
         box1.add(taoFilterRow("Sắp hết hạn",  lblCountSapHetHan, false, groupFilter, AlertType.EXPIRING_SOON));
         box1.add(Box.createVerticalStrut(6));
         box1.add(taoFilterRow("Tồn kho thấp", lblCountTonThap,   false, groupFilter, AlertType.LOW_STOCK));
+        box1.add(Box.createVerticalStrut(6));
+        box1.add(taoFilterRow("Lệch kho",     lblCountLechKho,   false, groupFilter, AlertType.LECH_KHO)); // 🎯 Thêm Radio Button Lệch Kho
 
         RoundedPanel box2 = new RoundedPanel(12, BG_CARD);
         box2.setBorder(BorderFactory.createCompoundBorder(
@@ -317,14 +374,11 @@ public class CanhBaoKhoPanel extends JPanel {
         pnlChips.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
         pnlChips.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        // Reset list để tránh nạp lại rác nếu hàm này vô tình được gọi 2 lần
         lstPriorityChips.clear();
         pnlChips.add(taoPriorityChip("Cao",        AlertPriority.HIGH));
         pnlChips.add(taoPriorityChip("Trung bình", AlertPriority.MEDIUM));
         pnlChips.add(taoPriorityChip("Thấp",       AlertPriority.LOW));
-        
-        capNhatGiaoDienChips(); // Vẽ style lần đầu tiên cho chip
-        
+        capNhatGiaoDienChips(); 
         box2.add(pnlChips);
 
         JPanel pnlBox1Wrapper = new JPanel(new BorderLayout());
@@ -470,92 +524,11 @@ public class CanhBaoKhoPanel extends JPanel {
 
         return scroll;
     }
-
-    // ==========================================
-    // COMPONENT: CARD CẢNH BÁO
-    // ==========================================
-    class AlertCard extends RoundedPanel {
-        public AlertCard(AlertItem data) {
-            super(15, BG_CARD);
-            setLayout(new BorderLayout());
-            setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
-
-            JPanel pnlPriority = new JPanel();
-            pnlPriority.setPreferredSize(new Dimension(6, 110));
-            switch (data.priority) {
-                case HIGH: pnlPriority.setBackground(DANGER_FG); break;
-                case MEDIUM: pnlPriority.setBackground(WARNING_FG); break;
-                case LOW: pnlPriority.setBackground(INFO_FG); break;
-            }
-
-            JPanel pnlLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
-            pnlLeft.setOpaque(false);
-            
-            RoundedPanel pnlImage = new RoundedPanel(10, BORDER_COLOR);
-            pnlImage.setPreferredSize(new Dimension(70, 70));
-            pnlImage.setLayout(new BorderLayout());
-            JLabel lblImgText = new JLabel("SP", SwingConstants.CENTER);
-            lblImgText.setForeground(TEXT_SUB);
-            pnlImage.add(lblImgText);
-            
-            pnlLeft.add(pnlPriority);
-            pnlLeft.add(pnlImage);
-
-            JPanel pnlCenter = new JPanel(new GridLayout(3, 1, 0, 5));
-            pnlCenter.setOpaque(false);
-            pnlCenter.setBorder(new EmptyBorder(15, 10, 15, 10));
-
-            JLabel lblName = new JLabel(data.productName);
-            lblName.setFont(FONT_TITLE.deriveFont(Font.BOLD, 18f));
-            lblName.setForeground(NAVY_BTN);
-            
-            Color bgBadge = BG_MAIN, fgBadge = TEXT_SUB;
-            String iconBadge = "";
-            switch (data.priority) {
-                case HIGH: bgBadge = DANGER_BG; fgBadge = DANGER_FG; iconBadge = "🔴"; break;
-                case MEDIUM: bgBadge = WARNING_BG; fgBadge = WARNING_FG; iconBadge = "🟡"; break;
-                case LOW: bgBadge = INFO_BG; fgBadge = INFO_FG; iconBadge = "📉"; break;
-            }
-            JLabel lblStatus = new JLabel(iconBadge + " " + data.statusText);
-            lblStatus.setFont(FONT_BOLD.deriveFont(13f));
-            lblStatus.setForeground(fgBadge);
-
-            JLabel lblInfo = new JLabel("📦 Lô " + data.lotNumber + "   |   📍 " + data.location);
-            lblInfo.setFont(FONT_REGULAR);
-            lblInfo.setForeground(TEXT_SUB);
-
-            pnlCenter.add(lblName);
-            pnlCenter.add(lblStatus);
-            pnlCenter.add(lblInfo);
-
-            JPanel pnlRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 30));
-            pnlRight.setOpaque(false);
-            
-            String mainBtnText = (data.type == AlertType.LOW_STOCK) ? "Nhập hàng" : "Xử lý kho";
-            ModernButton btnAction = new ModernButton(mainBtnText, NAVY_BTN, Color.WHITE);
-            ModernButton btnView = new ModernButton("Chi tiết", Color.WHITE, TEXT_MAIN);
-            btnView.setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
-
-            pnlRight.add(btnAction);
-            pnlRight.add(btnView);
-
-            addMouseListener(new MouseAdapter() {
-                public void mouseEntered(MouseEvent e) { setBackground(new Color(248, 250, 252)); }
-                public void mouseExited(MouseEvent e) { setBackground(BG_CARD); }
-            });
-
-            add(pnlLeft, BorderLayout.WEST);
-            add(pnlCenter, BorderLayout.CENTER);
-            add(pnlRight, BorderLayout.EAST);
-        }
-    }
-
     // ==========================================
     // UTILS & CLASSES
     // ==========================================
     public enum AlertPriority { HIGH, MEDIUM, LOW }
-    public enum AlertType { EXPIRED, EXPIRING_SOON, LOW_STOCK }
+    public enum AlertType { EXPIRED, EXPIRING_SOON, LOW_STOCK, LECH_KHO }
 
     public static class AlertItem {
         public String productName;
@@ -564,10 +537,16 @@ public class CanhBaoKhoPanel extends JPanel {
         public String location;
         public AlertPriority priority;
         public AlertType type;
+        
+        // Dữ liệu ngầm để tiêu hủy trực tiếp
+        public String maSP;
+        public int soLuongTon;
+        public BigDecimal giaNhap;
 
-        public AlertItem(String p, String s, String l, String loc, AlertPriority pri, AlertType t) {
+        public AlertItem(String p, String s, String l, String loc, AlertPriority pri, AlertType t, String maSP, int soLuongTon, BigDecimal giaNhap) {
             this.productName = p; this.statusText = s; this.lotNumber = l; 
             this.location = loc; this.priority = pri; this.type = t;
+            this.maSP = maSP; this.soLuongTon = soLuongTon; this.giaNhap = giaNhap;
         }
     }
 
@@ -674,7 +653,354 @@ public class CanhBaoKhoPanel extends JPanel {
         @Override public int getIconWidth() { return 16; }
         @Override public int getIconHeight() { return 16; }
     }
+    // ==========================================
+    // 🚦 WORKFLOW HANDLER (ERP/WMS STYLE)
+    // ==========================================
+    public static class WarehouseAlertActionHandler {
+        public static void routeAction(AlertType type, AlertItem data, Component parent) {
+            
+            switch (type) {
+                case EXPIRED:
+                    // 🔥 XỬ LÝ TIÊU HỦY TRỰC TIẾP TẠI CHỖ
+                    GUI.HoTro.TienIchGiaoDien.hienThiXacNhan(parent, 
+                        "Xác nhận <b>tiêu hủy ngay lập tức</b> toàn bộ " + data.soLuongTon + " sản phẩm của Lô " + data.lotNumber + "?", 
+                        () -> {
+                            SwingWorker<Void, Void> worker = new SwingWorker<>() {
+                                @Override
+                                protected Void doInBackground() throws Exception {
+                                    BigDecimal giaTriHuy = data.giaNhap.multiply(new BigDecimal(data.soLuongTon));
+                                    
+                                    // 1. Tạo phiếu tổng
+                                    Data.PhieuTieuHuy phieu = new Data.PhieuTieuHuy();
+                                    phieu.setMaNV("NV001"); // Lấy mã NV thực tế của hệ thống
+                                    phieu.setTongSoLuong(data.soLuongTon);
+                                    phieu.setTongGiaTriHuy(giaTriHuy);
+                                    phieu.setLyDoHuy("Hàng hết hạn");
+                                    Logic.PhieuTieuHuyLogic.getInstance().taoPhieuTieuHuy(phieu);
+                                    
+                                    // 2. Tạo chi tiết phiếu
+                                    Data.ChiTietPhieuHuy ct = new Data.ChiTietPhieuHuy();
+                                    ct.setMaPhieuHuy(phieu.getMaPhieuHuy());
+                                    ct.setMaLoHang(data.lotNumber);
+                                    ct.setMaSP(data.maSP);
+                                    ct.setSoLuongHuy(data.soLuongTon);
+                                    ct.setGiaTriHuy(giaTriHuy);
+                                    ct.setLyDoChiTiet("Hàng hết hạn");
+                                    Logic.ChiTietPhieuHuyLogic.getInstance().themChiTietPhieuHuy(ct);
+                                    
+                                    // 3. Hoàn tất (Đổi trạng thái DA_TIEU_HUY để cập nhật tồn kho)
+                                    Logic.PhieuTieuHuyLogic.getInstance().hoanTatPhieuTieuHuy(phieu.getMaPhieuHuy());
+                                    return null;
+                                }
 
+                                @Override
+                                protected void done() {
+                                    try {
+                                        get();
+                                        // 4. Báo thành công
+                                        GUI.HoTro.TienIchGiaoDien.hienThiThongBao(parent, 
+                                            "Đã tiêu hủy thành công Lô <b>" + data.lotNumber + "</b>!", 
+                                            "SUCCESS");
+                                            
+                                        // 5. Tự động tải lại Panel để thẻ vừa hủy biến mất
+                                        Container p = parent.getParent();
+                                        while (p != null && !(p instanceof CanhBaoKhoPanel)) {
+                                            p = p.getParent();
+                                        }
+                                        if (p instanceof CanhBaoKhoPanel) {
+                                            ((CanhBaoKhoPanel) p).taiDuLieuThucTeTuKho();
+                                        }
+                                    } catch (Exception ex) {
+                                        GUI.HoTro.TienIchGiaoDien.hienThiThongBao(parent, "Lỗi tiêu hủy: " + ex.getMessage(), "ERROR");
+                                    }
+                                }
+                            };
+                            worker.execute();
+                        }
+                    );
+                    break;
+                
+                case LOW_STOCK:
+                    System.out.println("➡️ Action: Mở Module Nhập Hàng (QuanLyNhapHangModule)");
+                    break;
+                case EXPIRING_SOON:
+                    System.out.println("➡️ Action: Mở Module Giảm Giá (GiamGiaUI)");
+                    break;
+                case LECH_KHO:
+                    System.out.println("➡️ Action: Mở Module Kiểm Kê (KiemKeGUI) -> Auto focus mã: " + data.lotNumber);
+                    break;
+            }
+        }
+    }
+
+
+    // ==========================================
+    // 🎨 MODERN ACTION SHEET POPUP
+    // ==========================================
+    class ModernActionPopup extends JPopupMenu {
+        public ModernActionPopup(AlertCard parentCard, AlertItem data) {
+            setOpaque(false);
+            setBorder(new EmptyBorder(5, 5, 5, 5)); // Không gian cho shadow giả
+            setBackground(new Color(0,0,0,0));
+
+            JPanel pnlContainer = new RoundedPanel(12, Color.WHITE);
+            pnlContainer.setLayout(new BoxLayout(pnlContainer, BoxLayout.Y_AXIS));
+            pnlContainer.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR, 1),
+                new EmptyBorder(5, 5, 5, 5)
+            ));
+
+            // Khởi tạo các options dựa theo loại cảnh báo
+            if (data.type == AlertType.EXPIRING_SOON) {
+                pnlContainer.add(createPopupItem("🔥 Giảm giá xả kho", e -> executeAction(parentCard, data, AlertType.EXPIRING_SOON)));
+                pnlContainer.add(createPopupItem("📦 Chuyển kho / Đảo hàng", e -> executeAction(parentCard, data, null)));
+            } else if (data.type == AlertType.EXPIRED) {
+                pnlContainer.add(createPopupItem("🗑️ Lập phiếu tiêu hủy", e -> executeAction(parentCard, data, AlertType.EXPIRED)));
+            } else if (data.type == AlertType.LECH_KHO) {
+                // 🎯 THÊM MENU KIỂM KÊ CHO LỆCH KHO
+                pnlContainer.add(createPopupItem("⚖️ Mở phiếu Kiểm kê", e -> executeAction(parentCard, data, AlertType.LECH_KHO)));
+                pnlContainer.add(createPopupItem("📄 Lập phiếu điều tra", e -> executeAction(parentCard, data, null)));
+            } else {
+                pnlContainer.add(createPopupItem("📋 Kiểm kê lại kho", e -> executeAction(parentCard, data, AlertType.LECH_KHO)));
+                pnlContainer.add(createPopupItem("📥 Nhập thêm hàng", e -> executeAction(parentCard, data, AlertType.LOW_STOCK)));
+            }
+
+            add(pnlContainer);
+        }
+
+        private JButton createPopupItem(String text, ActionListener action) {
+            JButton btn = new JButton(text);
+            btn.setFont(FONT_REGULAR.deriveFont(13f));
+            btn.setForeground(TEXT_MAIN);
+            btn.setBackground(Color.WHITE);
+            btn.setHorizontalAlignment(SwingConstants.LEFT);
+            btn.setBorderPainted(false);
+            btn.setFocusPainted(false);
+            btn.setContentAreaFilled(false);
+            btn.setOpaque(true);
+            btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btn.setMaximumSize(new Dimension(180, 35));
+            btn.setBorder(new EmptyBorder(8, 15, 8, 15));
+
+            btn.addMouseListener(new MouseAdapter() {
+                public void mouseEntered(MouseEvent e) { btn.setBackground(new Color(248, 250, 252)); btn.setForeground(INFO_FG); }
+                public void mouseExited(MouseEvent e) { btn.setBackground(Color.WHITE); btn.setForeground(TEXT_MAIN); }
+            });
+
+            btn.addActionListener(e -> {
+                setVisible(false);
+                action.actionPerformed(e);
+            });
+            return btn;
+        }
+
+        private void executeAction(AlertCard card, AlertItem data, AlertType targetType) {
+            // Đổi trạng thái UI ngay lập tức mượt mà
+            WarehouseAlertActionHandler.routeAction(targetType, data, card);
+            // Đẩy vào workflow routing
+            if (targetType != null) {
+                WarehouseAlertActionHandler.routeAction(targetType, data, card);
+            }
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            // Kế thừa background trong suốt để vẽ RoundedPanel mượt
+            super.paintComponent(g);
+        }
+    }
+    // ==========================================
+    // COMPONENT: CARD CẢNH BÁO (ĐÃ NÂNG CẤP WORKFLOW)
+    // ==========================================
+    class AlertCard extends RoundedPanel {
+        
+        private StatusBadge lblStatus;
+        private ModernButton btnAction;
+        private ModernButton btnView;
+        private AlertItem data;
+
+        public AlertCard(AlertItem data) {
+            super(15, BG_CARD);
+            this.data = data;
+            setLayout(new BorderLayout());
+            setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, 110)); // Giữ nguyên cấu trúc
+
+            JPanel pnlPriority = new JPanel();
+            pnlPriority.setPreferredSize(new Dimension(6, 110));
+
+            // --- 1. XỬ LÝ MÀU SẮC ĐỒNG BỘ TRONG 1 LẦN KHAI BÁO ---
+            Color bgBadge = BG_MAIN, fgBadge = TEXT_SUB;
+            String iconBadge = "";
+            
+            switch (data.priority) {
+                case HIGH: 
+                    pnlPriority.setBackground(DANGER_FG); 
+                    bgBadge = DANGER_BG; fgBadge = DANGER_FG; iconBadge = "🔴"; 
+                    break;
+                case MEDIUM: 
+                    pnlPriority.setBackground(WARNING_FG); 
+                    bgBadge = WARNING_BG; fgBadge = WARNING_FG; iconBadge = "🟡"; 
+                    break;
+                case LOW: 
+                    pnlPriority.setBackground(INFO_FG); 
+                    bgBadge = INFO_BG; fgBadge = INFO_FG; iconBadge = "📉"; 
+                    break;
+            }
+            
+            // 🎯 Ghi đè màu sắc nếu là Lệch Kho (Tím đặc trưng)
+            if (data.type == AlertType.LECH_KHO) {
+                pnlPriority.setBackground(PURPLE_FG); // Đổi dải màu bên mép trái thành Tím luôn
+                bgBadge = PURPLE_BG; 
+                fgBadge = PURPLE_FG; 
+                iconBadge = "⚖️"; 
+            }
+
+            // --- 2. BỐ TRÍ LAYOUT VÀ UI ---
+            JPanel pnlLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
+            pnlLeft.setOpaque(false);
+            
+            RoundedPanel pnlImage = new RoundedPanel(10, BORDER_COLOR);
+            pnlImage.setPreferredSize(new Dimension(70, 70));
+            pnlImage.setLayout(new BorderLayout());
+            JLabel lblImgText = new JLabel("SP", SwingConstants.CENTER);
+            lblImgText.setForeground(TEXT_SUB);
+            pnlImage.add(lblImgText);
+            
+            pnlLeft.add(pnlPriority);
+            pnlLeft.add(pnlImage);
+
+            // Cột giữa: Tên SP + Badge + Info
+            JPanel pnlCenter = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 4));
+            pnlCenter.setOpaque(false);
+            pnlCenter.setBorder(new EmptyBorder(15, 10, 15, 10));
+
+            JPanel pnlNameWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            pnlNameWrap.setOpaque(false);
+            pnlNameWrap.setPreferredSize(new Dimension(400, 25));
+            JLabel lblName = new JLabel(data.productName);
+            lblName.setFont(FONT_TITLE.deriveFont(Font.BOLD, 18f));
+            lblName.setForeground(NAVY_BTN);
+            pnlNameWrap.add(lblName);
+            
+            // Khởi tạo Badge Trạng Thái với màu đã setup ở trên
+            JPanel pnlBadgeWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            pnlBadgeWrap.setOpaque(false);
+            pnlBadgeWrap.setPreferredSize(new Dimension(400, 25));
+            lblStatus = new StatusBadge(iconBadge + " " + data.statusText, fgBadge, bgBadge);
+            pnlBadgeWrap.add(lblStatus);
+
+            JPanel pnlInfoWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            pnlInfoWrap.setOpaque(false);
+            pnlInfoWrap.setPreferredSize(new Dimension(400, 20));
+            JLabel lblInfo = new JLabel("📦 Lô " + data.lotNumber + "   |   📍 " + data.location);
+            lblInfo.setFont(FONT_REGULAR);
+            lblInfo.setForeground(TEXT_SUB);
+            pnlInfoWrap.add(lblInfo);
+
+            pnlCenter.setLayout(new BoxLayout(pnlCenter, BoxLayout.Y_AXIS));
+            pnlCenter.add(pnlNameWrap);
+            pnlCenter.add(pnlBadgeWrap);
+            pnlCenter.add(pnlInfoWrap);
+
+            JPanel pnlRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 30));
+            pnlRight.setOpaque(false);
+            
+            String mainBtnText = (data.type == AlertType.LOW_STOCK) ? "Nhập hàng" : "Xử lý kho";
+            btnAction = new ModernButton(mainBtnText, NAVY_BTN, Color.WHITE);
+            btnView = new ModernButton("Chi tiết", Color.WHITE, TEXT_MAIN);
+            btnView.setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
+
+            // =====================================
+            // 🎯 ROUTING & POPUP THEO CHUẨN ERP
+            // =====================================
+            btnAction.addActionListener(e -> {
+                // Đã cập nhật: LECH_KHO cũng sẽ gọi menu dropdown
+                if (data.type == AlertType.EXPIRING_SOON || data.type == AlertType.LOW_STOCK || data.type == AlertType.LECH_KHO) {
+                    ModernActionPopup popup = new ModernActionPopup(this, data);
+                    popup.show(btnAction, 0, btnAction.getHeight() + 4);
+                } else {
+                    markAsPending();
+                    WarehouseAlertActionHandler.routeAction(data.type, data, this);
+                }
+            });
+
+            pnlRight.add(btnAction);
+            pnlRight.add(btnView);
+
+            addMouseListener(new MouseAdapter() {
+                public void mouseEntered(MouseEvent e) { setBackground(new Color(248, 250, 252)); }
+                public void mouseExited(MouseEvent e) { setBackground(BG_CARD); }
+            });
+
+            add(pnlLeft, BorderLayout.WEST);
+            add(pnlCenter, BorderLayout.CENTER);
+            add(pnlRight, BorderLayout.EAST);
+        }
+
+        // =====================================
+        // ✨ STATE MUTATION (KHÔNG RELOAD PANEL)
+        // =====================================
+        public void markAsPending() {
+            SwingUtilities.invokeLater(() -> {
+                // 1. Cập nhật Badge: Nền cam nhạt, chữ cam đậm, icon đồng hồ
+                lblStatus.updateStyle("⏳ ĐANG CHỜ XỬ LÝ", 
+                    new Color(217, 119, 6),   // Cam đậm (Warning Text)
+                    new Color(254, 243, 199)); // Cam nhạt (Warning BG)
+                
+                // 2. Chuyển nút sang trạng thái Disabled chuẩn UI
+                btnAction.setText("Đã gửi xử lý");
+                btnAction.setBackground(new Color(241, 245, 249)); // Slate 100
+                btnAction.setForeground(new Color(148, 163, 184)); // Slate 400
+                btnAction.setEnabled(false);
+                btnAction.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+                
+                btnView.setForeground(new Color(148, 163, 184)); // Mờ nút chi tiết đi
+                
+                // 3. Hiệu ứng flash nhẹ báo hiệu thành công
+                setBackground(new Color(254, 252, 232)); 
+                Timer t = new Timer(350, e -> setBackground(BG_CARD));
+                t.setRepeats(false);
+                t.start();
+                
+                revalidate();
+                repaint();
+            });
+        }
+    }
+    // ==========================================
+    // 🎨 COMPONENT: BADGE TRẠNG THÁI BO GÓC
+    // ==========================================
+    class StatusBadge extends JLabel {
+        private Color bgColor;
+
+        public StatusBadge(String text, Color fg, Color bg) {
+            super(text);
+            setForeground(fg);
+            this.bgColor = bg;
+            setFont(FONT_BOLD.deriveFont(12f));
+            setBorder(new EmptyBorder(4, 10, 4, 10)); // Padding gọn gàng
+            setOpaque(false);
+        }
+
+        public void updateStyle(String text, Color fg, Color bg) {
+            setText(text);
+            setForeground(fg);
+            this.bgColor = bg;
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            // Vẽ nền bo góc
+            g2.setColor(bgColor);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+            super.paintComponent(g);
+            g2.dispose();
+        }
+    }
     public static void main(String[] args) {
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignored) {}
         SwingUtilities.invokeLater(() -> {
