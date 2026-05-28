@@ -296,19 +296,46 @@ public class DanhSachKhUi extends JPanel {
     }
 
     private void setupListeners() {
+        // 1. Lắng nghe gõ phím tìm kiếm
         txtTimKiem.getField().getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { xuLyBoLoc(); }
             public void removeUpdate(DocumentEvent e) { xuLyBoLoc(); }
             public void changedUpdate(DocumentEvent e) { xuLyBoLoc(); }
         });
+        
+        // 2. Lắng nghe rê chuột (Hover) để tạo hiệu ứng nổi khối
         listKhachHang.addMouseMotionListener(new MouseMotionAdapter() {
             @Override public void mouseMoved(MouseEvent e) {
                 int index = listKhachHang.locationToIndex(e.getPoint());
                 if (index != hoveredIndex) { hoveredIndex = index; listKhachHang.repaint(); }
             }
         });
+        
+        // 3. 🚀 LẮNG NGHE SỰ KIỆN CLICK CHUỘT (MỞ POPUP LỊCH SỬ)
         listKhachHang.addMouseListener(new MouseAdapter() {
-            @Override public void mouseExited(MouseEvent e) { hoveredIndex = -1; listKhachHang.repaint(); }
+            @Override 
+            public void mouseExited(MouseEvent e) { 
+                hoveredIndex = -1; listKhachHang.repaint(); 
+            }
+
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                // Chỉ nhận sự kiện click chuột trái
+                if (SwingUtilities.isLeftMouseButton(e)) {
+                    // Lấy vị trí dòng đang được click
+                    int index = listKhachHang.locationToIndex(e.getPoint());
+                    
+                    if (index >= 0 && index < listModel.getSize()) {
+                        KhachHang khachHangDuocChon = listModel.getElementAt(index);
+                        
+                        // Đảm bảo không click nhầm vào lúc đang Loading (Skeleton rỗng)
+                        if (khachHangDuocChon != null && !isLoading) {
+                            // GỌI HIỂN THỊ POPUP LỊCH SỬ MUA HÀNG NGAY TẠI ĐÂY!
+                            GUI.HoTro.LichSuMuaHangDialog.showModal(DanhSachKhUi.this, khachHangDuocChon);
+                        }
+                    }
+                }
+            }
         });
     }
 

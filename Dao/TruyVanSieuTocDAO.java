@@ -963,4 +963,54 @@ public class TruyVanSieuTocDAO {
         }
         return dto;
     }
+        // =========================================================================
+    // 13. TẢI LỊCH SỬ MUA HÀNG CỦA 1 KHÁCH HÀNG SIÊU TỐC (Không N+1 Query) 🚀
+    // =========================================================================
+    public static class LichSuMuaHangKhachHangDTO {
+        public String ngayTao;
+        public String maHD;
+        public int soLuongMatHang;
+        public BigDecimal giaTri;
+        public String trangThai;
+    }
+
+    public List<LichSuMuaHangKhachHangDTO> layLichSuMuaHangKhachHangSieuToc(String sdt) {
+        List<LichSuMuaHangKhachHangDTO> list = new ArrayList<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return list;
+
+        // JOIN 3 Bảng và GROUP BY để tính luôn số mặt hàng ngay từ Database (Thay vì dùng vòng lặp For gọi DB liên tục)
+        String sql = "SELECT hd.NgayTao, hd.MaHD, COUNT(ct.MaSP) AS SoLoaiMatHang, hd.ThanhTien, hd.TraHang " +
+                     "FROM HoaDon hd " +
+                     "JOIN KhachHang kh ON hd.MaKH = kh.MaKH " +
+                     "LEFT JOIN ChiTietHoaDon ct ON hd.MaHD = ct.MaHD " +
+                     "WHERE kh.SDT = ? " +
+                     "GROUP BY hd.NgayTao, hd.MaHD, hd.ThanhTien, hd.TraHang " +
+                     "ORDER BY hd.NgayTao DESC";
+
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, sdt);
+            try (ResultSet rs = ps.executeQuery()) {
+                java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                while (rs.next()) {
+                    LichSuMuaHangKhachHangDTO dto = new LichSuMuaHangKhachHangDTO();
+                    
+                    Timestamp ts = rs.getTimestamp("NgayTao");
+                    dto.ngayTao = (ts != null) ? ts.toLocalDateTime().format(fmt) : "—";
+                    
+                    dto.maHD = rs.getString("MaHD");
+                    dto.soLuongMatHang = rs.getInt("SoLoaiMatHang"); // Số lượng loại mặt hàng
+                    dto.giaTri = rs.getBigDecimal("ThanhTien");
+                    
+                    boolean isTraHang = rs.getBoolean("TraHang");
+                    dto.trangThai = isTraHang ? "HOÀN TRẢ" : "HOÀN TẤT";
+                    
+                    list.add(dto);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("🔥 [SieuTocDAO] Lỗi tải lịch sử khách hàng: " + e.getMessage());
+        }
+        return list;
+    }
 }
