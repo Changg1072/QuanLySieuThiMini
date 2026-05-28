@@ -193,8 +193,23 @@ public class DonHangUi extends JPanel {
                 List<JPanel> listCards = new ArrayList<>();
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
+                // 1. Lấy dữ liệu Đơn hàng
                 Dao.TruyVanSieuTocDAO.DuLieuDonHangDTO data = Dao.TruyVanSieuTocDAO.getInstance().loadToanBoDuLieuDonHang();
 
+                // 🟢 2. CHIẾN THUẬT MỚI: Quét toàn bộ ảnh 1 lần duy nhất đẩy lên RAM (Trị dứt điểm nghẽn DB)
+                java.util.Map<String, String> mapAnhSP = new java.util.HashMap<>();
+                try {
+                    List<Data.SanPham> listSP = Dao.SanPhamDAO.getInstance().layDanhSachSanPham();
+                    if (listSP != null) {
+                        for (Data.SanPham sp : listSP) {
+                            mapAnhSP.put(sp.getMaSP(), sp.getLinkHinhAnh());
+                        }
+                    }
+                } catch (Exception e) {
+                    System.out.println("Lỗi load danh sách ảnh lên RAM: " + e.getMessage());
+                }
+
+                // 3. Sắp xếp đơn hàng
                 List<Data.HoaDon> danhSachDaSapXep = new ArrayList<>(data.dsHoaDon);
                 danhSachDaSapXep.sort((hd1, hd2) -> {
                     java.time.LocalDateTime time1 = hd1.getNgayTao();
@@ -211,6 +226,7 @@ public class DonHangUi extends JPanel {
                     return ma1.compareTo(ma2);
                 });
 
+                // 4. Xây dựng giao diện
                 for (Data.HoaDon hd : danhSachDaSapXep) {
                     String[] khInfo = data.mapKhachHang.get(hd.getMaKH());
                     String tenKH = (khInfo != null) ? khInfo[0] : "Khách Vãng Lai";
@@ -261,10 +277,14 @@ public class DonHangUi extends JPanel {
                             String tenSP = (spInfo != null) ? spInfo[0] : "Sản phẩm (" + ct.getMaSp() + ")";
                             String loaiSP = (spInfo != null) ? "Danh mục: " + spInfo[1] : "Mã lô: " + ct.getMaLoHang();
 
+                            // 🟢 LẤY ẢNH TỪ RAM SIÊU NHANH (Thay vì chọc SQL liên tục)
+                            String tenAnh = mapAnhSP.getOrDefault(ct.getMaSp(), "");
+
                             orderUi.addItem(new SanPhamModel(
                                 tenSP, loaiSP,
                                 ct.getDonGia() != null ? ct.getDonGia().toString() : "0",
-                                ct.getSoLuong()
+                                ct.getSoLuong(),
+                                tenAnh // <-- Truyền tên ảnh vào
                             ));
                         }
                         listCards.add(createOrderCard(orderUi));
@@ -570,9 +590,19 @@ public class DonHangUi extends JPanel {
         panel.setOpaque(false); panel.setBorder(new EmptyBorder(12, 15, 12, 15));
         GridBagConstraints gbc = new GridBagConstraints(); gbc.insets = new Insets(0, 15, 0, 0); 
 
-        JLabel lblImage = new JLabel("Ảnh", SwingConstants.CENTER);
-        lblImage.setPreferredSize(new Dimension(60, 60)); lblImage.setBackground(new Color(245, 245, 245)); lblImage.setOpaque(true);
-        lblImage.setForeground(COLOR_TEXT_SUB); lblImage.setBorder(BorderFactory.createLineBorder(COLOR_BORDER));
+        JLabel lblImage = new JLabel("", SwingConstants.CENTER); // Xóa chữ "Ảnh"
+        lblImage.setPreferredSize(new Dimension(60, 60)); 
+        lblImage.setBackground(new Color(245, 245, 245)); 
+        lblImage.setOpaque(true);
+        lblImage.setBorder(BorderFactory.createLineBorder(COLOR_BORDER));
+
+        ImageIcon icon = Logic.QuanLyAnh.layIconAnh(product.imagePath, 60, 60);
+        if (icon != null) {
+            lblImage.setIcon(icon);
+        } else {
+            lblImage.setText("SP");
+            lblImage.setForeground(COLOR_TEXT_SUB);
+        }
 
         gbc.gridx = 0; gbc.gridy = 0; gbc.gridheight = 2; gbc.anchor = GridBagConstraints.CENTER; gbc.insets = new Insets(0, 0, 0, 0); panel.add(lblImage, gbc);
 
@@ -600,8 +630,14 @@ public class DonHangUi extends JPanel {
         public void addItem(SanPhamModel p) { items.add(p); totalPrice = totalPrice.add(p.price.multiply(BigDecimal.valueOf(p.quantity))); }
     }
     class SanPhamModel {
-        String name, category; BigDecimal price; int quantity;
-        public SanPhamModel(String name, String category, String price, int quantity) { this.name = name; this.category = category; this.price = new BigDecimal(price); this.quantity = quantity; }
+        String name, category, imagePath; // <-- Thêm imagePath
+        BigDecimal price; int quantity;
+        
+        public SanPhamModel(String name, String category, String price, int quantity, String imagePath) { 
+            this.name = name; this.category = category; 
+            this.price = new BigDecimal(price); this.quantity = quantity; 
+            this.imagePath = imagePath; // <-- Gán giá trị
+        }
     }
     
     // =========================================================================================

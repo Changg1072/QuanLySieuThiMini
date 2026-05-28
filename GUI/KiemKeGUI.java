@@ -80,7 +80,8 @@ public class KiemKeGUI extends JPanel {
     private TruyVanSieuTocDAO.DuLieuKiemKeSieuTocDTO duLieuSQL;
     private Map<String, ChiTietKiemKeUI> mapTrangThaiUI = new HashMap<>(); 
     private Map<String, TheSanPhamUI> mapTheSP = new HashMap<>();
-    
+    private String pendingTargetMaSP = null;
+    private String pendingTargetMaLo = null;
     private String maSPDangChon = "";
     private String maLoDangChon = "";
     
@@ -146,6 +147,7 @@ public class KiemKeGUI extends JPanel {
     private void taiDuLieuTuDatabase() {
         lblHeaderTongSP.setText("Đang tải dữ liệu kho...");
         panelDanhSachSP.removeAll();
+        panelDanhSachSP.revalidate();
         panelDanhSachSP.repaint();
 
         SwingWorker<TruyVanSieuTocDAO.DuLieuKiemKeSieuTocDTO, Void> worker = new SwingWorker<>() {
@@ -157,19 +159,24 @@ public class KiemKeGUI extends JPanel {
             @Override
             protected void done() {
                 try {
-                    duLieuSQL = get(); 
+                    duLieuSQL = get();
                     tongSoLoCanKiem = 0;
-                    
+                    mapTrangThaiUI.clear(); // ✅ Clear trước khi build lại
+
                     for (SanPham sp : duLieuSQL.dsSanPham) {
-                        List<ChiTietLoHang> dsLo = duLieuSQL.mapDanhSachLo.get(sp.getMaSP());
+                        // ✅ FIX NULL: dùng getOrDefault thay vì get() trực tiếp
+                        List<ChiTietLoHang> dsLo = duLieuSQL.mapDanhSachLo
+                            .getOrDefault(sp.getMaSP(), new ArrayList<>());
+
                         if (dsLo.isEmpty()) {
                             ChiTietLoHang dummyLo = new ChiTietLoHang();
                             dummyLo.setMaSP(sp.getMaSP());
                             dummyLo.setMaLoHang("LOT-DEFAULT");
                             dummyLo.setSoLuongTon(0);
                             dsLo.add(dummyLo);
+                            duLieuSQL.mapDanhSachLo.put(sp.getMaSP(), dsLo);
                         }
-                        
+
                         for (ChiTietLoHang lo : dsLo) {
                             String compositeKey = sp.getMaSP() + "_" + lo.getMaLoHang();
                             mapTrangThaiUI.put(compositeKey, new ChiTietKiemKeUI());
@@ -177,20 +184,60 @@ public class KiemKeGUI extends JPanel {
                         }
                     }
 
-                    lblHeaderTongSP.setText("Danh sách sản phẩm (" + duLieuSQL.dsSanPham.size() + ")");
-                    progressKiemKe.setMaximum(tongSoLoCanKiem); 
-                    
-                    sapXepSanPham(0); 
+                    lblHeaderTongSP.setText("Danh sách sản phẩm (" 
+                        + duLieuSQL.dsSanPham.size() + ")");
+                    progressKiemKe.setMaximum(Math.max(1, tongSoLoCanKiem));
+                    tongSoLoDaKiem = 0;
+
+                    sapXepSanPham(cboSapXep.getSelectedIndex());
                     capNhatProgress();
+
+                    // ✅ XỬ LÝ LUỒNG 2: Nếu có mục tiêu chỉ định từ CanhBaoKho
+                    if (pendingTargetMaSP != null) {
+                        String maSP = pendingTargetMaSP;
+                        String maLo = pendingTargetMaLo;
+                        pendingTargetMaSP = null; // Reset sau khi dùng
+                        pendingTargetMaLo = null;
+                        apDungMucTieuChiDinh(maSP, maLo);
+                    }
+
                 } catch (Exception e) {
-                    // 🔥 THAY JOPTIONPANE BẰNG TIỆN ÍCH GIAO DIỆN
-                    TienIchGiaoDien.hienThiThongBao(KiemKeGUI.this, "Lỗi tải dữ liệu: " + e.getMessage(), "ERROR");
+                    lblHeaderTongSP.setText("Lỗi tải dữ liệu");
+                    TienIchGiaoDien.hienThiThongBao(
+                        KiemKeGUI.this, "Lỗi tải dữ liệu: " + e.getMessage(), "ERROR");
+                    e.printStackTrace();
                 }
             }
         };
         worker.execute();
     }
+    private void apDungMucTieuChiDinh(String maSP, String maLo) {
+        // Lọc danh sách để chỉ hiện SP mục tiêu
+        txtTimKiem.setForeground(MAU_CHU_CHINH);
+        txtTimKiem.setText(maSP);
+        timKiemRealtime();
 
+        // Chọn SP
+        chonSanPham(maSP);
+
+        // Chọn đúng Lô trong ComboBox
+        for (int i = 0; i < cboLoHang.getItemCount(); i++) {
+            if (cboLoHang.getItemAt(i).contains(maLo)) {
+                cboLoHang.setSelectedIndex(i);
+                break;
+            }
+        }
+
+        txtKiemDem.requestFocus();
+
+        // Banner thông báo rõ mục tiêu
+        TienIchGiaoDien.hienThiThongBao(
+            this,
+            "Đã khóa mục tiêu Lệch Kho!<br>Mời đếm lại: <b>" + maSP 
+                + " – Lô " + maLo + "</b>",
+            "SUCCESS"
+        );
+    }
     // ==========================================
     // CÁC HÀM TẠO GIAO DIỆN
     // ==========================================
@@ -636,14 +683,21 @@ public class KiemKeGUI extends JPanel {
     // LOGIC NGHIỆP VỤ & LƯU DB THỰC TẾ
     // ==========================================
 
-    private void hienThiDanhSachSanPham(String tuKhoa) {
+        private void hienThiDanhSachSanPham(String tuKhoa) {
         if (duLieuSQL == null) return;
         panelDanhSachSP.removeAll();
         mapTheSP.clear();
 
+        int countHienThi = 0; // Thêm biến đếm số lượng thực tế được render
+
         for (SanPham sp : duLieuSQL.dsSanPham) {
-            boolean match = tuKhoa.isEmpty() || sp.getTenSP().toLowerCase().contains(tuKhoa.toLowerCase());
+            // SỬA LỖI TÌM KIẾM: Cho phép tìm theo cả Tên SP và Mã SP
+            boolean match = tuKhoa.isEmpty() || 
+                            sp.getTenSP().toLowerCase().contains(tuKhoa.toLowerCase()) ||
+                            sp.getMaSP().toLowerCase().contains(tuKhoa.toLowerCase());
+
             if (match) {
+                countHienThi++;
                 List<ChiTietLoHang> dsLo = duLieuSQL.mapDanhSachLo.get(sp.getMaSP());
                 int tongTonSP = duLieuSQL.mapTongTonKho.getOrDefault(sp.getMaSP(), 0);
                 
@@ -679,9 +733,18 @@ public class KiemKeGUI extends JPanel {
                 mapTheSP.put(sp.getMaSP(), theUI);
             }
         }
+        
+        // CẬP NHẬT HEADER DYNAMIC: Để UX không bị ảo khi chuyển đổi 2 trạng thái
+        if (tuKhoa.isEmpty()) {
+            lblHeaderTongSP.setText("Danh sách sản phẩm (" + countHienThi + ")"); // Trạng thái 1: Thông thường
+        } else {
+            lblHeaderTongSP.setText("Mục tiêu kiểm đếm: " + countHienThi + " SP"); // Trạng thái 2: Chỉ định
+        }
+
         panelDanhSachSP.revalidate();
         panelDanhSachSP.repaint();
     }
+
 
     private void sapXepSanPham(int kieu) {
         if (duLieuSQL == null) return;
@@ -728,6 +791,15 @@ public class KiemKeGUI extends JPanel {
         // 1. Tắt listener
         cboLoHang.removeItemListener(loHangListener);
         cboLoHang.removeAllItems();
+
+        ImageIcon iconChiTiet = Logic.QuanLyAnh.layIconAnh(sp.getLinkHinhAnh(), 100, 100);
+        if (iconChiTiet != null) {
+            lblAnhSPChiTiet.setIcon(iconChiTiet);
+            lblAnhSPChiTiet.setText(""); // Ẩn chữ "Ảnh" đi
+        } else {
+            lblAnhSPChiTiet.setIcon(null);
+            lblAnhSPChiTiet.setText("No Image"); // Nếu không có ảnh thì hiện chữ
+        }
         
         List<ChiTietLoHang> dsLo = duLieuSQL.mapDanhSachLo.get(maSP);
         for (ChiTietLoHang lo : dsLo) {
@@ -1084,9 +1156,17 @@ public class KiemKeGUI extends JPanel {
             setMaximumSize(new Dimension(800, 85));
             setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-            JLabel lblImg = new JLabel("Ảnh", SwingConstants.CENTER);
+            JLabel lblImg = new JLabel("", SwingConstants.CENTER); // Xóa chữ "Ảnh" mặc định
             lblImg.setPreferredSize(new Dimension(50, 50));
             lblImg.setBorder(BorderFactory.createLineBorder(MAU_VIEN));
+            
+            ImageIcon iconThumb = Logic.QuanLyAnh.layIconAnh(sp.getLinkHinhAnh(), 50, 50);
+            if (iconThumb != null) {
+                lblImg.setIcon(iconThumb);
+            } else {
+                lblImg.setText("SP"); // Placeholder nếu không có ảnh
+                lblImg.setForeground(MAU_CHU_NHAT);
+            }
 
             JPanel pnlInfo = new JPanel(new GridLayout(2, 1));
             pnlInfo.setOpaque(false);
@@ -1271,45 +1351,18 @@ public class KiemKeGUI extends JPanel {
     // 🔄 ĐỒNG BỘ REALTIME TỪ TRUNG TÂM CẢNH BÁO KHO (LỆCH KHO)
     // ==============================================================
     public void nhanDuLieuCanhBaoLechKho(String maSP, String maLo) {
-        // Dùng Timer để đợi vì dữ liệu kho siêu tốc tải bằng luồng nền (Async)
-        Timer waitTimer = new Timer(100, null);
-        waitTimer.addActionListener(e -> {
-            
-            // Đợi đến khi dữ liệu (duLieuSQL) được tải xong
-            if (duLieuSQL != null && duLieuSQL.dsSanPham != null && !duLieuSQL.dsSanPham.isEmpty()) {
-                ((Timer) e.getSource()).stop(); // Dừng vòng lặp chờ
-                
-                SwingUtilities.invokeLater(() -> {
-                    // 1. Nhập từ khóa vào ô tìm kiếm để giao diện gọn gàng lại
-                    txtTimKiem.setText(maSP);
-                    timKiemRealtime();
-                    
-                    // 2. Tự động Click chọn Sản phẩm đó ở thanh bên trái
-                    chonSanPham(maSP);
-                    
-                    // 3. Tự động xổ ComboBox Lô Hàng và chọn đúng Lô bị lệch
-                    for (int i = 0; i < cboLoHang.getItemCount(); i++) {
-                        String itemText = cboLoHang.getItemAt(i);
-                        // Vì itemText có dạng "Lô: LH2501-001 (HSD: ...)" nên ta dùng contains
-                        if (itemText.contains(maLo)) {
-                            cboLoHang.setSelectedIndex(i);
-                            break;
-                        }
-                    }
-                    
-                    // 4. Focus con trỏ chuột thẳng vào ô đếm số (Tiện lợi tuyệt đối)
-                    txtKiemDem.requestFocus();
-                    
-                    // 5. Hiển thị thông báo nhỏ
-                    GUI.HoTro.TienIchGiaoDien.hienThiThongBao(
-                        SwingUtilities.getWindowAncestor(this), 
-                        "Đã khóa mục tiêu Lệch Kho!<br>Mời đếm lại: <b>" + maSP + " - Lô " + maLo + "</b>", 
-                        "SUCCESS"
-                    );
-                });
+        if (duLieuSQL != null && !duLieuSQL.dsSanPham.isEmpty()) {
+            // Dữ liệu đã sẵn sàng → apply ngay
+            apDungMucTieuChiDinh(maSP, maLo);
+        } else {
+            // Dữ liệu chưa load xong → lưu lại, taiDuLieu sẽ apply sau
+            pendingTargetMaSP = maSP;
+            pendingTargetMaLo = maLo;
+            // Nếu chưa bắt đầu load thì kick off
+            if (duLieuSQL == null) {
+                taiDuLieuTuDatabase();
             }
-        });
-        waitTimer.start();
+        }
     }
     public static void main(String[] args) {
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}

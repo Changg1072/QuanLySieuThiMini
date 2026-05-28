@@ -166,7 +166,8 @@ public class CanhBaoKhoPanel extends JPanel {
                                     sp.getTenSP(), "Đã hết hạn " + expiredDays + " ngày",
                                     lo.getMaLoHang(), "Kho chính",
                                     AlertPriority.HIGH, AlertType.EXPIRED,
-                                    sp.getMaSP(), tonKho, lo.getGiaNhap()
+                                    sp.getMaSP(), tonKho, lo.getGiaNhap(),
+                                    sp.getLinkHinhAnh() // 🟢 TRUYỀN ẢNH VÀO ĐÂY
                                 ));
                                 daCanhBaoDate = true;
 
@@ -181,7 +182,8 @@ public class CanhBaoKhoPanel extends JPanel {
                                     sp.getTenSP(), "Còn " + daysBetween + " ngày hết hạn",
                                     lo.getMaLoHang(), "Kho chính",
                                     pri, AlertType.EXPIRING_SOON,
-                                    sp.getMaSP(), tonKho, lo.getGiaNhap()
+                                    sp.getMaSP(), tonKho, lo.getGiaNhap(),
+                                    sp.getLinkHinhAnh() // 🟢 TRUYỀN ẢNH VÀO ĐÂY
                                 ));
                                 daCanhBaoDate = true;
                             }
@@ -192,14 +194,15 @@ public class CanhBaoKhoPanel extends JPanel {
                                 sp.getTenSP(), "Tồn kho thấp (" + tonKho + " " + sp.getDonViTinh() + ")",
                                 lo.getMaLoHang(), "Kho chính",
                                 AlertPriority.LOW, AlertType.LOW_STOCK,
-                                sp.getMaSP(), tonKho, lo.getGiaNhap()
+                                sp.getMaSP(), tonKho, lo.getGiaNhap(),
+                                sp.getLinkHinhAnh() // 🟢 TRUYỀN ẢNH VÀO ĐÂY
                             ));
                         }
                     }
                 }
 
                 // 2. ĐỘNG CƠ QUÉT LỆCH KHO TỪ BẢNG KiemKeKho
-                String sqlLechKho = "SELECT k.MaSP, s.TenSP, k.MaLoHang, k.SoLuongHeThong, k.SoLuongThucTe, k.LyDo " +
+                String sqlLechKho = "SELECT k.MaSP, s.TenSP, s.LinkHinhAnh, k.MaLoHang, k.SoLuongHeThong, k.SoLuongThucTe, k.LyDo " +
                                     "FROM KiemKeKho k JOIN SanPham s ON k.MaSP = s.MaSP " +
                                     "WHERE k.SoLuongHeThong <> k.SoLuongThucTe";
 
@@ -212,6 +215,7 @@ public class CanhBaoKhoPanel extends JPanel {
                         String maLo  = rs.getString("MaLoHang");
                         int slHT     = rs.getInt("SoLuongHeThong");
                         int slTT     = rs.getInt("SoLuongThucTe");
+                        String hinhAnh = rs.getString("LinkHinhAnh");
                         String lyDo  = rs.getString("LyDo");
 
                         // CHẶN: Đã bù trừ "Huề kho" → bỏ qua
@@ -233,7 +237,8 @@ public class CanhBaoKhoPanel extends JPanel {
                         list.add(new AlertItem(
                             tenSP, textCanhBao, maLo, "Kho chờ xử lý",
                             AlertPriority.HIGH, AlertType.LECH_KHO,
-                            rs.getString("MaSP"), slHT, BigDecimal.ZERO
+                            rs.getString("MaSP"), slHT, BigDecimal.ZERO, 
+                            hinhAnh // 🟢 TRUYỀN ẢNH VÀO ĐÂY
                         ));
                     }
                 } catch (Exception e) {
@@ -598,11 +603,13 @@ public class CanhBaoKhoPanel extends JPanel {
         public String maSP;
         public int soLuongTon;
         public BigDecimal giaNhap;
+        public String hinhAnh;
 
-        public AlertItem(String p, String s, String l, String loc, AlertPriority pri, AlertType t, String maSP, int soLuongTon, BigDecimal giaNhap) {
+        public AlertItem(String p, String s, String l, String loc, AlertPriority pri, AlertType t, String maSP, int soLuongTon, BigDecimal giaNhap, String hinhAnh) {
             this.productName = p; this.statusText = s; this.lotNumber = l; 
             this.location = loc; this.priority = pri; this.type = t;
             this.maSP = maSP; this.soLuongTon = soLuongTon; this.giaNhap = giaNhap;
+            this.hinhAnh = hinhAnh; 
         }
     }
 
@@ -1562,8 +1569,19 @@ public class CanhBaoKhoPanel extends JPanel {
             RoundedPanel pnlImage = new RoundedPanel(10, BORDER_COLOR);
             pnlImage.setPreferredSize(new Dimension(70, 70));
             pnlImage.setLayout(new BorderLayout());
-            JLabel lblImgText = new JLabel("SP", SwingConstants.CENTER);
-            lblImgText.setForeground(TEXT_SUB);
+            JLabel lblImgText = new JLabel("", SwingConstants.CENTER); // Xóa chữ "SP" mặc định
+            
+            // Gọi Cache lấy ảnh với kích thước 70x70
+            ImageIcon icon = Logic.QuanLyAnh.layIconAnh(data.hinhAnh, 70, 70); 
+            
+            if (icon != null) {
+                lblImgText.setIcon(icon);
+            } else {
+                // Fallback hiển thị chữ SP nếu sản phẩm chưa có ảnh
+                lblImgText.setText("SP");
+                lblImgText.setForeground(TEXT_SUB);
+            }
+            
             pnlImage.add(lblImgText);
             
             pnlLeft.add(pnlPriority);
