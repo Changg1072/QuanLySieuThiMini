@@ -161,9 +161,9 @@ public class TieuHuySanPhamGUI extends JPanel {
         JPanel pnlTrai = new JPanel(new BorderLayout(0, 15));
         pnlTrai.setBackground(BG_MAIN);
 
-        // Header Trái: Tiêu đề + Các nút lọc Pills
-        JPanel pnlFilter = new JPanel(new BorderLayout());
-        pnlFilter.setBackground(BG_MAIN);
+        // --- 1. HEADER TRÁI (Tiêu đề + Pills) ---
+        JPanel pnlFilter = new JPanel(new BorderLayout(0, 10));
+        pnlFilter.setOpaque(false);
         
         JPanel pnlLeftTitle = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         pnlLeftTitle.setOpaque(false);
@@ -174,7 +174,6 @@ public class TieuHuySanPhamGUI extends JPanel {
         
         JPanel pnlPills = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         pnlPills.setOpaque(false);
-        pnlPills.setBorder(new EmptyBorder(0, 20, 0, 0));
         
         String[] filters = {"Tất cả", "Hết hạn", "Cận date", "Bình thường"};
         for (String f : filters) {
@@ -184,28 +183,58 @@ public class TieuHuySanPhamGUI extends JPanel {
         }
         updatePillsUI();
         
-        JPanel pnlFilterTop = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        JPanel pnlFilterTop = new JPanel(new BorderLayout(0, 5));
         pnlFilterTop.setOpaque(false);
-        pnlFilterTop.add(pnlLeftTitle);
-        pnlFilterTop.add(pnlPills);
+        pnlFilterTop.add(pnlLeftTitle, BorderLayout.NORTH);
+        pnlFilterTop.add(pnlPills, BorderLayout.SOUTH);
 
-        // Thanh search
-        txtTimKiem = new JTextField(25);
+        // --- 2. THANH SEARCH + NÚT LỊCH SỬ (MỚI) ---
+        JPanel pnlSearchAndHistory = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        pnlSearchAndHistory.setOpaque(false);
+
+        txtTimKiem = new JTextField(20); // Giảm size 1 chút để đủ chỗ cho nút
         txtTimKiem.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         txtTimKiem.putClientProperty("JTextField.placeholderText", "Tìm theo tên, mã lô...");
-        txtTimKiem.setPreferredSize(new Dimension(300, 36));
+        txtTimKiem.setPreferredSize(new Dimension(250, 36));
         txtTimKiem.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(BORDER_COLOR, 1), new EmptyBorder(0, 10, 0, 10)
         ));
 
-        JPanel pnlFilterBottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 10));
-        pnlFilterBottom.setOpaque(false);
-        pnlFilterBottom.add(txtTimKiem);
+        // Nút Lịch sử Tiêu hủy (Bo góc, đồng bộ theme)
+        JButton btnLichSuHuy = new JButton("🕒 Lịch sử tiêu hủy") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                // Màu nền: Đỏ nhạt hoặc Trắng tùy sở thích
+                g2.setColor(getModel().isRollover() ? new Color(254, 226, 226) : Color.WHITE);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(new Color(239, 68, 68)); // Viền đỏ
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btnLichSuHuy.setForeground(new Color(239, 68, 68));
+        btnLichSuHuy.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnLichSuHuy.setContentAreaFilled(false);
+        btnLichSuHuy.setBorderPainted(false);
+        btnLichSuHuy.setFocusPainted(false);
+        btnLichSuHuy.setPreferredSize(new Dimension(160, 36));
+        btnLichSuHuy.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        // Sự kiện click mở danh sách lịch sử tiêu hủy
+        btnLichSuHuy.addActionListener(e -> {
+            GUI.HoTro.DanhSachLichSuTieuHuyDialog.showModal(TieuHuySanPhamGUI.this);
+        });
+
+        pnlSearchAndHistory.add(txtTimKiem);
+        pnlSearchAndHistory.add(btnLichSuHuy);
 
         pnlFilter.add(pnlFilterTop, BorderLayout.NORTH);
-        pnlFilter.add(pnlFilterBottom, BorderLayout.SOUTH);
+        pnlFilter.add(pnlSearchAndHistory, BorderLayout.SOUTH);
 
-        // Danh sách Card
+        // --- 3. DANH SÁCH CARD ---
         pnlDanhSachCard = new JPanel();
         pnlDanhSachCard.setLayout(new BoxLayout(pnlDanhSachCard, BoxLayout.Y_AXIS));
         pnlDanhSachCard.setBackground(BG_MAIN);

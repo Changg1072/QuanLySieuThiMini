@@ -594,6 +594,9 @@ public class KiemKeGUI extends JPanel {
         pnlButtons.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, MAU_VIEN));
 
         NutBamHienDai btnLichSu = new NutBamHienDai("Xem Lịch Sử", MAU_CHU_NHAT, MAU_TRANG);
+        btnLichSu.addActionListener(e -> {
+            GUI.HoTro.DanhSachLichSuKiemKeDialog.showModal(KiemKeGUI.this);
+        });
         NutBamHienDai btnLuu = new NutBamHienDai("LƯU LÔ NÀY", MAU_XANH_PRIMARY, MAU_TRANG);
         NutBamHienDai btnTiepTheo = new NutBamHienDai("Lô Hoặc SP Tiếp Theo", MAU_XANH_PRIMARY, MAU_TRANG);
         btnTiepTheo.setPreferredSize(new Dimension(220, 42)); 
@@ -800,7 +803,8 @@ public class KiemKeGUI extends JPanel {
             lblAnhSPChiTiet.setIcon(null);
             lblAnhSPChiTiet.setText("No Image"); // Nếu không có ảnh thì hiện chữ
         }
-        
+        lblAnhSPChiTiet.revalidate();
+        lblAnhSPChiTiet.repaint();
         List<ChiTietLoHang> dsLo = duLieuSQL.mapDanhSachLo.get(maSP);
         for (ChiTietLoHang lo : dsLo) {
             String moTaLo = lo.getMaLoHang().equals("LOT-DEFAULT")
