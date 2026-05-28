@@ -560,7 +560,10 @@ public class DanhSachSPUi extends JPanel {
                             currentWrapper.thayDoiSoLuong(1);
                         }
                     } else {
-                        ChiTietSanPham.showModal(DanhSachSPUi.this, currentWrapper.sp, currentWrapper.tonMax);
+                        ChiTietSanPham.showModal(DanhSachSPUi.this, currentWrapper.sp, currentWrapper.tonMax, () -> {
+                            taiDuLieuBanHangSieuToc("ALL"); 
+                            
+                        });
                     }
                     fireEditingStopped();
                 }

@@ -6,6 +6,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "SuaSanPhamDialog",
+            "request": "launch",
+            "mainClass": "GUI.HoTro.SuaSanPhamDialog",
+            "projectName": "QuanLySieuThiMini_e2aa0a7f"
+        },
+        {
+            "type": "java",
             "name": "TieuHuySanPhamGUI",
             "request": "launch",
             "mainClass": "GUI.TieuHuySanPhamGUI",

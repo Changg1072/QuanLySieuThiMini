@@ -48,8 +48,9 @@ public class ChiTietSanPham {
 
     // =========================================================
     // HÀM GỌI CHÍNH (STATIC) ĐỂ HIỂN THỊ POPUP Ở BẤT CỨ ĐÂU
+    // Cập nhật: Thêm tham số onCloseCallback để tải lại dữ liệu
     // =========================================================
-    public static void showModal(Component parentComponent, SanPham sp, int tonKho) {
+    public static void showModal(Component parentComponent, SanPham sp, int tonKho, Runnable onCloseCallback) {
         Window parentWindow = SwingUtilities.getWindowAncestor(parentComponent);
 
         // 1. TẠO OVERLAY KÍNH MỜ (BLUR BACKGROUND)
@@ -81,13 +82,12 @@ public class ChiTietSanPham {
         dialog.setBackground(new Color(0, 0, 0, 0));
         dialog.setOpacity(0f);
 
-        // 3. QUERY DB TRÊN LUỒNG CHÍNH (dialog chưa hiển thị nên không block UI)
-        //    Nếu DB nặng, có thể chuyển sang SwingWorker và show loading trước
+        // 3. QUERY DB TRÊN LUỒNG CHÍNH
         List<LichSuNhapRow> lichSuList = truyVanLichSuNhap(sp.getMaSP());
         int     tongSLDaNhap = lichSuList.stream().mapToInt(r -> r.soLuong).sum();
         String  tenNCCGanNhat = lichSuList.isEmpty() ? "Chưa có dữ liệu" : lichSuList.get(0).tenNCC;
 
-        JPanel pnlMain = taoMainLayout(dialog, overlay, sp, tonKho, lichSuList, tongSLDaNhap, tenNCCGanNhat);
+        JPanel pnlMain = taoMainLayout(dialog, overlay, sp, tonKho, lichSuList, tongSLDaNhap, tenNCCGanNhat, onCloseCallback);
         dialog.setContentPane(pnlMain);
         dialog.pack();
         dialog.setLocationRelativeTo(parentWindow);
@@ -107,46 +107,23 @@ public class ChiTietSanPham {
 
     // =========================================================
     // 🔥 QUERY DỮ LIỆU THẬT TỪ DB
-    //    Tìm tất cả ChiTietLoHang theo maSP,
-    //    rồi ghép tên NCC từ LoHang + NhaCungCapLogic
-    // =========================================================
-    // =========================================================
-    // 🔥 QUERY DỮ LIỆU THẬT TỪ DB
     // =========================================================
     private static List<LichSuNhapRow> truyVanLichSuNhap(String maSP) {
         List<LichSuNhapRow> result = new ArrayList<>();
         try {
             ChiTietLoHangLogic ctLogic = new ChiTietLoHangLogic();
-            
-            // Gọi thẳng hàm đã dùng lệnh JOIN SQL ở tầng DAO để lấy dữ liệu nhanh chóng
             List<Object[]> dsLichSu = ctLogic.layLichSuNhapTheoSP(maSP);
             
             if (dsLichSu != null) {
                 for (Object[] row : dsLichSu) {
-                    // Thứ tự index mảng Object[] được trả về từ ChiTietLoHangDAO:
-                    // 0: MaLoHang (String)
-                    // 1: TenNCC (String)
-                    // 2: NgayNhapKho (LocalDate)
-                    // 3: GiaNhap (BigDecimal)
-                    // 4: SoLuongNhap (int)
-                    // 5: SoLuongTon (int)
-                    // 6: HSD (LocalDate)
-                    
                     String maLoHang = (String) row[0];
                     String tenNCC = (String) row[1];
                     LocalDate ngayNhapKho = (LocalDate) row[2];
                     BigDecimal giaNhap = (BigDecimal) row[3];
                     int soLuongNhap = (int) row[4];
-                    
                     String ngayNhap = (ngayNhapKho != null) ? ngayNhapKho.format(DATE_FMT) : "—";
                     
-                    result.add(new LichSuNhapRow(
-                            maLoHang,
-                            ngayNhap,
-                            soLuongNhap,
-                            giaNhap,
-                            tenNCC
-                    ));
+                    result.add(new LichSuNhapRow(maLoHang, ngayNhap, soLuongNhap, giaNhap, tenNCC));
                 }
             }
         } catch (Exception e) {
@@ -156,18 +133,17 @@ public class ChiTietSanPham {
     }
 
     // =========================================================
-    // XÂY DỰNG LAYOUT (CHIA TỈ LỆ 3/7 NHƯ THIẾT KẾ)
+    // XÂY DỰNG LAYOUT CHÍNH (CHIA TỈ LỆ 3/7)
     // =========================================================
     private static JPanel taoMainLayout(JDialog dialog, JDialog overlay, SanPham sp, int tonKho,
                                          List<LichSuNhapRow> lichSuList,
-                                         int tongSLDaNhap, String tenNCCGanNhat) {
-        // 🔥 ĐÃ ĐỔI TỪ GridLayout SANG GridBagLayout ĐỂ ÉP TỈ LỆ
+                                         int tongSLDaNhap, String tenNCCGanNhat, 
+                                         Runnable onCloseCallback) {
         JPanel pnlMain = new JPanel(new GridBagLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // Background Gradient siêu mượt giữ nguyên của bạn
                 GradientPaint gp = new GradientPaint(0, 0, new Color(255, 255, 255, 250),
                                                      0, getHeight(), new Color(230, 250, 245, 250));
                 g2.setPaint(gp);
@@ -194,57 +170,107 @@ public class ChiTietSanPham {
             public void mouseExited(MouseEvent e)  { btnClose.setForeground(new Color(156, 163, 175)); }
         });
 
-        // 🌟 BẮT ĐẦU CHIA TỈ LỆ 3/7 BẰNG GridBagConstraints
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.BOTH; // Lấp đầy chiều cao và chiều rộng
-        gbc.weighty = 1.0; // Phóng to kịch trần chiều cao
+        gbc.fill = GridBagConstraints.BOTH; 
+        gbc.weighty = 1.0; 
 
-        // 👉 PANEL TRÁI (Chiếm 3 phần - 30%)
+        // 👉 PANEL TRÁI (30%) - Truyền callback vào
         gbc.gridx = 0;
         gbc.gridy = 0;
-        gbc.weightx = 0.3; // Chìa khóa tỉ lệ 3 ở đây!
-        gbc.insets = new Insets(0, 0, 0, 25); // Margin bên phải 25px để tách biệt với bảng
-        pnlMain.add(taoPanelTrai_ThongTinSP(sp, tonKho), gbc);
+        gbc.weightx = 0.3; 
+        gbc.insets = new Insets(0, 0, 0, 25); 
+        pnlMain.add(taoPanelTrai_ThongTinSP(dialog, overlay, sp, tonKho, onCloseCallback), gbc);
 
-        // 👉 PANEL PHẢI (Chiếm 7 phần - 70%)
+        // 👉 PANEL PHẢI (70%)
         gbc.gridx = 1;
         gbc.gridy = 0;
-        gbc.weightx = 0.7; // Chìa khóa tỉ lệ 7 ở đây!
+        gbc.weightx = 0.7; 
         gbc.insets = new Insets(0, 0, 0, 0);
         pnlMain.add(taoPanelPhai_LichSuNhap(sp, btnClose, lichSuList, tongSLDaNhap, tenNCCGanNhat), gbc);
 
         return pnlMain;
     }
 
-    // ================== NỬA TRÁI: THÔNG TIN SẢN PHẨM (ĐÃ NÂNG CẤP) ==================
-    private static JPanel taoPanelTrai_ThongTinSP(SanPham sp, int tonKho) {
+    // ================== NỬA TRÁI: THÔNG TIN SẢN PHẨM & NÚT SỬA ==================
+    private static JPanel taoPanelTrai_ThongTinSP(JDialog dialog, JDialog overlay, SanPham sp, int tonKho, Runnable onCloseCallback) {
         JPanel pnlLeft = new JPanel();
         pnlLeft.setLayout(new BoxLayout(pnlLeft, BoxLayout.Y_AXIS));
         pnlLeft.setOpaque(false);
-        pnlLeft.setBorder(new EmptyBorder(10, 20, 10, 20)); // Tạo độ thở cho panel
+        pnlLeft.setBorder(new EmptyBorder(0, 10, 10, 10)); 
 
-        // 1. Hình ảnh sản phẩm
-        JLabel lblImg = new JLabel(QuanLyAnh.layIconAnh(sp.getLinkHinhAnh(), 220, 220));
+        // 1. Hình ảnh sản phẩm (Bo viền xịn xò)
+        JLabel lblImg = new JLabel("", SwingConstants.CENTER);
+        lblImg.setPreferredSize(new Dimension(180, 180));
+        lblImg.setMaximumSize(new Dimension(180, 180));
+        lblImg.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240), 2));
         lblImg.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblImg.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
+        ImageIcon icon = QuanLyAnh.layIconAnh(sp.getLinkHinhAnh(), 180, 180);
+        if (icon != null) {
+            lblImg.setIcon(icon);
+        } else {
+            lblImg.setText("Không có ảnh");
+            lblImg.setForeground(Color.GRAY);
+        }
 
         // 2. Tên sản phẩm
         JLabel lblTen = new JLabel("<html><center>" + sp.getTenSP() + "</center></html>", SwingConstants.CENTER);
-        lblTen.setFont(new Font("Segoe UI", Font.BOLD, 26));
-        lblTen.setForeground(new Color(15, 23, 42)); // Màu text dark navy cực sang
+        lblTen.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        lblTen.setForeground(new Color(15, 23, 42));
         lblTen.setAlignmentX(Component.CENTER_ALIGNMENT);
+        lblTen.setBorder(new EmptyBorder(15, 0, 10, 0));
 
-        // 3. Badge Mã Loại (Nút xanh nhạt bo viền như thiết kế)
-        JLabel lblBadgeLoai = new JLabel(" " + sp.getMaLoai() + " ");
-        lblBadgeLoai.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        lblBadgeLoai.setForeground(new Color(14, 165, 233));
-        lblBadgeLoai.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(14, 165, 233, 100), 1, true),
-                new EmptyBorder(4, 10, 4, 10)
-        ));
-        lblBadgeLoai.setAlignmentX(Component.CENTER_ALIGNMENT);
+        // 3. 🟢 NÚT SỬA SẢN PHẨM (ĐÃ FIX: Bo góc đẹp, không dư ảnh)
+        JButton btnSua = new JButton("Sửa Sản Phẩm") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                // Hiệu ứng đổi màu mượt mà khi hover và click
+                if (getModel().isPressed()) {
+                    g2.setColor(new Color(10, 88, 202)); // Màu đậm khi click
+                } else if (getModel().isRollover()) {
+                    g2.setColor(new Color(38, 128, 255)); // Màu sáng khi trỏ chuột vào
+                } else {
+                    g2.setColor(new Color(13, 110, 253)); // Màu xanh chuẩn như hình
+                }
+                
+                // Vẽ khung bo tròn (Bo góc 20px cho giống viên thuốc pill-shape)
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+                
+                // Vẽ chữ thủ công để KHÔNG cần gọi super.paintComponent() -> Khắc phục 100% dư ảnh
+                g2.setColor(Color.WHITE);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                int x = (getWidth() - fm.stringWidth(getText())) / 2;
+                int y = (getHeight() - fm.getHeight()) / 2 + fm.getAscent();
+                g2.drawString(getText(), x, y);
+                
+                g2.dispose();
+            }
+        };
+        btnSua.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnSua.setForeground(Color.WHITE);
+        btnSua.setContentAreaFilled(false); // Xóa viền/nền mặc định của Swing
+        btnSua.setBorderPainted(false);     // Xóa đường kẻ viền
+        btnSua.setFocusPainted(false);      // XÓA VIỀN NÉT ĐỨT KHI CLICK (Thủ phạm chính)
+        btnSua.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnSua.setMaximumSize(new Dimension(170, 42));
+        btnSua.setPreferredSize(new Dimension(170, 42));
+        btnSua.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        // 🚀 Xử lý sự kiện mở Popup sửa và Callback
+        btnSua.addActionListener(e -> {
+            Window parentWindow = SwingUtilities.getWindowAncestor(dialog);
+            GUI.HoTro.SuaSanPhamDialog.hienThi(parentWindow, sp, () -> {
+                dongPopup(dialog, overlay); // Đóng thẻ chi tiết cũ đi
+                if (onCloseCallback != null) {
+                    onCloseCallback.run(); // Gọi hàm refresh lại danh sách ở màn hình gốc
+                }
+            });
+        });
 
-        // 4. Bảng thông tin chi tiết (Dùng GridBagLayout để chiều cao linh hoạt, không bị cứng như GridLayout)
+        // 4. Bảng thông tin chi tiết
         JPanel pnlInfoGrid = new JPanel(new GridBagLayout());
         pnlInfoGrid.setOpaque(false);
         pnlInfoGrid.setBorder(new EmptyBorder(25, 0, 0, 0));
@@ -252,26 +278,22 @@ public class ChiTietSanPham {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
         gbc.gridx = 0;
-        gbc.insets = new Insets(0, 0, 15, 0); // Khoảng cách giữa các dòng
+        gbc.insets = new Insets(0, 0, 15, 0);
 
-        // 🌟 Thêm các dòng thông tin (Sử dụng Unicode Icon tạm thời, nếu bạn có file PNG/SVG thì thay vào nhé)
         gbc.gridy = 0; pnlInfoGrid.add(taoRowThongTinHienDai("💠", "Mã sản phẩm", sp.getMaSP(), false, new Color(15, 23, 42), false), gbc);
-        gbc.gridy = 1; pnlInfoGrid.add(taoRowThongTinHienDai("📁", "Loại sản phẩm", "Bánh quy", false, new Color(15, 23, 42), false), gbc); // Cần map maLoai ra tên loại thực tế
-        gbc.gridy = 2; pnlInfoGrid.add(taoRowThongTinHienDai("🏷️", "Giá bán", DinhDangUtil.dinhDangTien(sp.getGiaBan()), true, new Color(239, 68, 68), false), gbc);
+        gbc.gridy = 1; pnlInfoGrid.add(taoRowThongTinHienDai("📁", "Loại sản phẩm", sp.getMaLoai(), false, new Color(15, 23, 42), false), gbc);
+        gbc.gridy = 2; pnlInfoGrid.add(taoRowThongTinHienDai("🏷️", "Giá bán", GUI.HoTro.DinhDangUtil.dinhDangTien(sp.getGiaBan()), true, new Color(239, 68, 68), false), gbc);
         gbc.gridy = 3; pnlInfoGrid.add(taoRowThongTinHienDai("📦", "Đơn vị tính", sp.getDonViTinh(), false, new Color(15, 23, 42), false), gbc);
 
-        // Trạng thái kho (Có Badge xịn xò)
         String txtTonKho = tonKho > 0 ? "Sẵn sàng" : "Hết hàng";
         Color colorTonKho = tonKho > 0 ? new Color(16, 185, 129) : new Color(239, 68, 68);
         gbc.gridy = 4; pnlInfoGrid.add(taoRowThongTinHienDai("✓", "Trạng thái kho", txtTonKho, false, colorTonKho, true), gbc);
-        // Ráp nối các thành phần
+
+        // Ráp nối
         pnlLeft.add(lblImg);
         pnlLeft.add(lblTen);
-        pnlLeft.add(Box.createRigidArea(new Dimension(0, 10)));
-        pnlLeft.add(lblBadgeLoai);
+        pnlLeft.add(btnSua); 
         pnlLeft.add(pnlInfoGrid);
-        
-        // Đẩy mọi thứ lên trên, không bị dãn thưa ra ở giữa
         pnlLeft.add(Box.createVerticalGlue());
 
         return pnlLeft;
@@ -282,31 +304,27 @@ public class ChiTietSanPham {
         JPanel pnl = new JPanel(new BorderLayout(15, 0));
         pnl.setOpaque(false);
 
-        // Vùng bên trái: Icon + Tiêu đề
         JPanel pnlTitle = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         pnlTitle.setOpaque(false);
         
         JLabel lblIcon = new JLabel(iconStr);
-        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16)); // Font hỗ trợ emoji/icon tốt
+        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16)); 
         lblIcon.setForeground(new Color(14, 165, 233));
 
         JLabel title = new JLabel(lbl);
         title.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        title.setForeground(new Color(71, 85, 105)); // Xám nhẹ chuẩn UI
+        title.setForeground(new Color(71, 85, 105)); 
 
         pnlTitle.add(lblIcon);
         pnlTitle.add(title);
 
-        // Vùng bên phải: Giá trị hoặc Badge
         JComponent compRight;
         if (isBadge) {
-            // Tạo hiệu ứng Pill Badge nền màu nhạt
             JLabel badge = new JLabel(" " + val + " ", SwingConstants.CENTER) {
                 @Override
                 protected void paintComponent(Graphics g) {
                     Graphics2D g2 = (Graphics2D) g.create();
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    // Nền màu nhạt (Alpha = 30) của màu chữ
                     g2.setColor(new Color(valColor.getRed(), valColor.getGreen(), valColor.getBlue(), 30));
                     g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
                     g2.dispose();
@@ -322,7 +340,6 @@ public class ChiTietSanPham {
             pnlBadgeWrap.add(badge);
             compRight = pnlBadgeWrap;
         } else {
-            // Hiển thị text bình thường (hỗ trợ xuống dòng cho mô tả)
             JLabel value = new JLabel("<html><div style='text-align: right; width: 150px;'>" + val + "</div></html>", SwingConstants.RIGHT);
             value.setFont(new Font("Segoe UI", isValHighlight ? Font.BOLD : Font.PLAIN, isValHighlight ? 18 : 14));
             value.setForeground(valColor);
@@ -331,14 +348,12 @@ public class ChiTietSanPham {
 
         pnl.add(pnlTitle, BorderLayout.WEST);
         pnl.add(compRight, BorderLayout.EAST);
-        
-        // Đường line gạch dưới mờ mờ y như thiết kế
         pnl.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(226, 232, 240, 150)));
         
         return pnl;
     }
 
-    // ================== NỬA PHẢI: THỐNG KÊ & BẢNG NHẬP KHO (DỮ LIỆU THẬT) ==================
+    // ================== NỬA PHẢI: BẢNG NHẬP KHO ==================
     private static JPanel taoPanelPhai_LichSuNhap(SanPham sp, JButton btnClose,
                                                     List<LichSuNhapRow> lichSuList,
                                                     int tongSLDaNhap, String tenNCCGanNhat) {
@@ -354,21 +369,19 @@ public class ChiTietSanPham {
         pnlHeader.add(lblTitle, BorderLayout.WEST);
         pnlHeader.add(btnClose, BorderLayout.EAST);
 
-        // 🔥 THỐNG KÊ TỪ DỮ LIỆU THẬT
+        // THỐNG KÊ
         JPanel pnlStats = new JPanel(new GridLayout(1, 2, 15, 0));
         pnlStats.setOpaque(false);
-
         String strTongSL = String.format("%,d %s", tongSLDaNhap, sp.getDonViTinh());
         pnlStats.add(taoCardThongKe("Tổng số lượng đã nhập",  strTongSL,     new Color(14, 165, 233)));
         pnlStats.add(taoCardThongKe("Nhà CC gần nhất",        tenNCCGanNhat, new Color(16, 185, 129)));
 
-        // 🔥 BẢNG LỊCH SỬ TỪ DỮ LIỆU THẬT
+        // BẢNG LỊCH SỬ 
         String[] cols = {"Mã Lô", "Ngày Nhập", "Nhà CC", "Số Lượng", "Giá Nhập"};
         DefaultTableModel modelLS = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
 
-        // Đổ dữ liệu thật vào model
         if (lichSuList.isEmpty()) {
             modelLS.addRow(new Object[]{"—", "—", "Chưa có dữ liệu nhập kho", "—", "—"});
         } else {
@@ -378,7 +391,7 @@ public class ChiTietSanPham {
                         row.ngayNhap,
                         row.tenNCC,
                         row.soLuong,
-                        DinhDangUtil.dinhDangTien(row.giaNhap)
+                        GUI.HoTro.DinhDangUtil.dinhDangTien(row.giaNhap)
                 });
             }
         }
@@ -392,16 +405,14 @@ public class ChiTietSanPham {
         tableLS.getTableHeader().setForeground(new Color(71, 85, 105));
         tableLS.getTableHeader().setPreferredSize(new Dimension(0, 40));
 
-        // Renderer zebra-stripe + màu sắc cho từng cột
         tableLS.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object val,
                     boolean sel, boolean focus, int row, int col) {
                 super.getTableCellRendererComponent(t, val, sel, focus, row, col);
-                setHorizontalAlignment(col == 2 ? LEFT : CENTER); // Tên NCC căn trái
+                setHorizontalAlignment(col == 2 ? LEFT : CENTER); 
                 if (!sel) {
                     setBackground(row % 2 == 0 ? Color.WHITE : new Color(248, 250, 252));
-                    // Cột Số Lượng màu xanh lá, cột Giá Nhập màu cam
                     if (col == 3) setForeground(new Color(16, 185, 129));
                     else if (col == 4) setForeground(new Color(245, 158, 11));
                     else setForeground(new Color(30, 41, 59));
@@ -415,14 +426,13 @@ public class ChiTietSanPham {
             }
         });
 
-        // Độ rộng cột
         int[] colWidths = {90, 100, 200, 90, 110};
         for (int i = 0; i < colWidths.length; i++) {
             tableLS.getColumnModel().getColumn(i).setPreferredWidth(colWidths[i]);
         }
 
         JScrollPane scrollLS = new JScrollPane(tableLS);
-        TienIchGiaoDien.thietLapThanhCuon(scrollLS);
+        GUI.HoTro.TienIchGiaoDien.thietLapThanhCuon(scrollLS);
         scrollLS.getViewport().setBackground(Color.WHITE);
         scrollLS.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240)));
 
@@ -439,23 +449,6 @@ public class ChiTietSanPham {
     }
 
     // ================== HELPER METHODS ==================
-    private static JPanel taoRowThongTin(String lbl, String val, boolean isHighlight, Color valColor) {
-        JPanel pnl = new JPanel(new BorderLayout());
-        pnl.setOpaque(false);
-        JLabel title = new JLabel(lbl);
-        title.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-        title.setForeground(new Color(100, 116, 139));
-
-        JLabel value = new JLabel(val, SwingConstants.RIGHT);
-        value.setFont(new Font("Segoe UI", Font.BOLD, isHighlight ? 20 : 16));
-        value.setForeground(valColor);
-
-        pnl.add(title, BorderLayout.WEST);
-        pnl.add(value, BorderLayout.EAST);
-        pnl.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(226, 232, 240, 150)));
-        return pnl;
-    }
-
     private static JPanel taoCardThongKe(String title, String val, Color color) {
         JPanel card = new JPanel(new BorderLayout(5, 5)) {
             @Override

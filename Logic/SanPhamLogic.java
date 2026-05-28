@@ -105,4 +105,12 @@ public class SanPhamLogic {
             throw new Exception("Đơn vị tính không được để trống (Ví dụ: Chai, Hộp, Gói...)!");
         }
     }
+    public void capNhatSanPham(SanPham sp) throws Exception {
+        kiemTraLoi(sp); // Tận dụng lại hàm validate lỗi sẵn có của bạn
+        
+        boolean thanhCong = dao.capNhatSanPham(sp);
+        if (!thanhCong) {
+            throw new Exception("Lỗi hệ thống: Không thể cập nhật thông tin sản phẩm này!");
+        }
+    }
 }

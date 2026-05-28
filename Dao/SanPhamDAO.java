@@ -68,7 +68,28 @@ public class SanPhamDAO {
         }
         return false;
     }
-
+    // ==============================
+    // 3. CẬP NHẬT SẢN PHẨM (SỬA)
+    // ==============================
+    public boolean capNhatSanPham(SanPham sp) {
+        String sql = "UPDATE SanPham SET TenSP = ?, LinkHinhAnh = ?, MaLoai = ?, GiaBan = ?, DonViTinh = ? WHERE MaSP = ?";
+        try (
+            java.sql.Connection con = ConnectDB.getInstance().getConnection();
+            java.sql.PreparedStatement ps = con.prepareStatement(sql)
+        ) {
+            ps.setString(1, sp.getTenSP());
+            ps.setString(2, sp.getLinkHinhAnh());
+            ps.setString(3, sp.getMaLoai());
+            ps.setBigDecimal(4, sp.getGiaBan());
+            ps.setString(5, sp.getDonViTinh());
+            ps.setString(6, sp.getMaSP());
+            
+            return ps.executeUpdate() > 0;
+        } catch (java.sql.SQLException e) {
+            logError("capNhatSanPham", e);
+            return false;
+        }
+    }
     // ==============================
     // 3. SỬA THÔNG TIN SẢN PHẨM
     // ==============================
