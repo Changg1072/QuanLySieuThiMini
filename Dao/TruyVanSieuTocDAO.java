@@ -2,6 +2,7 @@ package Dao;
 
 import Data.*;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
@@ -922,20 +923,19 @@ public class TruyVanSieuTocDAO {
     public static class DuLieuTieuHuyDTO {
         public List<Data.ChiTietLoHang> dsLoHangKho = new ArrayList<>();
         public Map<String, String> mapTenSanPham = new HashMap<>();
+        public Map<String, String> mapAnhSanPham = new HashMap<>(); // ✅ THÊM DÒNG NÀY
     }
 
     public DuLieuTieuHuyDTO loadDuLieuKhoSieuToc() {
         DuLieuTieuHuyDTO dto = new DuLieuTieuHuyDTO();
         
-        // Chỉ quét những lô CÒN TỒN KHO ngay từ Database để giảm tải RAM
         String sqlLoHang = "SELECT MaLoHang, MaSP, SoLuongTon, HSD, GiaNhap FROM ChiTietLoHang WHERE SoLuongTon > 0";
-        String sqlSanPham = "SELECT MaSP, TenSP FROM SanPham";
+        // ✅ THÊM LinkHinhAnh vào query
+        String sqlSanPham = "SELECT MaSP, TenSP, LinkHinhAnh FROM SanPham";
 
-        // DÙNG 1 CONNECTION DUY NHẤT CHO CẢ 2 BẢNG
         try (Connection con = ConnectDB.getInstance().getConnection();
-             Statement st = con.createStatement()) {
+            Statement st = con.createStatement()) {
             
-            // 1. Kéo Lô Hàng siêu tốc
             try (ResultSet rs = st.executeQuery(sqlLoHang)) {
                 while (rs.next()) {
                     Data.ChiTietLoHang lo = new Data.ChiTietLoHang.ThoXayChiTietLoHang()
@@ -949,10 +949,13 @@ public class TruyVanSieuTocDAO {
                 }
             }
 
-            // 2. Kéo Map Tên Sản Phẩm siêu tốc
             try (ResultSet rs = st.executeQuery(sqlSanPham)) {
                 while (rs.next()) {
-                    dto.mapTenSanPham.put(rs.getString("MaSP"), rs.getString("TenSP"));
+                    String maSP = rs.getString("MaSP");
+                    dto.mapTenSanPham.put(maSP, rs.getString("TenSP"));
+                    // ✅ LƯU ẢNH VÀO MAP LUÔN
+                    String linkAnh = rs.getString("LinkHinhAnh");
+                    dto.mapAnhSanPham.put(maSP, linkAnh != null ? new File(linkAnh).getName() : "");
                 }
             }
         } catch (SQLException e) {
