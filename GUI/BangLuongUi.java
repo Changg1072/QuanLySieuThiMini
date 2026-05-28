@@ -55,6 +55,9 @@ public class BangLuongUi extends JPanel {
     private JLabel lblTongQuyLuong, lblTienDo, lblTongThuong, lblTongKhauTru;
     private JProgressBar progressBar;
 
+    private boolean isNhanVienMode = false;
+    private String maNhanVienHienTai = null;
+
     public BangLuongUi() {
         setLayout(new BorderLayout(20, 20));
         setBackground(BG_MAIN);
@@ -66,7 +69,17 @@ public class BangLuongUi extends JPanel {
         // Tự động load dữ liệu tháng hiện tại lúc mới mở
         loadDuLieuBangLuong();
     }
+    public BangLuongUi(String maNV) {
+        this.isNhanVienMode = true;
+        this.maNhanVienHienTai = maNV;
+        setLayout(new BorderLayout(20, 20));
+        setBackground(BG_MAIN);
+        setBorder(new EmptyBorder(25, 30, 25, 30));
 
+        initUI();
+        setupListeners();
+        loadDuLieuBangLuong();
+    }
     // =========================================================
     // 1. KIẾN TRÚC UI CHÍNH
     // =========================================================
@@ -332,41 +345,51 @@ public class BangLuongUi extends JPanel {
     }
 
     private JPanel createBottomActionPanel() {
+        if (isNhanVienMode) return new JPanel() {{ setOpaque(false); }};
         JPanel pnl = new JPanel(new BorderLayout());
         pnl.setOpaque(false);
-        pnl.setBorder(new EmptyBorder(15, 0, 0, 0));
+        pnl.setBorder(new EmptyBorder(15, 0, 0, 0)); // Tạo khoảng cách với bảng bên trên
 
-        JPanel pnlLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
+        // --- BÊN TRÁI: Nút Cài đặt cấu hình lương ---
+        // ĐÃ SỬA: Đưa margin về 0 để nút bám sát mép lề trái, thẳng hàng với cột bảng
+        JPanel pnlLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         pnlLeft.setOpaque(false);
         
-        JButton btnSetting = TienIchGiaoDien.taoNutHienDai("⚙️ Cài đặt cấu hình lương", new Color(241, 245, 249));
+        JButton btnSetting = TienIchGiaoDien.taoNutHienDai("⚙ Cài đặt cấu hình lương", new Color(241, 245, 249));
         btnSetting.setForeground(COLOR_BONUS);
         btnSetting.setBorder(BorderFactory.createLineBorder(COLOR_BONUS));
+        
+        // 🚀 ĐÃ SỬA: Ép cứng kích thước bằng đúng nút bên kia (220x45), căn chữ ra giữa đẹp mắt
+        btnSetting.setPreferredSize(new Dimension(220, 45)); 
+        btnSetting.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(14f)); 
+        
         btnSetting.addActionListener(e -> {
             Window parentWindow = SwingUtilities.getWindowAncestor(this);
-            CaiDatLuongDialog dialog = new CaiDatLuongDialog(parentWindow);
+            GUI.HoTro.CaiDatLuongDialog dialog = new GUI.HoTro.CaiDatLuongDialog(parentWindow);
             dialog.setVisible(true);
             
-            // Nếu lưu cấu hình thành công thì tự động Load lại bảng dữ liệu
             if (dialog.isSuccess()) {
                 loadDuLieuBangLuong(); 
             }
         });
         
-        JButton btnExport = TienIchGiaoDien.taoNutHienDai("📄 Xuất phiếu lương (PDF)", new Color(241, 245, 249));
-        btnExport.setForeground(TEXT_MAIN);
-        btnExport.setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
-
         pnlLeft.add(btnSetting);
-        pnlLeft.add(btnExport);
+        // (Đã xóa bỏ hoàn toàn nút Xuất phiếu lương)
 
+        // --- BÊN PHẢI: Nút Chốt lương hàng loạt ---
+        JPanel pnlRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        pnlRight.setOpaque(false);
+        
         JButton btnChotHangLoat = TienIchGiaoDien.taoNutHienDai("✓ Chốt lương hàng loạt", COLOR_BONUS);
+        // 🚀 ĐÃ SỬA: Đồng bộ kích thước 220x45
         btnChotHangLoat.setPreferredSize(new Dimension(220, 45));
         btnChotHangLoat.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(15f));
         btnChotHangLoat.addActionListener(e -> chotLuongHangLoat());
+        
+        pnlRight.add(btnChotHangLoat);
 
         pnl.add(pnlLeft, BorderLayout.WEST);
-        pnl.add(btnChotHangLoat, BorderLayout.EAST);
+        pnl.add(pnlRight, BorderLayout.EAST);
         return pnl;
     }
 
@@ -396,7 +419,7 @@ public class BangLuongUi extends JPanel {
         pnlRowListContainer.repaint();
     }
 
-    private JPanel createRowPanel(PhieuLuongRowData data) {
+        private JPanel createRowPanel(PhieuLuongRowData data) {
         boolean daChot = data.bangLuong != null;
 
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10)) {
@@ -415,7 +438,7 @@ public class BangLuongUi extends JPanel {
         row.setPreferredSize(new Dimension(0, 75));
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 75));
 
-        // 1. Cột Nhân viên (Avatar + Tên)
+        // 1. Cột Nhân viên (Avatar + Tên / Hoặc hiển thị Kỳ lương nếu là NV xem)
         JPanel pnlName = new JPanel(new BorderLayout(15, 0));
         pnlName.setOpaque(false);
         pnlName.setPreferredSize(new Dimension(300, 50));
@@ -426,7 +449,9 @@ public class BangLuongUi extends JPanel {
         JPanel pnlTextName = new JPanel(new GridLayout(2, 1));
         pnlTextName.setOpaque(false);
         
-        JLabel lblTen = new JLabel(data.nhanVien.getHoTen());
+        // 🚀 ĐÃ SỬA: Đổi tiêu đề cột thành "Phiếu lương kỳ MM/yyyy" nếu là nhân viên đang xem
+        String txtTieuDe = (isNhanVienMode && daChot) ? "Phiếu lương kỳ " + data.bangLuong.getThangNam() : data.nhanVien.getHoTen();
+        JLabel lblTen = new JLabel(txtTieuDe);
         lblTen.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(15f));
         lblTen.setForeground(TEXT_MAIN);
         
@@ -473,36 +498,50 @@ public class BangLuongUi extends JPanel {
         row.add(pnlBadgeContainer);
 
         // 5. Cột Thao tác
-        JButton btnAction = TienIchGiaoDien.taoNutHienDai(daChot ? "👁 Chi tiết" : "⚙ Chi tiết & Chốt", new Color(241, 245, 249));
+        // 🚀 ĐÃ SỬA: Thay đổi text của nút bấm tùy theo chế độ Quản lý hay Nhân viên
+        JButton btnAction = TienIchGiaoDien.taoNutHienDai(isNhanVienMode ? "👁 Xem chi tiết" : (daChot ? "👁 Chi tiết" : "⚙ Chi tiết & Chốt"), new Color(241, 245, 249));
         btnAction.setPreferredSize(new Dimension(120, 30));
         btnAction.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(12f));
         btnAction.setForeground(daChot ? TEXT_MAIN : COLOR_BONUS);
         btnAction.setBorder(BorderFactory.createLineBorder(daChot ? BORDER_COLOR : COLOR_BONUS, 1));
         
-                btnAction.addActionListener(e -> {
-            // 1. Thu thập dữ liệu từ dòng được chọn
-            String maNV = data.nhanVien.getMaNV();
-            String tenNV = data.nhanVien.getHoTen();
-            String chucVu = data.nhanVien.getChucVu();
-            BigDecimal luongCB = (data.cauHinh != null) ? data.cauHinh.getLuongTheoGio() : BigDecimal.ZERO;
-            BigDecimal heSoOT = (data.cauHinh != null && data.cauHinh.getHeSoTangCa() != null) ? data.cauHinh.getHeSoTangCa() : new BigDecimal("1.5");
-            double gioLam = data.tongGioLam;
-            double gioOT = 0; // Tạm thời OT mặc định
-            BigDecimal phat = data.tienPhatDuKien;
-            int soLanTre = 0; // Mặc định hiển thị
-            String thangNam = cbThang.getSelectedItem() + "/" + cbNam.getSelectedItem();
+        btnAction.addActionListener(e -> {
+            if (isNhanVienMode) {
+                // ===================================================
+                // 🚀 CHẾ ĐỘ NHÂN VIÊN: Mở form Xem Chi Tiết (Read-Only)
+                // ===================================================
+                GUI.HoTro.ChiTietChotLuongDialog dialog = new GUI.HoTro.ChiTietChotLuongDialog(
+                    (Window) SwingUtilities.getWindowAncestor(this),
+                    data.bangLuong, data.nhanVien.getHoTen(), data.nhanVien.getChucVu(), 0
+                );
+                dialog.setVisible(true);
+            } else {
+                // ===================================================
+                // 🚀 CHẾ ĐỘ QUẢN LÝ: Mở form Tính toán / Chốt lương
+                // ===================================================
+                String maNV = data.nhanVien.getMaNV();
+                String tenNV = data.nhanVien.getHoTen();
+                String chucVu = data.nhanVien.getChucVu();
+                BigDecimal luongCB = (data.cauHinh != null) ? data.cauHinh.getLuongTheoGio() : BigDecimal.ZERO;
+                BigDecimal heSoOT = (data.cauHinh != null && data.cauHinh.getHeSoTangCa() != null) ? data.cauHinh.getHeSoTangCa() : new BigDecimal("1.5");
+                double gioLam = data.tongGioLam;
+                double gioOT = 0; 
+                BigDecimal phat = data.tienPhatDuKien;
+                int soLanTre = 0; 
+                
+                // Tránh lỗi lấy nhầm tháng của thanh Combo box khi bấm xem phiếu cũ
+                String thangNam = daChot ? data.bangLuong.getThangNam() : (cbThang.getSelectedItem() + "/" + cbNam.getSelectedItem());
 
-            // 2. Gọi sang file giao diện xịn xò trong package GUI.HoTro
-            GUI.HoTro.ChiTietChotLuongDialog dialog = new GUI.HoTro.ChiTietChotLuongDialog(
-                (Window) SwingUtilities.getWindowAncestor(this),
-                maNV, tenNV, chucVu, luongCB, gioLam, gioOT, heSoOT, phat, soLanTre, thangNam
-            );
-            
-            dialog.setVisible(true);
+                GUI.HoTro.ChiTietChotLuongDialog dialog = new GUI.HoTro.ChiTietChotLuongDialog(
+                    (Window) SwingUtilities.getWindowAncestor(this),
+                    maNV, tenNV, chucVu, luongCB, gioLam, gioOT, heSoOT, phat, soLanTre, thangNam
+                );
+                
+                dialog.setVisible(true);
 
-            // 3. Nếu bấm chốt thành công thì load lại bảng
-            if (dialog.isSuccess()) {
-                loadDuLieuBangLuong(); 
+                if (dialog.isSuccess()) {
+                    loadDuLieuBangLuong(); 
+                }
             }
         });
         
@@ -540,7 +579,7 @@ public class BangLuongUi extends JPanel {
     private void loadDuLieuBangLuong() {
         if (isLoading) return;
         isLoading = true;
-        renderList(new ArrayList<>()); // Hiện skeleton
+        renderList(new ArrayList<>()); 
 
         String thangNamStr = cbThang.getSelectedItem() + "/" + cbNam.getSelectedItem();
         int thang = Integer.parseInt(cbThang.getSelectedItem().toString());
@@ -550,42 +589,52 @@ public class BangLuongUi extends JPanel {
             @Override
             protected List<PhieuLuongRowData> doInBackground() throws Exception {
                 List<PhieuLuongRowData> result = new ArrayList<>();
-                List<NhanVien> tatCaNV = nvLogic.layDanhSachNhanVien();
                 
-                for (NhanVien nv : tatCaNV) {
-                    // Bỏ qua nhân viên Đã nghỉ việc TRƯỚC cái tháng đang xem
-                    if ("Đã Nghỉ".equals(nv.getTrangThai()) && nv.getNgayNghiViec() != null) {
-                        if (nv.getNgayNghiViec().getYear() < nam || 
-                           (nv.getNgayNghiViec().getYear() == nam && nv.getNgayNghiViec().getMonthValue() < thang)) {
-                            continue;
-                        }
-                    }
-
-                    PhieuLuongRowData row = new PhieuLuongRowData();
-                    row.nhanVien = nv;
-                    row.cauHinh = CauHinhLuongDAO.getInstance().layCauHinhHienTaiTheoMaNV(nv.getMaNV());
-                    
-                    // 1. Kiểm tra xem đã chốt lương tháng này chưa?
-                    boolean daChot = BangLuongDAO.getInstance().kiemTraDaTinhLuong(nv.getMaNV(), thangNamStr);
-                    
-                    if (daChot) {
-                        // Lấy bảng lương từ DB lên
-                        List<BangLuong> ls = BangLuongDAO.getInstance().layLichSuLuongTheoMaNV(nv.getMaNV());
-                        for(BangLuong bl : ls) {
-                            if (bl.getThangNam().equals(thangNamStr)) {
+                if (isNhanVienMode) {
+                    // 🚀 CHẾ ĐỘ NHÂN VIÊN: Load tất cả phiếu lương của mình trong năm
+                    NhanVien nv = nvLogic.timNhanVienTheoMa(maNhanVienHienTai);
+                    if (nv != null) {
+                        List<BangLuong> ls = Dao.BangLuongDAO.getInstance().layLichSuLuongTheoMaNV(maNhanVienHienTai);
+                        for (BangLuong bl : ls) {
+                            if (bl.getThangNam().endsWith("/" + nam)) { // Chỉ lấy đúng năm đang chọn
+                                PhieuLuongRowData row = new PhieuLuongRowData();
+                                row.nhanVien = nv;
                                 row.bangLuong = bl;
                                 row.tongGioLam = bl.getTongGioLam().doubleValue();
-                                break;
+                                result.add(row);
                             }
                         }
-                    } else {
-                        // Chưa chốt -> Tính realtime số giờ để hiển thị tạm
-                        row.tongGioLam = blLogic.tinhTongGioLamTrongThang(nv.getMaNV(), thang, nam).doubleValue();
-                        try {
-                            row.tienPhatDuKien = blLogic.tinhKhauTruVaoMuonNghiLam(nv.getMaNV(), thang, nam);
-                        } catch (Exception e) {}
                     }
-                    result.add(row);
+                } else {
+                    // 🚀 CHẾ ĐỘ QUẢN LÝ: Load toàn bộ nhân viên (Giữ nguyên code cũ của bạn)
+                    List<NhanVien> tatCaNV = nvLogic.layDanhSachNhanVien();
+                    for (NhanVien nv : tatCaNV) {
+                        if ("Đã Nghỉ".equals(nv.getTrangThai()) && nv.getNgayNghiViec() != null) {
+                            if (nv.getNgayNghiViec().getYear() < nam || 
+                               (nv.getNgayNghiViec().getYear() == nam && nv.getNgayNghiViec().getMonthValue() < thang)) {
+                                continue;
+                            }
+                        }
+                        PhieuLuongRowData row = new PhieuLuongRowData();
+                        row.nhanVien = nv;
+                        row.cauHinh = Dao.CauHinhLuongDAO.getInstance().layCauHinhHienTaiTheoMaNV(nv.getMaNV());
+                        
+                        boolean daChot = Dao.BangLuongDAO.getInstance().kiemTraDaTinhLuong(nv.getMaNV(), thangNamStr);
+                        if (daChot) {
+                            List<BangLuong> ls = Dao.BangLuongDAO.getInstance().layLichSuLuongTheoMaNV(nv.getMaNV());
+                            for(BangLuong bl : ls) {
+                                if (bl.getThangNam().equals(thangNamStr)) {
+                                    row.bangLuong = bl;
+                                    row.tongGioLam = bl.getTongGioLam().doubleValue();
+                                    break;
+                                }
+                            }
+                        } else {
+                            row.tongGioLam = blLogic.tinhTongGioLamTrongThang(nv.getMaNV(), thang, nam).doubleValue();
+                            try { row.tienPhatDuKien = blLogic.tinhKhauTruVaoMuonNghiLam(nv.getMaNV(), thang, nam); } catch (Exception e) {}
+                        }
+                        result.add(row);
+                    }
                 }
                 return result;
             }
@@ -595,7 +644,7 @@ public class BangLuongUi extends JPanel {
                 try {
                     danhSachGoc = get();
                     isLoading = false;
-                    locDuLieu(); // Lọc và Render
+                    locDuLieu(); 
                 } catch (Exception e) {
                     e.printStackTrace();
                     isLoading = false;

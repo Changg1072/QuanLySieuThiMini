@@ -47,6 +47,7 @@ public class TrangThuNgan extends JFrame {
     private ThanhToanUi  thanhToanUi = null;
     private ChiaCaUi     chiaCaUi    = null;
     private TaiKhoanUi   taiKhoanUi  = null;
+    private BangLuongUi bangLuongUi = null;
 
     private final String maNhanVien;
     private final String tenNhanVien;
@@ -184,6 +185,7 @@ public class TrangThuNgan extends JFrame {
         ));
 
         pnl.add(taoNhomMenuHover("  Hệ thống",
+            taoMucDropdown("Lương của tôi", "LUONG_CUA_TOI"),
             taoMucDropdown("Tài khoản", "TAI_KHOAN")
         ));
 
@@ -314,6 +316,13 @@ public class TrangThuNgan extends JFrame {
                 case "TAI_KHOAN":
                     if (taiKhoanUi == null) { taiKhoanUi = new TaiKhoanUi(maNhanVien); pnlCards.add(taiKhoanUi, "TAI_KHOAN"); }
                     break;
+                case "LUONG_CUA_TOI":
+                    if (bangLuongUi == null) { 
+                        bangLuongUi = new BangLuongUi(this.maNhanVien); 
+                        pnlCards.add(bangLuongUi, "LUONG_CUA_TOI"); 
+                    }
+                    break;
+
             }
             cardLayout.show(pnlCards, cardName);
         });

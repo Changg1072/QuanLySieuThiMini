@@ -24,6 +24,7 @@ public class ChiTietChotLuongDialog extends JDialog {
     private double gioLam;
     private double gioOT;
     private BigDecimal phatHeThong;
+    private boolean isReadOnly = false;
     
     // --- BIẾN TÍNH TOÁN REALTIME ---
     private BigDecimal tamTinh = BigDecimal.ZERO;
@@ -45,14 +46,40 @@ public class ChiTietChotLuongDialog extends JDialog {
 
     private DecimalFormat df = new DecimalFormat("#,###");
 
-    /**
-     * CONSTRUCTOR NHẬN DỮ LIỆU TỪ BẢNG LƯƠNG UI
-     */
-    public ChiTietChotLuongDialog(Window parent, String maNV, String tenNV, String chucVu, 
-                                  BigDecimal luongCoBan, double gioLam, double gioOT, 
-                                  BigDecimal heSoOT, BigDecimal phatHeThong, int soLanTre, String thangNam) {
-        super(parent, "Chi tiết Chốt Lương", ModalityType.APPLICATION_MODAL);
+        // 🚀 CONSTRUCTOR MỚI: Dành riêng cho nhân viên xem (Chế độ Read-Only)
+    public ChiTietChotLuongDialog(Window parent, Data.BangLuong blChotXong, String tenNV, String chucVu, int soLanTre) {
+        super(parent, "Chi tiết Phiếu Lương", ModalityType.APPLICATION_MODAL);
         
+        this.maNV = blChotXong.getMaNV();
+        this.thangNam = blChotXong.getThangNam();
+        this.luongCoBan = blChotXong.getLuongTheoGio();
+        this.gioLam = blChotXong.getTongGioLam().doubleValue();
+        this.gioOT = blChotXong.getGioTangCa().doubleValue();
+        
+        // Lấy số liệu đã chốt cứng từ Database
+        this.phatHeThong = blChotXong.getKhauTru(); 
+        this.tamTinh = blChotXong.getTongLuong().subtract(blChotXong.getThuong()).add(blChotXong.getKhauTru());
+        this.tongThucNhan = blChotXong.getTongLuong();
+        
+        this.isReadOnly = true; // Bật cờ chỉ xem
+
+        setUndecorated(true); setBackground(new Color(0, 0, 0, 0));
+        setSize(850, 600); setLocationRelativeTo(parent);
+
+        initUI(tenNV, chucVu, soLanTre);
+        
+        // Khóa các ô nhập tiền không cho nhân viên sửa
+        txtThuong.txtSo.setText(df.format(blChotXong.getThuong()));
+        txtThuong.txtSo.setEditable(false);
+        txtPhat.txtSo.setText("0"); // Đã gộp vào phạt hệ thống
+        txtPhat.txtSo.setEditable(false);
+    }
+    // CONSTRUCTOR CHÍNH: Dành cho quản lý chốt lương
+    public ChiTietChotLuongDialog(Window parent, String maNV, String tenNV, String chucVu,
+                                BigDecimal luongCoBan, double gioLam, double gioOT,
+                                BigDecimal heSoOT, BigDecimal phatHeThong, int soLanTre, String thangNam) {
+        super(parent, "Chi tiết Chốt Lương", ModalityType.APPLICATION_MODAL);
+
         this.maNV = maNV;
         this.thangNam = thangNam;
         this.luongCoBan = (luongCoBan != null) ? luongCoBan : BigDecimal.ZERO;
@@ -60,6 +87,7 @@ public class ChiTietChotLuongDialog extends JDialog {
         this.gioLam = gioLam;
         this.gioOT = gioOT;
         this.phatHeThong = (phatHeThong != null) ? phatHeThong : BigDecimal.ZERO;
+        this.isReadOnly = false;
 
         setUndecorated(true);
         setBackground(new Color(0, 0, 0, 0));
@@ -70,6 +98,7 @@ public class ChiTietChotLuongDialog extends JDialog {
         initUI(tenNV, chucVu, soLanTre);
         setupRealtimeCalculation();
     }
+
 
     private void tinhToanGiaTriGoc() {
         // Tạm tính = (Lương CB * Giờ) + (Lương CB * Hệ số OT * Giờ OT) - Phạt Hệ Thống
@@ -100,11 +129,20 @@ public class ChiTietChotLuongDialog extends JDialog {
         JPanel pnlHeader = new JPanel(new BorderLayout());
         pnlHeader.setOpaque(false);
         pnlHeader.setBorder(new EmptyBorder(0, 0, 20, 0));
+        
         JPanel pnlTitle = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
         pnlTitle.setOpaque(false);
         JLabel lblIcon = new JLabel("📄");
         lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 20));
         lblIcon.setForeground(COLOR_TEXT_PRIMARY);
+        
+        // 🚀 ĐÃ SỬA LỖI MẤT CHỮ: Bổ sung Tiêu đề và tự động đổi tên theo chế độ xem
+        JLabel lblTitleText = new JLabel(isReadOnly ? "Chi tiết Phiếu Lương" : "Chi tiết Chốt Lương");
+        lblTitleText.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblTitleText.setForeground(COLOR_TEXT_PRIMARY);
+        
+        pnlTitle.add(lblIcon);
+        pnlTitle.add(lblTitleText);
         
         JButton btnClose = new JButton("✖");
         btnClose.setFont(new Font("Segoe UI Emoji", Font.BOLD, 16));
@@ -115,7 +153,8 @@ public class ChiTietChotLuongDialog extends JDialog {
         btnClose.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnClose.addActionListener(e -> dispose());
         
-        pnlHeader.add(lblIcon, BorderLayout.WEST);
+        // 🚀 ĐÃ SỬA: Đưa cả cụm pnlTitle (gồm icon + chữ) vào góc trái
+        pnlHeader.add(pnlTitle, BorderLayout.WEST); 
         pnlHeader.add(btnClose, BorderLayout.EAST);
         pnlMain.add(pnlHeader, BorderLayout.NORTH);
 
@@ -141,6 +180,7 @@ public class ChiTietChotLuongDialog extends JDialog {
         btnHuy.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnHuy.addActionListener(e -> dispose());
         
+        // Nút chốt xịn xò của bạn
         JButton btnChot = new JButton() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -167,13 +207,21 @@ public class ChiTietChotLuongDialog extends JDialog {
         pnlBtnContent.add(lblCheck);
         pnlBtnContent.add(lblBtnText);
 
-        btnChot.setLayout(new GridBagLayout()); // thay BorderLayout
+        btnChot.setLayout(new GridBagLayout()); 
         btnChot.add(pnlBtnContent); 
         btnChot.setPreferredSize(new Dimension(220, 48));
         btnChot.setContentAreaFilled(false);
         btnChot.setBorderPainted(false);
         btnChot.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnChot.addActionListener(e -> thucHienChotLuong());
+        
+        // =======================================================
+        // 🚀 TÍCH HỢP LOGIC CHẾ ĐỘ XEM CỦA NHÂN VIÊN
+        // =======================================================
+        if (isReadOnly) {
+            btnChot.setVisible(false); // Nhân viên thì giấu nút "Xác nhận chốt lương" đi
+            btnHuy.setText("Đóng phiếu lương"); // Đổi tên nút thành Đóng
+        }
         
         pnlFooter.add(btnHuy, BorderLayout.WEST);
         pnlFooter.add(btnChot, BorderLayout.EAST);
