@@ -14,7 +14,6 @@ import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -24,7 +23,7 @@ import java.util.stream.Collectors;
 /**
  * 🚀 QUẢN LÝ NHÂN VIÊN VỚI ROW PANEL LIST (MODERN UI)
  * - Đã đồng bộ UI/UX (Ô tick Gmail, Chọn tất cả, Ẩn/Hiện nút tự động)
- * - Đã nới rộng full bảng.
+ * - Đã nới rộng full bảng, xóa bỏ cột Lương giờ cũ.
  */
 public class DanhSachNvUi extends JPanel {
 
@@ -43,7 +42,7 @@ public class DanhSachNvUi extends JPanel {
     private TaiKhoanLogic tkLogic = new TaiKhoanLogic();
     
     private List<Data.NhanVienViewModel> danhSachGoc = new ArrayList<>();
-    private List<Data.NhanVienViewModel> currentDisplayedList = new ArrayList<>(); // Danh sách đang hiển thị
+    private List<Data.NhanVienViewModel> currentDisplayedList = new ArrayList<>(); 
     private List<Data.NhanVienViewModel> selectedEmployees = new ArrayList<>();
 
     private String currentRoleFilter = "Tất cả";
@@ -74,7 +73,7 @@ public class DanhSachNvUi extends JPanel {
         this.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mousePressed(java.awt.event.MouseEvent e) {
-                requestFocusInWindow(); // Ép nền cướp lấy focus
+                requestFocusInWindow(); 
             }
         });
     }
@@ -134,7 +133,7 @@ public class DanhSachNvUi extends JPanel {
     }
 
     // =========================================================
-    // 2. FAKE HEADER (Đã nới rộng full màn hình)
+    // 2. FAKE HEADER 
     // =========================================================
    private JPanel createFakeHeader() {
         JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
@@ -142,20 +141,20 @@ public class DanhSachNvUi extends JPanel {
         header.setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
         header.setPreferredSize(new Dimension(0, 45));
 
-        // 🔥 THÊM CHỌN TẤT CẢ VÀO HEADER
         cbSelectAll = new ModernCheckBox();
         cbSelectAll.setPreferredSize(new Dimension(40, 20));
         cbSelectAll.addActionListener(e -> handleSelectAll(cbSelectAll.isSelected()));
         header.add(cbSelectAll);
-        header.add(createHeaderLabel("Mã NV", 70));
-        header.add(createHeaderLabel("Họ Tên", 230));    // Giảm từ 350 -> 230
-        header.add(createHeaderLabel("SĐT", 120));       // Giảm từ 150 -> 120
-        header.add(createHeaderLabel("Chức vụ", 120));   // Giảm từ 150 -> 120
-        header.add(createHeaderLabel("Lương/Giờ", 140)); // Giảm từ 150 -> 120
-        header.add(createHeaderLabel("Ngày vào làm", 140)); // Giảm từ 150 -> 120
-        header.add(createHeaderLabel("Trạng thái", 150)); // Nới rộng
-        // Nút sửa nằm ở cuối cùng không cần label
 
+        // ĐÃ SỬA: Phân bổ lại kích thước sau khi xóa Lương/Giờ
+        header.add(createHeaderLabel("Mã NV", 80));
+        header.add(createHeaderLabel("Họ Tên", 260));       // Tăng width
+        header.add(createHeaderLabel("SĐT", 140));          // Tăng width
+        header.add(createHeaderLabel("Chức vụ", 130));      // Tăng width
+        // header.add(createHeaderLabel("Lương/Giờ", 140)); // ĐÃ XÓA
+        header.add(createHeaderLabel("Ngày vào làm", 140)); 
+        header.add(createHeaderLabel("Trạng thái", 150)); 
+        
         return header;
     }
 
@@ -203,6 +202,7 @@ public class DanhSachNvUi extends JPanel {
         JLabel lblVal = new JLabel(val); lblVal.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(26f)); lblVal.setForeground(color);
         card.add(lblTitle, BorderLayout.NORTH); card.add(lblVal, BorderLayout.CENTER); parent.add(card); return lblVal;
     }
+
     // =========================================================
     // 4. ACTION BUTTONS (SOUTH)
     // =========================================================
@@ -227,7 +227,6 @@ public class DanhSachNvUi extends JPanel {
         JPanel pnlRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         pnlRight.setOpaque(false);
 
-        // 🔥 Khởi tạo nút nhưng mặc định ẨN
         btnResetPass = TienIchGiaoDien.taoNutHienDai("🔑 Reset Pass", new Color(245, 158, 11));
         btnResetPass.addActionListener(e -> handleResetPassword());
         btnResetPass.setVisible(false);
@@ -321,26 +320,28 @@ public class DanhSachNvUi extends JPanel {
         cbSelect.addActionListener(e -> handleSelection(nv, cbSelect.isSelected(), row));
         content.add(cbSelect);
 
-        content.add(createCell(nv.getMaNV(), 70, true));
+        // ĐÃ SỬA: Khớp kích thước với Fake Header mới
+        content.add(createCell(nv.getMaNV(), 80, true));
 
         // Khung Họ tên
         JPanel pnlName = new JPanel(new GridLayout(isNghiViec ? 2 : 1, 1, 0, 2));
         pnlName.setOpaque(false);
-        pnlName.setPreferredSize(new Dimension(230, isNghiViec ? 50 : 25)); // Sửa thành 230
-        pnlName.add(createCell(nv.getHoTen() != null ? nv.getHoTen() : "—", 230, true)); 
+        pnlName.setPreferredSize(new Dimension(260, isNghiViec ? 50 : 25)); 
+        pnlName.add(createCell(nv.getHoTen() != null ? nv.getHoTen() : "—", 260, true)); 
         if (isNghiViec) {
-            JLabel lblNghi = createCell("Nghỉ từ: " + strNgayNghi, 230, false); 
+            JLabel lblNghi = createCell("Nghỉ từ: " + strNgayNghi, 260, false); 
             lblNghi.setForeground(new Color(239, 68, 68)); 
             lblNghi.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(12f)); 
             pnlName.add(lblNghi);
         }
         content.add(pnlName);
 
-        content.add(createCell(nv.getSDT() != null ? nv.getSDT() : "—", 120, false));
-        content.add(createCell(nv.getChucVu() != null ? nv.getChucVu() : "—", 120, false));
-        content.add(createCell(DinhDangUtil.dinhDangTien(nv.getLuongGio()), 140, false));
+        content.add(createCell(nv.getSDT() != null ? nv.getSDT() : "—", 140, false));
+        content.add(createCell(nv.getChucVu() != null ? nv.getChucVu() : "—", 130, false));
+        // content.add(createCell(DinhDangUtil.dinhDangTien(nv.getLuongGio()), 140, false)); // ĐÃ XÓA
         content.add(createCell(strNgayVao, 140, false));
-     // HIỆU ỨNG BADGE TRẠNG THÁI
+        
+        // HIỆU ỨNG BADGE TRẠNG THÁI
         boolean isDaNghi = "Đã Nghỉ".equalsIgnoreCase(nv.getTrangThai());
         boolean isWorking = "Đang làm việc".equals(nv.getTrangThaiLamViec()) && !isDaNghi;
         
@@ -353,21 +354,18 @@ public class DanhSachNvUi extends JPanel {
                 else if (isWorking) g2.setColor(new Color(209, 250, 229)); 
                 else g2.setColor(new Color(241, 245, 249)); 
                 
-                // 🔥 ĐÃ ÉP CÂN: Vẽ khung nền với chiều cao 25px (y=0)
                 g2.fillRoundRect(0, 0, getWidth(), 25, 25, 25);
                 
                 if (isDaNghi) g2.setColor(new Color(220, 38, 38)); 
                 else if (isWorking) g2.setColor(new Color(16, 185, 129)); 
                 else g2.setColor(new Color(148, 163, 184)); 
                 
-                // 🔥 Căn giữa lại dấu chấm tròn (y=7)
                 g2.fillOval(10, 7, 10, 10); 
                 g2.dispose();
                 super.paintComponent(g);
             }
         };
         pnlBadge.setOpaque(false);
-        // 🔥 BÍ QUYẾT LÀ ĐÂY: Hạ chiều cao Badge từ 32px xuống 25px (bằng với các ô text)
         pnlBadge.setPreferredSize(new Dimension(150, 25));
         
         String textStatus = isDaNghi ? "Đã nghỉ việc" : (isWorking ? "Đang làm việc" : "Không trong ca");
@@ -382,9 +380,9 @@ public class DanhSachNvUi extends JPanel {
         pnlBadge.add(lblStatus, BorderLayout.CENTER);
         content.add(pnlBadge);	
 
-     // NÚT CHỈNH SỬA (MƯỢN Y XÌ ĐÚC TỪ FILE NHẬP HÀNG)
+        // NÚT CHỈNH SỬA 
         JButton btnEdit = new JButton("✏️ Sửa");
-        btnEdit.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(14f)); // Trả về 13f y hệt Chi tiết
+        btnEdit.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(14f)); 
         btnEdit.setForeground(new Color(59, 130, 246)); 
         btnEdit.setContentAreaFilled(false); 
         btnEdit.setBorderPainted(false); 
@@ -394,10 +392,7 @@ public class DanhSachNvUi extends JPanel {
         btnEdit.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
-                // Đổi màu Đỏ
                 btnEdit.setForeground(new Color(239, 68, 68)); 
-                
-                // Phông 14f + In đậm + Gạch chân
                 Font hoverFont = TienIchGiaoDien.FONT_DAM.deriveFont(Font.BOLD, 14f);
                 java.util.Map<java.awt.font.TextAttribute, Object> attributes = new java.util.HashMap<>(hoverFont.getAttributes());
                 attributes.put(java.awt.font.TextAttribute.UNDERLINE, java.awt.font.TextAttribute.UNDERLINE_ON);
@@ -406,7 +401,6 @@ public class DanhSachNvUi extends JPanel {
 
             @Override
             public void mouseExited(MouseEvent e) {
-                // Trả về xanh lam & phông 13f (TUYỆT ĐỐI KHÔNG SET LẠI BORDER)
                 btnEdit.setForeground(new Color(59, 130, 246)); 
                 btnEdit.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(13f)); 
             }
@@ -422,13 +416,11 @@ public class DanhSachNvUi extends JPanel {
             }
         });
 
-        // Ẩn nút nếu đã nghỉ việc
         if (!isNghiViec) {
             content.add(Box.createHorizontalStrut(20)); 
             content.add(btnEdit);
         }
 
-        // Hover effect
         row.addMouseListener(new MouseAdapter() {
             @Override public void mouseEntered(MouseEvent e) {
                 if (!selectedEmployees.contains(nv)) { row.setBackground(HOVER_COLOR); row.repaint(); }
@@ -482,7 +474,7 @@ public class DanhSachNvUi extends JPanel {
                     danhSachGoc = get();
                     isLoading = false;
                     updateStats();
-                    selectedEmployees.clear(); // Reset tick
+                    selectedEmployees.clear(); 
                     filterData(); 
                 } catch (Exception e) { e.printStackTrace(); isLoading = false; }
             }
@@ -519,7 +511,7 @@ public class DanhSachNvUi extends JPanel {
         });
 
         renderList(currentDisplayedList);
-        updateSelectionUIState(); // Cập nhật lại UI nút bấm
+        updateSelectionUIState(); 
     }
 
     private void updateStats() {
@@ -562,7 +554,6 @@ public class DanhSachNvUi extends JPanel {
     private void updateSelectionUIState() {
         boolean hasSelection = !selectedEmployees.isEmpty();
         
-        // CHỈ HIỆN KHI CÓ QUYỀN ADMIN VÀ CÓ CHỌN ÍT NHẤT 1 NV
         if ("ADMIN".equalsIgnoreCase(userRoleDangNhap)) {
             if (btnNghiViec != null) btnNghiViec.setVisible(hasSelection);
             if (btnResetPass != null) btnResetPass.setVisible(hasSelection);
@@ -631,11 +622,18 @@ public class DanhSachNvUi extends JPanel {
     }
 
     private void handleMoBangLuong() {
-        TienIchGiaoDien.hienThiThongBao(this, "Chức năng xem Bảng Lương đang được phát triển!", "INFO");
+        // Tìm cửa sổ gốc TrangADMIN đang chứa panel này
+        Window window = SwingUtilities.getWindowAncestor(this);
+        if (window instanceof TrangADMIN) {
+            TrangADMIN adminFrame = (TrangADMIN) window;
+            
+            // Ra lệnh cho trang ADMIN chuyển sang tab Bảng Lương ngầm
+            adminFrame.chuyenTabGiaoDien("TAB_BANGLUONG");
+        }
     }
 
     // =========================================================
-    // 🎨 COMPONENT: MODERN CHECKBOX (O TICK CHUẨN GMAIL)
+    // 🎨 COMPONENT: MODERN CHECKBOX
     // =========================================================
     private class ModernCheckBox extends JCheckBox {
         public ModernCheckBox() { setOpaque(false); setCursor(new Cursor(Cursor.HAND_CURSOR)); }

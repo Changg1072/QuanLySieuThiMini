@@ -19,7 +19,8 @@ public class TaiKhoanUi extends JPanel {
     private TaiKhoanLogic tkLogic;
 
     // ================== COMPONENTS ==================
-    private ONhapLieuHienDai txtHoTen, txtSdt, txtLuongGio, txtNgayVaoLam, txtNgayNghiViec;
+    // ĐÃ XÓA: txtLuongGio
+    private ONhapLieuHienDai txtHoTen, txtSdt, txtNgayVaoLam, txtNgayNghiViec;
     private JComboBox<String> cbChucVu;
     private TienIchGiaoDien.NutGat tglTrangThai; 
     private JLabel lblTrangThaiText;
@@ -74,17 +75,14 @@ public class TaiKhoanUi extends JPanel {
         // ================= KHỞI TẠO CÁC TRƯỜNG =================
         txtHoTen = new ONhapLieuHienDai("Họ và tên *", true, false);
         txtSdt = new ONhapLieuHienDai("Số điện thoại", true, false);
-        txtLuongGio = new ONhapLieuHienDai("Lương Giờ (Cố định)", false, false);
         txtNgayVaoLam = new ONhapLieuHienDai("Ngày vào làm", false, false);
         txtNgayNghiViec = new ONhapLieuHienDai("Ngày nghỉ việc (Trống nếu đang làm)", false, false);
 
         setFontChoONhapLieu(txtHoTen);
         setFontChoONhapLieu(txtSdt);
-        setFontChoONhapLieu(txtLuongGio);
         setFontChoONhapLieu(txtNgayVaoLam);
         setFontChoONhapLieu(txtNgayNghiViec);
 
-        fixMauChuChoONhapLieu(txtLuongGio);
         fixMauChuChoONhapLieu(txtNgayVaoLam);
         fixMauChuChoONhapLieu(txtNgayNghiViec);
 
@@ -108,11 +106,11 @@ public class TaiKhoanUi extends JPanel {
 
         btnHuyBo = TienIchGiaoDien.taoNutHienDai("HỦY BỎ", new Color(148, 163, 184));
         btnHuyBo.setFont(FONT_CALIBRI_BOLD);
-        btnHuyBo.addActionListener(e -> loadThongTinNhanVien()); // Hủy thì load lại data cũ
+        btnHuyBo.addActionListener(e -> loadThongTinNhanVien()); 
         
         btnCapNhat = TienIchGiaoDien.taoNutHienDai("CẬP NHẬT", new Color(16, 185, 129)); 
         btnCapNhat.setFont(FONT_CALIBRI_BOLD);
-        btnCapNhat.addActionListener(e -> capNhatThongTinNhanVien()); // Gọi hàm Update
+        btnCapNhat.addActionListener(e -> capNhatThongTinNhanVien()); 
 
         // ================= SẮP XẾP BỐ CỤC =================
         int row = 0;
@@ -127,9 +125,7 @@ public class TaiKhoanUi extends JPanel {
         gbc.gridx = 0; cardChinh.add(wrapCombo("Chức vụ *", cbChucVu), gbc);
         gbc.gridx = 1; cardChinh.add(wrapTogglePanel("Trạng Thái Làm Việc", tglTrangThai, lblTrangThaiText), gbc);
 
-        gbc.gridx = 0; gbc.gridy = row++; gbc.gridwidth = 2; gbc.weightx = 1.0;
-        cardChinh.add(txtLuongGio, gbc);
-
+        // ĐÃ SỬA: Đẩy thẳng Ngày vào làm và Ngày nghỉ việc lên chiếm trọn bề ngang thay vì để trống do xóa ô Lương
         gbc.gridy = row++; gbc.gridwidth = 1; gbc.weightx = 0.5;
         gbc.gridx = 0; cardChinh.add(txtNgayVaoLam, gbc);
         gbc.gridx = 1; cardChinh.add(txtNgayNghiViec, gbc);
@@ -172,7 +168,6 @@ public class TaiKhoanUi extends JPanel {
 
     // ================== CÁC HÀM XỬ LÝ DATABASE ==================
     
-    // 1. Hàm Load Dữ Liệu Lên Form
     private void loadThongTinNhanVien() {
         try {
             NhanVien nv = nvLogic.timNhanVienTheoMa(maNVHienTai);
@@ -183,10 +178,7 @@ public class TaiKhoanUi extends JPanel {
                 txtHoTen.setText(nv.getHoTen());
                 txtSdt.setText(nv.getSDT());
                 
-                // Tiền và Ngày tháng (Chỉ đọc)
-                if(nv.getLuongGio() != null) {
-                    txtLuongGio.setText(DinhDangUtil.dinhDangTien(nv.getLuongGio()));
-                }
+                // Ngày tháng (Chỉ đọc)
                 if(nv.getNgayVaoLam() != null) {
                     txtNgayVaoLam.setText(dtf.format(nv.getNgayVaoLam()));
                 }
@@ -208,19 +200,16 @@ public class TaiKhoanUi extends JPanel {
         }
     }
 
-    // 2. Hàm Cập Nhật Dữ Liệu
     private void capNhatThongTinNhanVien() {
         try {
-            // Lấy lại NV cũ để giữ nguyên các field bị khóa (Ngày vào làm, mã NV, lương...)
             NhanVien nv = nvLogic.timNhanVienTheoMa(maNVHienTai);
             if (nv != null) {
                 nv.setHoTen(txtHoTen.getText().trim());
                 nv.setSDT(txtSdt.getText().trim());
-                // Gọi hàm sửa bên Logic (đã có check rỗng, validate các kiểu)
                 nvLogic.suaNhanVien(nv);
                 
                 TienIchGiaoDien.hienThiThongBao(this, "Cập nhật hồ sơ thành công!", "SUCCESS");
-                loadThongTinNhanVien(); // Tải lại cho chắc
+                loadThongTinNhanVien(); 
             }
         } catch (Exception ex) {
             TienIchGiaoDien.hienThiThongBao(this, ex.getMessage(), "ERROR");
@@ -329,7 +318,6 @@ public class TaiKhoanUi extends JPanel {
         btnSave.setFont(FONT_CALIBRI_BOLD);
         btnSave.addActionListener(e -> {
             try {
-                // 1. Tìm tên đăng nhập (Tài khoản) của ông NV này
                 String tenTaiKhoan = null;
                 for (TaiKhoan tk : tkLogic.layDanhSachTaiKhoan()) {
                     if (tk.getMaNV().equals(maNVHienTai)) {
@@ -342,7 +330,6 @@ public class TaiKhoanUi extends JPanel {
                     throw new Exception("Không tìm thấy tài khoản hệ thống của nhân viên này!");
                 }
 
-                // 2. Gọi hàm đổi pass trong Logic (Đã xử lý mã hóa, bắt lỗi, check trùng pass)
                 tkLogic.xuLyDoiMatKhau(
                     tenTaiKhoan, 
                     txtOld.getText(), 
@@ -354,7 +341,6 @@ public class TaiKhoanUi extends JPanel {
                 dialog.dispose();
 
             } catch (Exception ex) {
-                // Nếu sai pass, độ dài không đủ, pass không khớp... thì thông báo ở đây
                 TienIchGiaoDien.hienThiThongBao(dialog, ex.getMessage(), "ERROR");
             }
         });

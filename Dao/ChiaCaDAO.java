@@ -295,4 +295,30 @@ public class ChiaCaDAO {
     private void logError(String method, Exception e) {
         System.err.println("[ChiaCaDAO - " + method + "] ERROR: " + e.getMessage());
     }
+        // ==========================================================
+    // BỔ SUNG: LẤY DANH SÁCH CA LÀM TRONG THÁNG ĐỂ TÍNH LƯƠNG/KHẤU TRỪ
+    // ==========================================================
+    public List<ChiaCa> layDanhSachChiaCaTheoThang(String maNV, int thang, int nam) {
+        List<ChiaCa> dsChiaCa = new ArrayList<>();
+        String sql = "SELECT * FROM ChiaCa WHERE MaNV = ? AND MONTH(NgayLam) = ? AND YEAR(NgayLam) = ?";
+
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement pstmt = con.prepareStatement(sql)
+        ) {
+            pstmt.setString(1, maNV);
+            pstmt.setInt(2, thang);
+            pstmt.setInt(3, nam);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    // Tái sử dụng hàm map có sẵn trong DAO của bạn
+                    dsChiaCa.add(mapResultSetToChiaCa(rs)); 
+                }
+            }
+        } catch (SQLException e) {
+            logError("layDanhSachChiaCaTheoThang", e);
+        }
+        return dsChiaCa;
+    }
+
 }

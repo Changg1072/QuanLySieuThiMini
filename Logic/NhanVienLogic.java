@@ -27,9 +27,6 @@ public class NhanVienLogic {
 		}
 		
 		// GÁN MẶC ĐỊNH 20K NẾU QUÊN NHẬP LƯƠNG
-		if (nv.getLuongGio() == null || nv.getLuongGio().compareTo(BigDecimal.ZERO) <= 0) {
-            nv.setLuongGio(new BigDecimal("20000")); 
-        }
 		boolean thanhCong = dao.themNhanVien(nv);
 		if (!thanhCong) {
 			throw new Exception("Lỗi hệ thống: Thêm nhân viên thất bại!");
@@ -58,9 +55,6 @@ public class NhanVienLogic {
 		if (nv.getSDT() == null || !nv.getSDT().matches("^0\\d{9}$")) {
 			throw new Exception("Số điện thoại không hợp lệ (Phải đủ 10 số và bắt đầu bằng số 0)!");
 		}
-		if (nv.getLuongGio() != null && nv.getLuongGio().compareTo(BigDecimal.ZERO) < 0) {
-            throw new Exception("Lương không thể là số âm!");
-        }
 		if (nv.getNgayVaoLam() == null) {
 			throw new Exception("Vui lòng chọn Ngày vào làm!");
 		}

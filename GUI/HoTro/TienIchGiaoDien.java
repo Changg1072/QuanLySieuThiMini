@@ -299,4 +299,28 @@ public class TienIchGiaoDien {
             return new Dimension(50, 30);
         }
     }
+        // ==========================================================
+    // TẠO CHỮ MỜ (PLACEHOLDER) CHO JTEXTFIELD
+    // ==========================================================
+    public static void datPlaceholder(javax.swing.JTextField txt, String hint) {
+        txt.setText(hint);
+        txt.setForeground(new java.awt.Color(156, 163, 175)); // Màu xám nhạt
+        
+        txt.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent e) {
+                if (txt.getText().equals(hint)) {
+                    txt.setText("");
+                    txt.setForeground(new java.awt.Color(30, 41, 59)); // Trả lại màu chữ đen
+                }
+            }
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                if (txt.getText().isEmpty()) {
+                    txt.setForeground(new java.awt.Color(156, 163, 175));
+                    txt.setText(hint);
+                }
+            }
+        });
+    }
 }

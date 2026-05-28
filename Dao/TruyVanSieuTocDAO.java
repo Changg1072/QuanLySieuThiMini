@@ -396,7 +396,6 @@ public class TruyVanSieuTocDAO {
                 nv.setHoTen(rs.getString("HoTen"));
                 nv.setSDT(rs.getString("SDT"));
                 nv.setChucVu(rs.getString("ChucVu"));
-                nv.setLuongGio(rs.getBigDecimal("LuongGio"));
                 
                 java.sql.Date ngayVao = rs.getDate("NgayVaoLam");
                 if (ngayVao != null) nv.setNgayVaoLam(ngayVao.toLocalDate());

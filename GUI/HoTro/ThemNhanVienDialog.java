@@ -13,8 +13,6 @@ import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.ConvolveOp;
 import java.awt.image.Kernel;
-import java.math.BigDecimal;
-import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
@@ -26,7 +24,8 @@ public class ThemNhanVienDialog extends JDialog {
 
     // --- UI Components ---
     private JPanel pnlCard;
-    private FormGroup txtMaNV, txtHoTen, txtSDT, txtLuong, txtNgayVao;
+    // ĐÃ XÓA: txtLuong
+    private FormGroup txtMaNV, txtHoTen, txtSDT, txtNgayVao;
     private ComboGroup cbChucVu;
     private ReactButton btnTao, btnHuy;
 
@@ -48,7 +47,6 @@ public class ThemNhanVienDialog extends JDialog {
         setUndecorated(true);
         setBackground(new Color(0, 0, 0, 0)); 
         
-        // 🔥 FIX LỖI TỐI MÀN: Ép Modal phủ kín cửa sổ cha
         if (parent != null) {
             setBounds(parent.getBounds());
         } else {
@@ -90,7 +88,6 @@ public class ThemNhanVienDialog extends JDialog {
     }
 
     private void initUI() {
-        // 🔥 FIX LỖI TỐI MÀN: Dùng RootPanel để vẽ nền đen mờ thay vì override paint()
         JPanel rootPanel = new JPanel(new GridBagLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
@@ -138,7 +135,6 @@ public class ThemNhanVienDialog extends JDialog {
         pnlCard.setBorder(new EmptyBorder(30, 35, 30, 35));
 
         JLabel lblTitle = new JLabel("Tạo nhân viên mới");
-        // 🔥 ÉP CỨNG FONT BOLD CHO TIÊU ĐỀ
         lblTitle.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(Font.BOLD, 24f));
         lblTitle.setForeground(textPrimary);
         lblTitle.setBorder(new EmptyBorder(0, 0, 15, 0));
@@ -149,13 +145,12 @@ public class ThemNhanVienDialog extends JDialog {
         txtMaNV = new FormGroup("Mã Nhân Viên", false);
         cbChucVu = new ComboGroup("Chức Vụ", new String[]{"Thu Ngân", "ADMIN"});
         txtHoTen = new FormGroup("Họ và Tên", true);
-        txtLuong = new FormGroup("Lương / Giờ (VNĐ)", true);
         txtSDT = new FormGroup("Số Điện Thoại", true);
         txtNgayVao = new FormGroup("Ngày vào làm", false);
 
         pnlForm.add(txtMaNV);    pnlForm.add(cbChucVu);
-        pnlForm.add(txtHoTen);   pnlForm.add(txtLuong);
-        pnlForm.add(txtSDT);     pnlForm.add(txtNgayVao); 
+        pnlForm.add(txtHoTen);   pnlForm.add(txtSDT); 
+        pnlForm.add(txtNgayVao); pnlForm.add(new JLabel("")); // Thêm cột trống lấp đầy Grid
 
         JPanel pnlBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         pnlBtns.setOpaque(false);
@@ -191,7 +186,6 @@ public class ThemNhanVienDialog extends JDialog {
             setOpaque(false);
 
             JLabel lbl = new JLabel(labelTitle);
-            // 🔥 ÉP CỨNG FONT BOLD CHO NHÃN ĐỂ KHÔNG BỊ MỎNG
             lbl.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(Font.BOLD, 15f));
             lbl.setForeground(textSecondary);
             
@@ -384,37 +378,6 @@ public class ThemNhanVienDialog extends JDialog {
                 else txtSDT.clearError();
             }
         });
-
-        txtLuong.getField().getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) { check(); }
-            public void removeUpdate(DocumentEvent e) { check(); }
-            public void changedUpdate(DocumentEvent e) { check(); }
-            private void check() {
-                String val = txtLuong.getText().replace(",", "");
-                if (!val.isEmpty() && !val.matches("\\d+")) {
-                    txtLuong.setError("Lương chỉ được nhập số!");
-                } else {
-                    txtLuong.clearError();
-                }
-            }
-        });
-
-        txtLuong.getField().addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusLost(FocusEvent e) {
-                try {
-                    String raw = txtLuong.getText().replaceAll("[^\\d]", "");
-                    if (!raw.isEmpty()) {
-                        long val = Long.parseLong(raw);
-                        DecimalFormat df = new DecimalFormat("#,###");
-                        txtLuong.setText(df.format(val));
-                        txtLuong.clearError();
-                    }
-                } catch (Exception ex) {
-                    if (!txtLuong.getText().isEmpty()) txtLuong.setError("Định dạng lỗi");
-                }
-            }
-        });
     }
 
     private void setupKeyBindings() {
@@ -425,34 +388,22 @@ public class ThemNhanVienDialog extends JDialog {
     }
 
     private void handleTaoNhanVien() {
-        txtHoTen.clearError(); txtSDT.clearError(); txtLuong.clearError();
+        txtHoTen.clearError(); txtSDT.clearError(); 
         boolean valid = true;
 
         if (txtHoTen.getText().trim().isEmpty()) { txtHoTen.setError("Bắt buộc"); valid = false; }
         if (!txtSDT.getText().matches("^0\\d{9}$")) { txtSDT.setError("Sai định dạng"); valid = false; }
-        
-        BigDecimal luongGio = BigDecimal.ZERO;
-        try {
-            String rawLuong = txtLuong.getText().replaceAll("[^\\d]", ""); 
-            if (rawLuong.isEmpty()) throw new Exception();
-            double luongVal = Double.parseDouble(rawLuong);
-            if (luongVal <= 0) throw new Exception();
-            luongGio = new BigDecimal(rawLuong);
-        } catch (Exception e) {
-            txtLuong.setError("Phải lớn hơn 0");
-            valid = false;
-        }
 
         if (!valid) return;
 
         String maNVRaw = txtMaNV.getText().trim();
 
+        // ĐÃ XÓA SET LƯƠNG
         nhanVienMoi = new NhanVien.ThoXayNhanVien()
                 .ganMaNV(maNVRaw)
                 .ganHoTen(txtHoTen.getText().trim())
                 .ganSDT(txtSDT.getText().trim())
                 .ganChucVu(cbChucVu.getSelectedItem().toString())
-                .ganLuongGio(luongGio)
                 .ganNgayVaoLam(LocalDate.now())
                 .ganTrangThai("Đang Làm Việc")
                 .taoMoi();

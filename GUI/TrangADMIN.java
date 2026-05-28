@@ -87,7 +87,8 @@ public class TrangADMIN extends JFrame {
         cardLayout = new CardLayout();
         pnlCards   = new JPanel(cardLayout);
         pnlCards.setBackground(CLR_CONTENT_BG);
-
+        BangLuongUi tabBangLuong = new BangLuongUi();
+        pnlCards.add(tabBangLuong, "TAB_BANGLUONG");
         pnlCards.add(taoPanelGiuCho("TRANG CHỦ TỔNG QUAN"),            "TRANG_CHU");
         //pnlCards.add(taoPanelGiuCho("BÁO CÁO THỐNG KÊ DOANH THU"),     "THONG_KE");
         // pnlCards.add(taoPanelGiuCho("QUẢN LÝ SẢN PHẨM"),               "SAN_PHAM");
@@ -1045,6 +1046,19 @@ public class TrangADMIN extends JFrame {
                 g2.drawString(text, badgeX + (badgeW - textW) / 2, badgeY + badgeH - 3);
             }
             g2.dispose();
+        }
+    }
+    public void chuyenTabGiaoDien(String tenTab) {
+        cardLayout.show(pnlCards, tenTab);
+        
+        // Nếu chuyển sang bảng lương, tắt highlight của các nút menu Sidebar
+        if ("TAB_BANGLUONG".equals(tenTab)) {
+            for (JButton btn : danhSachNutMenu) {
+                btn.putClientProperty("active", false);
+                btn.setBackground(CLR_SIDEBAR_BG); 
+                btn.setForeground(CLR_TEXT_PRIMARY);
+            }
+            repaint();
         }
     }
 }

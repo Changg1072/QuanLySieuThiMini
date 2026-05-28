@@ -109,7 +109,7 @@ public class DanhSachLichSuKiemKeDialog {
         lblTitle.setBorder(new EmptyBorder(0, 0, 15, 0));
 
         JButton btnClose = new JButton("✕");
-        btnClose.setFont(new Font("SansSerif", Font.BOLD, 18));
+        btnClose.setFont(new Font("Segoe UI Emoji", Font.BOLD, 16));
         btnClose.setForeground(new Color(100, 116, 139));
         btnClose.setContentAreaFilled(false); btnClose.setBorderPainted(false); btnClose.setFocusPainted(false);
         btnClose.setCursor(new Cursor(Cursor.HAND_CURSOR));
