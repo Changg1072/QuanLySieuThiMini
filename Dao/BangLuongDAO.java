@@ -108,4 +108,26 @@ public class BangLuongDAO {
     private void logError(String method, Exception e) {
         System.err.println("[BangLuongDAO - " + method + "] ERROR: " + e.getMessage());
     }
+        // ==========================================================
+    // LẤY CHI TIẾT BẢNG LƯƠNG CỦA 1 THÁNG CỤ THỂ
+    // ==========================================================
+    public BangLuong layBangLuong(String maNV, String thangNam) {
+        String sql = "SELECT * FROM BangLuong WHERE MaNV = ? AND ThangNam = ?";
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement ps = con.prepareStatement(sql)
+        ) {
+            ps.setString(1, maNV);
+            ps.setString(2, thangNam);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToBangLuong(rs);
+                }
+            }
+        } catch (SQLException e) {
+            logError("layBangLuong", e);
+        }
+        return null;
+    }
+
 }

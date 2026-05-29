@@ -166,6 +166,7 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
     public void capNhatGioHang(SanPham sp, int soLuongThayDoi, DanhSachSPUi.TheSanPham card) {
         if (pnlGioHang.getParent() == null) {
             this.add(pnlGioHang, BorderLayout.EAST);
+            pnlDanhSachSP.setGiaoDienThuGon(true);
             this.revalidate();
         }
 
@@ -392,6 +393,7 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
 
     private void anGioHang() {
         this.remove(pnlGioHang);
+        pnlDanhSachSP.setGiaoDienThuGon(false);
         this.revalidate();
         this.repaint();
     }

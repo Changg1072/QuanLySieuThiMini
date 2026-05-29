@@ -317,11 +317,12 @@ public class TrangThuNgan extends JFrame {
                     if (taiKhoanUi == null) { taiKhoanUi = new TaiKhoanUi(maNhanVien); pnlCards.add(taiKhoanUi, "TAI_KHOAN"); }
                     break;
                 case "LUONG_CUA_TOI":
-                    if (bangLuongUi == null) { 
-                        bangLuongUi = new BangLuongUi(this.maNhanVien); 
-                        pnlCards.add(bangLuongUi, "LUONG_CUA_TOI"); 
-                    }
-                    break;
+                if (bangLuongUi == null) { 
+                    bangLuongUi = new BangLuongUi(this.maNhanVien); 
+                    pnlCards.add(bangLuongUi, "LUONG_CUA_TOI");
+                    pnlCards.revalidate(); // ✅ Thêm dòng này
+                }
+                break;
 
             }
             cardLayout.show(pnlCards, cardName);

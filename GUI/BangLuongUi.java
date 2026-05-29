@@ -507,12 +507,13 @@ public class BangLuongUi extends JPanel {
         
         btnAction.addActionListener(e -> {
             if (isNhanVienMode) {
-                // ===================================================
-                // 🚀 CHẾ ĐỘ NHÂN VIÊN: Mở form Xem Chi Tiết (Read-Only)
-                // ===================================================
+                // Gọi đúng Constructor cho Nhân viên (đã có ở file ChiTietChotLuongDialog)
                 GUI.HoTro.ChiTietChotLuongDialog dialog = new GUI.HoTro.ChiTietChotLuongDialog(
                     (Window) SwingUtilities.getWindowAncestor(this),
-                    data.bangLuong, data.nhanVien.getHoTen(), data.nhanVien.getChucVu(), 0
+                    data.bangLuong,          // Tham số 2: Object BangLuong
+                    data.nhanVien.getHoTen(),// Tham số 3: Tên NV
+                    data.nhanVien.getChucVu(),// Tham số 4: Chức vụ
+                    0                        // Tham số 5: Số lần trễ (int)
                 );
                 dialog.setVisible(true);
             } else {
@@ -581,58 +582,45 @@ public class BangLuongUi extends JPanel {
         isLoading = true;
         renderList(new ArrayList<>()); 
 
-        String thangNamStr = cbThang.getSelectedItem() + "/" + cbNam.getSelectedItem();
-        int thang = Integer.parseInt(cbThang.getSelectedItem().toString());
         int nam = Integer.parseInt(cbNam.getSelectedItem().toString());
 
         SwingWorker<List<PhieuLuongRowData>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<PhieuLuongRowData> doInBackground() throws Exception {
                 List<PhieuLuongRowData> result = new ArrayList<>();
-                
-                if (isNhanVienMode) {
-                    // 🚀 CHẾ ĐỘ NHÂN VIÊN: Load tất cả phiếu lương của mình trong năm
-                    NhanVien nv = nvLogic.timNhanVienTheoMa(maNhanVienHienTai);
-                    if (nv != null) {
-                        List<BangLuong> ls = Dao.BangLuongDAO.getInstance().layLichSuLuongTheoMaNV(maNhanVienHienTai);
-                        for (BangLuong bl : ls) {
-                            if (bl.getThangNam().endsWith("/" + nam)) { // Chỉ lấy đúng năm đang chọn
-                                PhieuLuongRowData row = new PhieuLuongRowData();
-                                row.nhanVien = nv;
-                                row.bangLuong = bl;
-                                row.tongGioLam = bl.getTongGioLam().doubleValue();
-                                result.add(row);
-                            }
+                NhanVien nv = nvLogic.timNhanVienTheoMa(maNhanVienHienTai); 
+
+                if (isNhanVienMode && nv != null) {
+                    // Lấy toàn bộ lịch sử lương của nhân viên
+                    List<BangLuong> ls = Dao.BangLuongDAO.getInstance().layLichSuLuongTheoMaNV(maNhanVienHienTai);
+                    
+                    for (BangLuong bl : ls) {
+                        // Lọc theo năm được chọn trên combobox
+                        if (bl.getThangNam() != null && bl.getThangNam().endsWith("/" + nam)) {
+                            PhieuLuongRowData row = new PhieuLuongRowData();
+                            row.nhanVien = nv;
+                            row.bangLuong = bl;
+                            row.tongGioLam = bl.getTongGioLam() != null ? bl.getTongGioLam().doubleValue() : 0;
+                            result.add(row);
                         }
                     }
+                    
+                    // Sắp xếp theo tháng (01 đến 12)
+                    result.sort((a, b) -> {
+                        int thangA = Integer.parseInt(a.bangLuong.getThangNam().split("/")[0]);
+                        int thangB = Integer.parseInt(b.bangLuong.getThangNam().split("/")[0]);
+                        return Integer.compare(thangA, thangB);
+                    });
                 } else {
-                    // 🚀 CHẾ ĐỘ QUẢN LÝ: Load toàn bộ nhân viên (Giữ nguyên code cũ của bạn)
+                    // Logic cũ cho Quản lý
+                    int thang = Integer.parseInt(cbThang.getSelectedItem().toString());
                     List<NhanVien> tatCaNV = nvLogic.layDanhSachNhanVien();
-                    for (NhanVien nv : tatCaNV) {
-                        if ("Đã Nghỉ".equals(nv.getTrangThai()) && nv.getNgayNghiViec() != null) {
-                            if (nv.getNgayNghiViec().getYear() < nam || 
-                               (nv.getNgayNghiViec().getYear() == nam && nv.getNgayNghiViec().getMonthValue() < thang)) {
-                                continue;
-                            }
-                        }
+                    for (NhanVien n : tatCaNV) {
+                        BangLuong bl = Dao.BangLuongDAO.getInstance().layBangLuong(n.getMaNV(), thang + "/" + nam);
                         PhieuLuongRowData row = new PhieuLuongRowData();
-                        row.nhanVien = nv;
-                        row.cauHinh = Dao.CauHinhLuongDAO.getInstance().layCauHinhHienTaiTheoMaNV(nv.getMaNV());
-                        
-                        boolean daChot = Dao.BangLuongDAO.getInstance().kiemTraDaTinhLuong(nv.getMaNV(), thangNamStr);
-                        if (daChot) {
-                            List<BangLuong> ls = Dao.BangLuongDAO.getInstance().layLichSuLuongTheoMaNV(nv.getMaNV());
-                            for(BangLuong bl : ls) {
-                                if (bl.getThangNam().equals(thangNamStr)) {
-                                    row.bangLuong = bl;
-                                    row.tongGioLam = bl.getTongGioLam().doubleValue();
-                                    break;
-                                }
-                            }
-                        } else {
-                            row.tongGioLam = blLogic.tinhTongGioLamTrongThang(nv.getMaNV(), thang, nam).doubleValue();
-                            try { row.tienPhatDuKien = blLogic.tinhKhauTruVaoMuonNghiLam(nv.getMaNV(), thang, nam); } catch (Exception e) {}
-                        }
+                        row.nhanVien = n;
+                        row.bangLuong = bl;
+                        row.tongGioLam = (bl != null) ? bl.getTongGioLam().doubleValue() : 0;
                         result.add(row);
                     }
                 }
@@ -644,7 +632,7 @@ public class BangLuongUi extends JPanel {
                 try {
                     danhSachGoc = get();
                     isLoading = false;
-                    locDuLieu(); 
+                    renderList(danhSachGoc);
                 } catch (Exception e) {
                     e.printStackTrace();
                     isLoading = false;
