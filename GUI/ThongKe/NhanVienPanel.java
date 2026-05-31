@@ -141,7 +141,7 @@ public class NhanVienPanel extends JPanel {
 
                 // 2. Quét từng nhân viên để tổng hợp liệu thống kê
                 for (NhanVien nv : dsNhanVien) {
-                    if ("Đã Nghỉ".equalsIgnoreCase(nv.getTrangThai())) continue;
+                    
                     activeStaffCount++;
                     String empId = nv.getMaNV();
 
@@ -224,6 +224,7 @@ public class NhanVienPanel extends JPanel {
                     stats.addProperty("id", empId);
                     stats.addProperty("name", nv.getHoTen());
                     stats.addProperty("role", nv.getChucVu());
+                    stats.addProperty("status", nv.getTrangThai());
                     stats.addProperty("phone", nv.getSDT() != null ? nv.getSDT() : "---");
                     stats.addProperty("workHours", hoursWorked);
                     stats.addProperty("revenue", staffRevenue);
@@ -402,6 +403,25 @@ public class NhanVienPanel extends JPanel {
                 }
                 
             }
+        });
+    }
+    // =========================================================================
+    // HÀM MAIN CHẠY TEST ĐỘC LẬP
+    // =========================================================================
+    public static void main(String[] args) {
+        // Đảm bảo giao diện Swing được khởi chạy an toàn trên Event Dispatch Thread
+        SwingUtilities.invokeLater(() -> {
+            JFrame devFrame = new JFrame("Workforce Intelligence - Standalone Test");
+            devFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            devFrame.setSize(1440, 850); // Kích thước cửa sổ mô phỏng desktop
+            devFrame.setLocationRelativeTo(null); // Hiển thị ở giữa màn hình
+
+            // Khởi tạo Panel Nhân Viên và gắn vào Frame
+            NhanVienPanel viewPanel = new NhanVienPanel();
+            devFrame.add(viewPanel, BorderLayout.CENTER);
+            
+            // Hiển thị Frame
+            devFrame.setVisible(true);
         });
     }
 }

@@ -67,6 +67,15 @@ public class NhanVienLogic {
 		if ("Đang Làm Việc".equals(nv.getTrangThai()) && nv.getNgayNghiViec() != null) {
 		    throw new Exception("Nhân viên 'Đang Làm Việc' thì không được có Ngày nghỉ việc!");
 		}
+		String chucVu = nv.getChucVu();
+        if (chucVu == null || (!chucVu.equals("ADMIN") && !chucVu.equals("Thu Ngân"))) {
+            throw new Exception("Chức vụ bắt buộc phải là 'ADMIN' hoặc 'Thu Ngân'!");
+        }
+        
+        String trangThai = nv.getTrangThai();
+        if (trangThai == null || (!trangThai.equals("Đang Làm Việc") && !trangThai.equals("Đã Nghỉ"))) {
+            throw new Exception("Trạng thái bắt buộc phải là 'Đang Làm Việc' hoặc 'Đã Nghỉ'!");
+        }
 	}
 	
 	// 5. TÍNH THÂM NIÊN

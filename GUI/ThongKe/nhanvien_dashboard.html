@@ -21,10 +21,10 @@
                     <input type="text" id="hrmSearchField" placeholder="Tìm tên, mã nhân viên..." oninput="dispatchRealtimeFilterCoordinates()">
                 </div>
                 <select id="roleFilterBox" class="premium-select-dropdown" onchange="dispatchRealtimeFilterCoordinates()">
-                    <option value="ALL">Mọi Chức Vụ</option>
-                    <option value="Quản lý">💼&nbsp;&nbsp;&nbsp;Quản Lý</option>
+                    <option value="ALL">Mọi Nhân Sự</option>
+                    <option value="ADMIN">💼&nbsp;&nbsp;&nbsp;ADMIN</option>
                     <option value="Thu Ngân">💵&nbsp;&nbsp;&nbsp;Thu Ngân</option>
-                    <option value="Kho">📦&nbsp;&nbsp;&nbsp;Nhân Viên Kho</option>
+                    <option value="Đã Nghỉ">❌&nbsp;&nbsp;&nbsp;Đã Nghỉ</option>
                 </select>
                 <button class="action-btn-node btn-secondary" onclick="alert('ACTION:SYNC')"><i class="ti ti-refresh"></i> Đồng bộ</button>
                 <button class="action-btn-node btn-accent" onclick="alert('ACTION:ASSIGN_SHIFT')"><i class="ti ti-calendar-event"></i> Phân Ca</button>
