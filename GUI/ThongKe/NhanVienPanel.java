@@ -6,6 +6,7 @@ import Dao.TruyVanSieuTocDAO;
 import Data.CauHinhLuong;
 import Data.ChiaCa;
 import Data.NhanVien;
+// ✅ ĐÃ XÓA: import GUI.ThongKe.SanPhamPanel.JsBridge; <- DÒNG NÀY GÂY XUNG ĐỘT TÊN CLASS
 import Logic.BangLuongLogic;
 import Logic.NhanVienLogic;
 
@@ -31,12 +32,28 @@ import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.concurrent.Worker;
 
+import netscape.javascript.JSObject;
+import java.io.File;
+import java.nio.file.Files;
+import java.util.Base64;
+import java.util.Arrays;
+import java.nio.charset.StandardCharsets;
+import java.io.Writer;
+import java.io.OutputStreamWriter;
+import java.io.FileOutputStream;
+
+
 public class NhanVienPanel extends JPanel {
 
     private JFXPanel jfxPanel;
     private WebEngine webEngine;
     private final Gson gson = new Gson();
     private String lastCachedDashboardJson = null;
+
+    // ✅ FIX QUAN TRỌNG: Giữ strong reference để tránh Garbage Collector thu hồi JsBridge
+    // JavaFX WebEngine chỉ giữ WeakReference đến object được setMember,
+    // nếu không có strong reference ở đây, object sẽ bị GC sau vài giây.
+    private JsBridge jsBridgeInstance;
     
     public interface NhanVienPanelCallback {
         void moThemNhanVien();
@@ -78,7 +95,25 @@ public class NhanVienPanel extends JPanel {
 
             webEngine.getLoadWorker().stateProperty().addListener((observable, oldValue, newValue) -> {
                 if (newValue == Worker.State.SUCCEEDED) {
-                    pushLiveWorkforceAnalytics(false);
+                    try {
+                        // ✅ FIX: Tạo instance và lưu vào field để tránh GC thu hồi
+                        jsBridgeInstance = new JsBridge();
+                        
+                        JSObject window = (JSObject) webEngine.executeScript("window");
+                        window.setMember("javaConnector", jsBridgeInstance);
+
+                        // ✅ FIX: Dùng setTimeout nhỏ để đảm bảo JS đã parse xong trước khi gọi
+                        webEngine.executeScript(
+                            "setTimeout(function(){ " +
+                            "  if(typeof loadExportHistory === 'function') loadExportHistory(); " +
+                            "}, 300);"
+                        );
+
+                        pushLiveWorkforceAnalytics(false);
+                    } catch (Exception e) {
+                        System.err.println("Lỗi tiêm javaConnector: " + e.getMessage());
+                        e.printStackTrace();
+                    }
                 }
             });
 
@@ -87,9 +122,7 @@ public class NhanVienPanel extends JPanel {
                 if (htmlUrl != null) {
                     webEngine.load(htmlUrl.toExternalForm());
                 } else {
-                    webEngine.loadContent("<html><body style='font-family:sans-serif;padding:30px;color:#ef4444;'>"
-                        + "<h3>🚨 Lỗi tải giao diện</h3>"
-                        + "<p>Không tìm thấy file nhanvien_dashboard.html</p></body></html>");
+                    webEngine.loadContent("<html><body><h3>🚨 Lỗi tải giao diện</h3></body></html>");
                 }
             } catch (Exception e) {
                 System.err.println("[NhanVienPanel Bridge] Lỗi khởi tạo: " + e.getMessage());
@@ -110,14 +143,12 @@ public class NhanVienPanel extends JPanel {
             try {
                 JsonObject mainContainer = new JsonObject();
                 
-                // 1. Khởi tạo các Logic & DAO
                 BangLuongLogic bangLuongLogic = new BangLuongLogic();
                 NhanVienLogic nhanVienLogic = new NhanVienLogic();
                 CauHinhLuongDAO cauHinhLuongDAO = CauHinhLuongDAO.getInstance();
                 ChiaCaDAO chiaCaDAO = ChiaCaDAO.getInstance();
                 TruyVanSieuTocDAO.DuLieuDonHangDTO ordersDTO = TruyVanSieuTocDAO.getInstance().loadToanBoDuLieuDonHang();
                 
-                // BỔ SUNG FIX 1: Lấy danh sách Loại Ca để map Tên Ca chính xác
                 Logic.LoaiCaLogic loaiCaLogic = new Logic.LoaiCaLogic();
                 List<Data.LoaiCa> dsLoaiCa = loaiCaLogic.layDanhSachLoaiCa();
                 
@@ -134,18 +165,15 @@ public class NhanVienPanel extends JPanel {
                 int totalLateOccurrences = 0;
                 double aggregatedWorkHours = 0.0;
                 int shiftMorningCount = 0, shiftAfternoonCount = 0, shiftNightCount = 0;
-                int pastOrActiveShiftsCount = 0; // Mẫu số tính Tỷ lệ đúng giờ
+                int pastOrActiveShiftsCount = 0;
 
                 List<ChiaCa> tatCaCaThangNay = new ArrayList<>();
                 List<JsonObject> allEmployeeStats = new ArrayList<>();
 
-                // 2. Quét từng nhân viên để tổng hợp liệu thống kê
                 for (NhanVien nv : dsNhanVien) {
-                    
                     activeStaffCount++;
                     String empId = nv.getMaNV();
 
-                    // --- Tính Doanh Thu ---
                     BigDecimal staffRevenue = BigDecimal.ZERO;
                     int invoiceCount = 0;
                     if (ordersDTO != null && ordersDTO.dsHoaDon != null) {
@@ -158,35 +186,28 @@ public class NhanVienPanel extends JPanel {
                     }
                     globalWorkforceRevenueSum = globalWorkforceRevenueSum.add(staffRevenue);
 
-                    // --- BỔ SUNG FIX 2: Thống kê Chia ca chuẩn xác ---
                     List<ChiaCa> dsCaCuaNV = chiaCaDAO.layDanhSachChiaCaTheoThang(empId, targetMonth, targetYear);
                     if (dsCaCuaNV != null) {
                         for (ChiaCa shift : dsCaCuaNV) {
-                            // Lọc bỏ ca bị hủy
                             if ("Đã hủy".equalsIgnoreCase(shift.getTinhTrang())) continue;
                             
                             tatCaCaThangNay.add(shift);
 
-                            // Map ID loại ca thành Tên loại ca
                             boolean daPhanLoai = false;
                             String maCaCuaShift = (shift.getMaLoaiCa() != null) ? shift.getMaLoaiCa().trim() : "";
 
                             if (dsLoaiCa != null && !maCaCuaShift.isEmpty()) {
                                 for (Data.LoaiCa lc : dsLoaiCa) {
                                     String maLoaiCaTruyXuat = (lc.getMaLoaiCa() != null) ? lc.getMaLoaiCa().trim() : "";
-                                    
-                                    // Dùng equalsIgnoreCase và trim để đảm bảo so sánh chuỗi chính xác 100%
                                     if (maLoaiCaTruyXuat.equalsIgnoreCase(maCaCuaShift)) {
-                                        
                                         if (lc.getGioBatDau() != null) {
                                             int gioBatDau = lc.getGioBatDau().getHour();
-                                            
                                             if (gioBatDau >= 4 && gioBatDau < 12) {
-                                                shiftMorningCount++;       // Ca Sáng (4h - 11h59)
+                                                shiftMorningCount++;
                                             } else if (gioBatDau >= 12 && gioBatDau < 18) {
-                                                shiftAfternoonCount++;     // Ca Chiều (12h - 17h59)
+                                                shiftAfternoonCount++;
                                             } else {
-                                                shiftNightCount++;         // Ca Tối (18h trở đi)
+                                                shiftNightCount++;
                                             }
                                             daPhanLoai = true;
                                         }
@@ -194,19 +215,14 @@ public class NhanVienPanel extends JPanel {
                                     }
                                 }
                             }
+                            if (!daPhanLoai) shiftNightCount++;
 
-                            // Nếu không khớp mã nào thì đưa vào ca trống/tối
-                            if (!daPhanLoai) {
-                                shiftNightCount++;
-                            }
-                            // Đếm số ca đã qua hoặc đang làm để làm mẫu số tính kỷ luật
                             if (shift.getNgayLam() != null && !shift.getNgayLam().isAfter(homNay)) {
                                 pastOrActiveShiftsCount++;
                             }
                         }
                     }
 
-                    // --- Tính Lương & Khấu Trừ ---
                     BigDecimal hoursWorked = bangLuongLogic.tinhTongGioLamTrongThang(empId, targetMonth, targetYear);
                     aggregatedWorkHours += hoursWorked.doubleValue();
 
@@ -219,7 +235,6 @@ public class NhanVienPanel extends JPanel {
                     BigDecimal estimatedSalary = hourlyWage.multiply(hoursWorked).setScale(0, RoundingMode.HALF_UP);
                     totalPayrollPool = totalPayrollPool.add(estimatedSalary);
 
-                    // --- Lưu JSON ---
                     JsonObject stats = new JsonObject();
                     stats.addProperty("id", empId);
                     stats.addProperty("name", nv.getHoTen());
@@ -259,14 +274,12 @@ public class NhanVienPanel extends JPanel {
                         card.addProperty("name", s.get("name").getAsString());
                         card.addProperty("role", s.get("role").getAsString());
                         card.addProperty("revenue", s.get("revenue").getAsBigDecimal());
-                        
                         double targetRatio = highestRevenue.compareTo(BigDecimal.ZERO) > 0 ? (s.get("revenue").getAsDouble() / highestRevenue.doubleValue()) * 100.0 : 100.0;
                         card.addProperty("efficiencyRate", Math.round(targetRatio));
                         leaderboardArray.add(card);
                     }
                 }
 
-                // 3. Gắn thông số KPI
                 mainContainer.addProperty("totalEmployees", totalEmployeesCount);
                 mainContainer.addProperty("activeStaffCount", activeStaffCount); 
                 mainContainer.addProperty("globalWorkforceRevenue", globalWorkforceRevenueSum);
@@ -275,7 +288,6 @@ public class NhanVienPanel extends JPanel {
                 mainContainer.addProperty("totalLateOccurrences", totalLateOccurrences);
                 mainContainer.addProperty("totalPayroll", totalPayrollPool);
 
-                // BỔ SUNG FIX 3: Tính tỷ lệ đúng giờ chỉ trên các ca ĐÃ XẢY RA
                 double punctualityRate = pastOrActiveShiftsCount > 0 ? ((double)(pastOrActiveShiftsCount - totalLateOccurrences) / pastOrActiveShiftsCount) * 100.0 : 100.0;
                 mainContainer.addProperty("punctualityRate", Math.max(0, Math.min(100, Math.round(punctualityRate))));
 
@@ -294,7 +306,6 @@ public class NhanVienPanel extends JPanel {
                 mainContainer.add("employeeLeaderboard", leaderboardArray);
                 mainContainer.add("employeeGridMatrix", datatableArray);
 
-                // AI Insights
                 JsonArray operationalInsights = new JsonArray();
                 if (highestRevenue.compareTo(BigDecimal.ZERO) > 0) {
                     operationalInsights.add("<i class='ti ti-flame' style='color:#f59e0b;margin-right:6px'></i> Chiến thần doanh số '" + topPerformerName + "' xuất sắc dẫn đầu chi nhánh.");
@@ -309,7 +320,6 @@ public class NhanVienPanel extends JPanel {
                 }
                 mainContainer.add("workforceInsights", operationalInsights);
 
-                // BỔ SUNG FIX 4: Timeline logic chuẩn xác
                 JsonArray timelineArray = new JsonArray();
                 DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
                 tatCaCaThangNay.stream()
@@ -331,11 +341,9 @@ public class NhanVienPanel extends JPanel {
                             }
                             cell.addProperty("staff", nvName);
                             
-                            // Map lại tên ca cho đẹp (VD: LC01 -> Ca Sáng)
                             String hienThiCa = shift.getMaLoaiCa();
-                            if (dsLoaiCa != null) {
+                            if (dsLoaiCa != null && hienThiCa != null) {
                                 for (Data.LoaiCa lc : dsLoaiCa) {
-                                    // Áp dụng trim() ở đây nữa để timeline hiện đúng chữ "Ca Sáng", "Ca Chiều"
                                     if (lc.getMaLoaiCa() != null && lc.getMaLoaiCa().trim().equalsIgnoreCase(shift.getMaLoaiCa().trim())) {
                                         hienThiCa = lc.getTenCa(); 
                                         break;
@@ -346,8 +354,7 @@ public class NhanVienPanel extends JPanel {
                             cell.addProperty("dateLabel", shift.getNgayLam().format(DateTimeFormatter.ofPattern("dd/MM")));
                             
                             String checkInStr = shift.getThoiGianCheckIn() != null ? shift.getThoiGianCheckIn().format(timeFormatter) : "--:--";
-                            String checkOutStr = "";
-                            
+                            String checkOutStr;
                             if (shift.getThoiGianCheckOut() != null) {
                                 checkOutStr = shift.getThoiGianCheckOut().format(timeFormatter);
                             } else if (shift.getThoiGianCheckIn() != null) {
@@ -357,12 +364,12 @@ public class NhanVienPanel extends JPanel {
                             } else {
                                 checkOutStr = "Vắng mặt";
                             }
-                            
                             cell.addProperty("timeFrame", checkInStr + " → " + checkOutStr);
                             timelineArray.add(cell);
                         });
                 mainContainer.add("shiftTimeline", timelineArray);
 
+                // ✅ FIX: Lưu JSON cuối cùng vào cache
                 lastCachedDashboardJson = gson.toJson(mainContainer);
                 return lastCachedDashboardJson;
                 
@@ -382,7 +389,9 @@ public class NhanVienPanel extends JPanel {
         Platform.runLater(() -> {
             try {
                 if (webEngine != null) webEngine.executeScript(scriptText);
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                System.err.println("[JS Error] " + e.getMessage());
+            }
         });
     }
 
@@ -395,32 +404,150 @@ public class NhanVienPanel extends JPanel {
             } else if ("ASSIGN_SHIFT".equalsIgnoreCase(actionToken)) {
                 if (actionCallback != null) actionCallback.moPhanCa();
             } else if (actionToken.startsWith("VIEW_")) {
-                
-                // --- ĐÃ SỬA: Thay vì hiện thông báo popup, gọi callback ---
                 String staffId = actionToken.substring(5);
-                if (actionCallback != null) {
-                    actionCallback.xemHoSoLuong(staffId);
-                }
-                
+                if (actionCallback != null) actionCallback.xemHoSoLuong(staffId);
             }
         });
     }
+
+    // =========================================================================
+    // 🔥 CẦU NỐI JSBRIDGE — PHẢI LÀ PUBLIC STATIC ĐỂ JAVAFX GỌI ĐƯỢC ỔN ĐỊNH
+    // =========================================================================
+    public class JsBridge {
+
+        // ✅ FIX XUẤT FILE: Tạo thư mục nếu chưa có, ghi UTF-8 BOM-free, thông báo chi tiết
+        public void exportDashboardData() {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    String folderPath = "D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\NhanVien";
+                    File folder = new File(folderPath);
+                    
+                    // Tạo thư mục nếu chưa tồn tại (bao gồm cả thư mục cha)
+                    if (!folder.exists()) {
+                        boolean created = folder.mkdirs();
+                        if (!created) {
+                            JOptionPane.showMessageDialog(NhanVienPanel.this,
+                                "Không thể tạo thư mục:\n" + folderPath + 
+                                "\nKiểm tra lại quyền ghi hoặc đường dẫn!",
+                                "Lỗi Tạo Thư Mục", JOptionPane.ERROR_MESSAGE);
+                            return;
+                        }
+                    }
+
+                    // ✅ Tên file: Thongke_dd_MM_yyyy.json
+                    String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("dd_MM_yyyy"));
+                    String fileName = "Thongke_" + dateStr + ".json";
+                    File fileExport = new File(folder, fileName);
+
+                    // Kiểm tra dữ liệu cache
+                    if (lastCachedDashboardJson == null || lastCachedDashboardJson.trim().isEmpty()) {
+                        JOptionPane.showMessageDialog(NhanVienPanel.this,
+                            "Dữ liệu chưa được tải! Hãy đợi dashboard load xong hoặc nhấn Đồng bộ trước.",
+                            "Chưa Có Dữ Liệu", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+
+                    // Ghi file UTF-8 không có BOM
+                    try (Writer writer = new OutputStreamWriter(
+                            new FileOutputStream(fileExport), StandardCharsets.UTF_8)) {
+                        writer.write(lastCachedDashboardJson);
+                    }
+
+                    JOptionPane.showMessageDialog(NhanVienPanel.this,
+                        "✅ Xuất file thành công!\n\n" +
+                        "📁 Thư mục: " + folderPath + "\n" +
+                        "📄 File: " + fileName + "\n\n" +
+                        "File này chứa toàn bộ trạng thái dashboard và\n" +
+                        "có thể khôi phục lại giao diện qua mục Lịch sử.",
+                        "Xuất File Hoàn Tất", JOptionPane.INFORMATION_MESSAGE);
+                    
+                    // Refresh lại danh sách lịch sử trong dropdown
+                    executeJavaScript("loadExportHistory()");
+
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(NhanVienPanel.this,
+                        "❌ Lỗi ghi file:\n" + ex.getMessage() +
+                        "\n\nKiểm tra lại đường dẫn: D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\NhanVien",
+                        "Lỗi Hệ Thống", JOptionPane.ERROR_MESSAGE);
+                    ex.printStackTrace();
+                }
+            });
+        }
+
+        public String getExportHistoryList() {
+            try {
+                File folder = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\NhanVien");
+                if (!folder.exists() || !folder.isDirectory()) return "[]";
+
+                File[] files = folder.listFiles((dir, name) -> name.startsWith("Thongke_") && name.endsWith(".json"));
+                if (files == null || files.length == 0) return "[]";
+
+                // Sắp xếp mới nhất lên đầu
+                Arrays.sort(files, (a, b) -> b.getName().compareTo(a.getName()));
+
+                JsonArray arr = new JsonArray();
+                for (File f : files) arr.add(f.getName());
+                return arr.toString();
+            } catch (Exception e) {
+                System.err.println("[JsBridge] getExportHistoryList lỗi: " + e.getMessage());
+                return "[]";
+            }
+        }
+
+        public void readAndLoadExportFile(String fileName) {
+            // Chạy đọc file trên background thread, tránh block UI
+            CompletableFuture.runAsync(() -> {
+                try {
+                    // Làm sạch tên file để tránh path traversal
+                    String safeFileName = new File(fileName).getName();
+                    File file = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\NhanVien", safeFileName);
+                    
+                    if (!file.exists()) {
+                        SwingUtilities.invokeLater(() ->
+                            JOptionPane.showMessageDialog(NhanVienPanel.this,
+                                "File không tồn tại: " + safeFileName, "Lỗi", JOptionPane.ERROR_MESSAGE)
+                        );
+                        return;
+                    }
+
+                    byte[] fileBytes = Files.readAllBytes(file.toPath());
+                    if (fileBytes.length == 0) return;
+
+                    // ✅ Encode base64 rồi truyền sang JS để tránh lỗi ký tự đặc biệt UTF-8 tiếng Việt
+                    String base64Data = Base64.getEncoder().encodeToString(fileBytes);
+                    
+                    Platform.runLater(() -> {
+                        try {
+                            webEngine.executeScript(
+                                "applyHistoricalStateBase64('" + base64Data + "', '" + safeFileName + "')"
+                            );
+                        } catch (Exception ex) {
+                            System.err.println("[JsBridge] Lỗi render file lịch sử: " + ex.getMessage());
+                        }
+                    });
+                } catch (Exception e) {
+                    SwingUtilities.invokeLater(() ->
+                        JOptionPane.showMessageDialog(NhanVienPanel.this,
+                            "Lỗi đọc file lịch sử:\n" + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE)
+                    );
+                    e.printStackTrace();
+                }
+            });
+        }
+    }
+
     // =========================================================================
     // HÀM MAIN CHẠY TEST ĐỘC LẬP
     // =========================================================================
     public static void main(String[] args) {
-        // Đảm bảo giao diện Swing được khởi chạy an toàn trên Event Dispatch Thread
         SwingUtilities.invokeLater(() -> {
             JFrame devFrame = new JFrame("Workforce Intelligence - Standalone Test");
             devFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            devFrame.setSize(1440, 850); // Kích thước cửa sổ mô phỏng desktop
-            devFrame.setLocationRelativeTo(null); // Hiển thị ở giữa màn hình
+            devFrame.setSize(1440, 850);
+            devFrame.setLocationRelativeTo(null);
 
-            // Khởi tạo Panel Nhân Viên và gắn vào Frame
             NhanVienPanel viewPanel = new NhanVienPanel();
             devFrame.add(viewPanel, BorderLayout.CENTER);
-            
-            // Hiển thị Frame
             devFrame.setVisible(true);
         });
     }

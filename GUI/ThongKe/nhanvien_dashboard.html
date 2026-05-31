@@ -26,6 +26,13 @@
                     <option value="Thu Ngân">💵&nbsp;&nbsp;&nbsp;Thu Ngân</option>
                     <option value="Đã Nghỉ">❌&nbsp;&nbsp;&nbsp;Đã Nghỉ</option>
                 </select>
+                
+                <!-- THÊM MỚI: Dropdown Lịch Sử và Nút Xuất File -->
+                <select id="historySelector" class="premium-select-dropdown" style="max-width: 170px; background-color: #f1f5f9; border-color: #cbd5e1;" onchange="loadHistoricalData(this.value)">
+                    <option value="">Lịch sử xuất file</option>
+                </select>
+                <button class="action-btn-node btn-excel" onclick="triggerSystemExport()"><i class="ti ti-download"></i> Xuất File</button>
+
                 <button class="action-btn-node btn-secondary" onclick="alert('ACTION:SYNC')"><i class="ti ti-refresh"></i> Đồng bộ</button>
                 <button class="action-btn-node btn-accent" onclick="alert('ACTION:ASSIGN_SHIFT')"><i class="ti ti-calendar-event"></i> Phân Ca</button>
                 <button class="action-btn-node btn-primary" onclick="alert('ACTION:ADD_STAFF')"><i class="ti ti-user-plus"></i> Thêm Người</button>
@@ -52,7 +59,7 @@
                 <div class="kpi-surface-card">
                     <div class="card-glow-shimmer"></div>
                     <div class="kpi-structural-table">
-                        <div class="kpi-table-cell avatar-frame green-tint">💰</div>
+                        <div class="kpi-table-cell avatar-frame green-tint"><i class="ti ti-cash"></i></div>
                         <div class="kpi-table-cell content-frame">
                             <span class="kpi-meta-lbl">Doanh Số Vận Hành</span>
                             <h2 class="kpi-counter-display text-emerald" id="txt-global-revenue">0đ</h2>
@@ -66,7 +73,7 @@
                 <div class="kpi-surface-card">
                     <div class="card-glow-shimmer"></div>
                     <div class="kpi-structural-table">
-                        <div class="kpi-table-cell avatar-frame amber-tint">💳</div>
+                        <div class="kpi-table-cell avatar-frame amber-tint"><i class="ti ti-credit-card"></i></div>
                         <div class="kpi-table-cell content-frame">
                             <span class="kpi-meta-lbl">Quỹ Lương Tạm Tính</span>
                             <h2 class="kpi-counter-display text-amber" id="txt-total-payroll">0đ</h2>
@@ -80,7 +87,7 @@
                 <div class="kpi-surface-card">
                     <div class="card-glow-shimmer"></div>
                     <div class="kpi-structural-table">
-                        <div class="kpi-table-cell avatar-frame rose-tint">⚠️</div>
+                        <div class="kpi-table-cell avatar-frame rose-tint"><i class="ti ti-alert-triangle"></i></div>
                         <div class="kpi-table-cell content-frame">
                             <span class="kpi-meta-lbl">Kỷ Luật (Đi Trễ)</span>
                             <h2 class="kpi-counter-display text-rose" id="txt-late-count">0 lượt</h2>

@@ -3,7 +3,6 @@ let filteredProductDataset = [];
 let topSellingChartInstance = null;
 let categoryDonutChartInstance = null;
 
-// Pagination boundaries
 let currentTablePageOffset = 0;
 const tablePageSizeLimit = 5;
 
@@ -12,7 +11,6 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function initializeSkeletonViewport() {
-    // Initial ApexCharts rendering shells with fallback static configurations
     topSellingChartInstance = new ApexCharts(document.querySelector("#chartTopSellingItems"), {
         series: [{ name: 'Đơn vị giao dịch', data: [0, 0, 0, 0, 0] }],
         chart: { type: 'bar', height: 280, toolbar: { show: false }, fontFamily: 'Inter' },
@@ -32,32 +30,24 @@ function initializeSkeletonViewport() {
     categoryDonutChartInstance.render();
 }
 
-/**
- * CORE BOUNDARY HOOK INJECTED FROM JAVA SWING ENGINE VIA WEBKIT PLATFORM
- */
 function updateProductDashboard(payload) {
     if (!payload) return;
 
-    // 1. Assign values to Counter Metrics Layer
     document.getElementById("txt-total-products").innerText = payload.totalProducts || 0;
     document.getElementById("txt-total-categories").innerText = (payload.totalCategories || 0) + " danh mục hàng hóa";
     document.getElementById("txt-low-stock-count").innerText = payload.lowStockAlerts || 0;
     document.getElementById("txt-valuation-display").innerText = new Intl.NumberFormat('vi-VN').format(payload.inventoryValuation || 0) + "đ";
 
-    // 2. Parse top performer names smoothly
     if (payload.topSellingProducts && payload.topSellingProducts.length > 0) {
         document.getElementById("txt-top-product-name").innerText = payload.topSellingProducts[0].name;
         document.getElementById("txt-top-product-name").title = payload.topSellingProducts[0].name;
         document.getElementById("txt-top-product-qty").innerText = (payload.topSellingProducts[0].quantity || 0) + " đơn vị đã chốt";
     }
 
-    // 3. Update Chart vectors asynchronously
     if (payload.topSellingProducts) {
         const barNames = payload.topSellingProducts.map(p => p.name);
         const barQuantities = payload.topSellingProducts.map(p => p.quantity);
-        topSellingChartInstance.updateOptions({
-            xaxis: { categories: barNames }
-        });
+        topSellingChartInstance.updateOptions({ xaxis: { categories: barNames } });
         topSellingChartInstance.updateSeries([{ name: 'Đơn vị bán lẻ', data: barQuantities }]);
     }
 
@@ -71,7 +61,6 @@ function updateProductDashboard(payload) {
         categoryDonutChartInstance.updateSeries(donutSeries);
     }
 
-    // 4. Fill Intelligent Insight text nodes
     const insightContainer = document.getElementById("containerInsightFeed");
     insightContainer.innerHTML = "";
     if (payload.operationalInsights && payload.operationalInsights.length > 0) {
@@ -82,63 +71,49 @@ function updateProductDashboard(payload) {
         insightContainer.innerHTML = "<div>✨ Trạng thái vận hành ổn định. Chưa ghi nhận biến động bất thường nào.</div>";
     }
 
-    // 5. Store data locally into RAM arrays for handling ultra-fast filtering without roundtrips
     if (payload.productGridMatrix) {
         masterProductDataset = payload.productGridMatrix;
-        
-        // Dynamically compile categories filter options dropdown values
         const catSelector = document.getElementById("categorySelector");
         const detectedCategories = [...new Set(masterProductDataset.map(p => p.category))];
-        
-        // Wipe extra historical records except the ALL frame option
         catSelector.innerHTML = '<option value="ALL">Tất Cả Danh Mục</option>';
         detectedCategories.forEach(catName => {
             catSelector.innerHTML += `<option value="${catName}">${catName}</option>`;
         });
-
         dispatchFilterCoordinates();
         renderLowStockDetails();
     }
+
+    // Reset caption về live sau khi nhận dữ liệu thật
+    var caption = document.querySelector(".header-sub-caption");
+    if (caption && !caption.dataset.isHistorical) {
+        caption.innerText = "Hệ thống phân tích tồn kho, doanh số và định giá tài sản thời gian thực";
+        caption.style.color = "";
+        caption.style.fontWeight = "";
+    }
 }
 
-/**
- * EVALUATES COMPREHENSIVE COMBINATORIAL CRITERIA ACROSS IN-MEMORY REGISTRY
- */
 function dispatchFilterCoordinates() {
-    // 1. Áp dụng thuật toán tìm kiếm Tiếng Việt không dấu
     const searchRaw = document.getElementById("internalSearchBox").value;
     const searchVal = loaiBoDauTiengViet(searchRaw);
-    
     const catVal = document.getElementById("categorySelector").value;
     const statusVal = document.getElementById("statusFilterSelector").value;
 
     filteredProductDataset = masterProductDataset.filter(product => {
-        // Chuẩn hóa tên và mã sản phẩm để so sánh
         const normalizedName = loaiBoDauTiengViet(product.name);
         const normalizedId = loaiBoDauTiengViet(product.id);
-
-        // Evaluate keyword intersection mapping
         const matchesSearch = normalizedId.includes(searchVal) || normalizedName.includes(searchVal);
-        
-        // Evaluate category mapping boundary
         const matchesCategory = (catVal === "ALL" || product.category === catVal);
-        
-        // Evaluate complex tag classifications
         const matchesStatus = (statusVal === "ALL" || product.intelligenceTag === statusVal);
-
         return matchesSearch && matchesCategory && matchesStatus;
     });
 
-    // =========================================================================
-    // 🔥 THUẬT TOÁN: SẮP XẾP SẢN PHẨM (CÒN HÀNG LÊN TRƯỚC, HẾT HÀNG XUỐNG CUỐI)
-    // =========================================================================
     filteredProductDataset.sort((a, b) => {
         let scoreA = a.stock > 0 ? 0 : 1;
         let scoreB = b.stock > 0 ? 0 : 1;
         return scoreA - scoreB;
     });
 
-    currentTablePageOffset = 0; // Reset pagination indexing anchor
+    currentTablePageOffset = 0;
     compileVisualCatalogGrid();
     compileVisualInventoryTable();
     if (typeof renderLowStockDetails === "function") renderLowStockDetails();
@@ -149,8 +124,6 @@ function dispatchFilterCoordinates() {
 function compileVisualCatalogGrid() {
     const container = document.getElementById("catalogCardsContainer");
     container.innerHTML = "";
-
-    // Render limited elements on card grid view matrix for premium feel layouts
     const maxVisibleGridItems = 8;
     const targets = filteredProductDataset.slice(0, maxVisibleGridItems);
 
@@ -162,9 +135,6 @@ function compileVisualCatalogGrid() {
     }
 
     targets.forEach(p => {
-        // =====================================================================
-        // 1. XỬ LÝ FIX LỖI ICON (Dùng HTML Entities để tránh sinh ra ô vuông)
-        // =====================================================================
         let tagHtml = "";
         if (p.intelligenceTag === "BEST_SELLER") {
             tagHtml = `<span class="card-stock-badge bg-success-light"><span class="dot-icon dot-green"></span>Top Bán Chạy</span>`;
@@ -176,26 +146,16 @@ function compileVisualCatalogGrid() {
             tagHtml = `<span class="card-stock-badge bg-success-light"><span class="dot-icon dot-green"></span>Ổn Định</span>`;
         }
 
-        // =====================================================================
-        // 2. HỆ THỐNG RENDER ẢNH THÔNG MINH
-        // =====================================================================
         let imageRender = "";
         let frameStyle = "";
-        
         if (p.image && p.image !== "") {
-            // Đổi object-fit thành 'contain' để ảnh hiển thị trọn vẹn, không bị cắt
-            // Thêm đệm lót padding: 16px để ảnh thu nhỏ lại, cách đều các viền
             imageRender = `<img src="${p.image}" style="width:100%; height:100%; object-fit:contain;" alt="${p.name}">`;
-            frameStyle = "background: transparent; padding: 32px;"; 
+            frameStyle = "background: transparent; padding: 32px;";
         } else {
-            // Không có ảnh -> Lấy chữ cái đầu tiên làm đại diện
             const displayChar = p.name ? p.name.charAt(0).toUpperCase() : "📦";
             imageRender = displayChar;
         }
 
-        // =====================================================================
-        // 3. ĐỔ HTML VÀO GIAO DIỆN
-        // =====================================================================
         container.innerHTML += `
             <div class="saas-catalog-card">
                 <div class="card-image-placeholder-frame" style="${frameStyle}">
@@ -223,8 +183,7 @@ function compileVisualInventoryTable() {
     const endIndex = startIndex + tablePageSizeLimit;
     const viewPartition = filteredProductDataset.slice(startIndex, endIndex);
 
-    // Update operational metadata string coordinates metrics
-    document.getElementById("txtPaginationDisplay").innerText = 
+    document.getElementById("txtPaginationDisplay").innerText =
         `Hiển thị ${filteredProductDataset.length > 0 ? startIndex + 1 : 0} - ${Math.min(endIndex, filteredProductDataset.length)} của ${filteredProductDataset.length} sản phẩm`;
 
     if (viewPartition.length === 0) {
@@ -263,36 +222,22 @@ function compileVisualInventoryTable() {
 function adjustPageOffset(direction) {
     const maxPageCount = Math.ceil(filteredProductDataset.length / tablePageSizeLimit);
     const potentialNextPage = currentTablePageOffset + direction;
-
     if (potentialNextPage >= 0 && potentialNextPage < maxPageCount) {
         currentTablePageOffset = potentialNextPage;
         compileVisualInventoryTable();
     }
 }
 
-function triggerCoreDataSync() {
-    // This can be set to call out back to Java runtime inside compiled executable environments
-    console.log("[WebKit Environment Hook] Invoking data refresh request across pipeline...");
-    // Fallback client simulation if running standalone container
-    alert("Đang gử̉i lệnh đồng bộ luồng dữ liệu async tới Java Swing Controller...");
-}
-
 function handleQuickActionClick(productId, eventType) {
     if (eventType === 'VIEW') {
-        // 🔥 ĐÃ FIX: Dùng window.javaConnector thay vì typeof
         if (window.javaConnector) {
-            // Gọi qua Java thành công!
             window.javaConnector.openProductDetail(productId);
         } else {
-            // Chạy chay trên trình duyệt ngoài (Chrome/Edge)
             alert(`[Chế độ Web] Yêu cầu mở Form Chi Tiết cho mã: ${productId}`);
         }
     }
 }
 
-/**
- * INTERFACE CONNECTOR ENVELOPE CALLED DIRECTLY FROM JAVA FOR ALTERNATIVE PIPELINES
- */
 function applyClientSideFilters(category, keyword) {
     document.getElementById("categorySelector").value = category;
     document.getElementById("internalSearchBox").value = keyword;
@@ -309,24 +254,17 @@ function loaiBoDauTiengViet(str) {
     str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
     str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
     str = str.replace(/đ/g, "d");
-    // Xóa các ký tự kết hợp Unicode
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
-// =========================================================================
-// 🔥 HÀM MỚI: TỰ ĐỘNG LỌC VÀ HIỂN THỊ DANH SÁCH CHI TIẾT HỤT KHO
-// =========================================================================
+
 function renderLowStockDetails() {
     const container = document.getElementById("lowStockDetailsContainer");
     const listTarget = document.getElementById("lowStockListTarget");
-    
-    // Lọc lấy tất cả sản phẩm bị dán mác LOW_STOCK từ dữ liệu tổng
     const lowStockItems = masterProductDataset.filter(p => p.intelligenceTag === "LOW_STOCK");
-    
+
     if (lowStockItems.length > 0) {
-        container.style.display = "block"; // Bật khung cảnh báo lên
+        container.style.display = "block";
         listTarget.innerHTML = "";
-        
-        // Render từng item
         lowStockItems.forEach(item => {
             listTarget.innerHTML += `
                 <div class="low-stock-item">
@@ -339,20 +277,15 @@ function renderLowStockDetails() {
             `;
         });
     } else {
-        // Nếu kho dồi dào, tự động ẩn khung cảnh báo này đi
         container.style.display = "none";
     }
 }
-// =========================================================================
-// 🔥 HÀM MỚI: CẬP NHẬT 4 THẺ KPI TRÊN CÙNG DỰA THEO BỘ LỌC
-// =========================================================================
+
 function updateFilteredKPIs() {
-    // 1. Tổng SKU & Danh mục
     document.getElementById("txt-total-products").innerText = filteredProductDataset.length;
     let uniqueCats = new Set(filteredProductDataset.map(p => p.category)).size;
     document.getElementById("txt-total-categories").innerText = uniqueCats + " danh mục hàng hóa";
 
-    // 2. Sản Phẩm Top 1 (trong bộ lọc hiện tại)
     let sortedBySales = [...filteredProductDataset].sort((a, b) => (b.unitsSold || 0) - (a.unitsSold || 0));
     if (sortedBySales.length > 0 && sortedBySales[0].unitsSold > 0) {
         document.getElementById("txt-top-product-name").innerText = sortedBySales[0].name;
@@ -363,34 +296,23 @@ function updateFilteredKPIs() {
         document.getElementById("txt-top-product-qty").innerText = "0 đơn vị";
     }
 
-    // 3. Cảnh Báo Hụt Kho
     let lowStockCount = filteredProductDataset.filter(p => p.intelligenceTag === "LOW_STOCK").length;
     document.getElementById("txt-low-stock-count").innerText = lowStockCount;
 
-    // 4. Giá trị tổng kho ước tính (Giá Bán * Tồn Kho)
     let estimatedValue = filteredProductDataset.reduce((sum, p) => sum + (p.price * p.stock), 0);
     document.getElementById("txt-valuation-display").innerText = new Intl.NumberFormat('vi-VN').format(estimatedValue) + "đ";
 }
 
-// =========================================================================
-// 🔥 HÀM MỚI 2.0: BIẾN HÌNH BIỂU ĐỒ BÁNH & CỘT THEO ĐA BỘ LỌC
-// =========================================================================
 function updateFilteredCharts(selectedCategory, selectedStatus) {
-    // 1. Logic cập nhật Biểu đồ Cột (Sản Phẩm Dẫn Đầu Doanh Số)
     let sortedBySales = [...filteredProductDataset].sort((a, b) => (b.unitsSold || 0) - (a.unitsSold || 0));
     let top5Sales = sortedBySales.slice(0, 5);
-
-    // Gán mặc định nếu không tìm thấy dữ liệu
     let barNames = top5Sales.length > 0 ? top5Sales.map(p => p.name) : ["Chưa có dữ liệu"];
     let barQuantities = top5Sales.length > 0 ? top5Sales.map(p => p.unitsSold || 0) : [0];
-
     topSellingChartInstance.updateOptions({ xaxis: { categories: barNames } });
     topSellingChartInstance.updateSeries([{ name: 'Đơn vị bán lẻ', data: barQuantities }]);
 
-    // 2. Logic Biến hình cho Biểu đồ Donut (Bánh xoay)
     const donutTitleObj = document.querySelector('.distribution-donut .chart-card-heading');
 
-    // Xử lý trường hợp bộ lọc quá khắt khe, không có sản phẩm nào
     if (filteredProductDataset.length === 0) {
         donutTitleObj.innerText = "Không có sản phẩm phù hợp";
         categoryDonutChartInstance.updateOptions({ labels: ['Trống'], colors: ['#f1f5f9'] });
@@ -398,57 +320,37 @@ function updateFilteredCharts(selectedCategory, selectedStatus) {
         return;
     }
 
-    // Kiểm tra xem người dùng có đang dùng bộ lọc nào không
     if (selectedCategory === "ALL" && selectedStatus === "ALL") {
-        // TRƯỜNG HỢP A: Không lọc gì cả -> Hiển thị Cơ cấu theo Phân Loại (Mặc định)
         donutTitleObj.innerText = "Cơ Cấu Lưu Kho Theo Phân Loại";
-        
         let catMap = {};
         filteredProductDataset.forEach(p => {
             catMap[p.category] = (catMap[p.category] || 0) + p.stock;
         });
-        
-        categoryDonutChartInstance.updateOptions({ 
+        categoryDonutChartInstance.updateOptions({
             labels: Object.keys(catMap),
-            colors: ['#2563eb', '#10b981', '#f59e0b', '#84cc16', '#a855f7', '#ec4899'] 
+            colors: ['#2563eb', '#10b981', '#f59e0b', '#84cc16', '#a855f7', '#ec4899']
         });
         categoryDonutChartInstance.updateSeries(Object.values(catMap));
-        
     } else {
-        // TRƯỜNG HỢP B: Có dùng bộ lọc (Danh mục HOẶC Trạng thái) -> Bóc tách chi tiết từng Sản phẩm
         let titleParts = [];
         if (selectedCategory !== "ALL") titleParts.push(selectedCategory);
         if (selectedStatus !== "ALL") {
-            // Map mã trạng thái sang tiếng Việt cho tiêu đề đẹp hơn
-            const statusNames = {
-                "BEST_SELLER": "🔥 Bán Chạy",
-                "LOW_STOCK": "⚠️ Tồn Kho Thấp",
-                "SLOW_MOVING": "🐢 Bán Chậm"
-            };
+            const statusNames = { "BEST_SELLER": "🔥 Bán Chạy", "LOW_STOCK": "⚠️ Tồn Kho Thấp", "SLOW_MOVING": "🐢 Bán Chậm" };
             titleParts.push(statusNames[selectedStatus] || selectedStatus);
         }
-        
         donutTitleObj.innerText = "Tỷ Trọng Kho: " + titleParts.join(" - ");
-        
-        // Sắp xếp sản phẩm theo tồn kho từ cao xuống thấp
+
         let sortedByStock = [...filteredProductDataset].sort((a, b) => b.stock - a.stock);
-        
-        // Lấy Top 6 sản phẩm tồn kho nhiều nhất, phần còn lại gộp vào "Các SP Khác"
         let topStock = sortedByStock.slice(0, 6);
         let others = sortedByStock.slice(6);
-
         let donutLabels = topStock.map(p => p.name);
         let donutSeries = topStock.map(p => p.stock);
-
         if (others.length > 0) {
-            let othersStock = others.reduce((sum, p) => sum + p.stock, 0);
             donutLabels.push("Các SP Khác");
-            donutSeries.push(othersStock);
+            donutSeries.push(others.reduce((sum, p) => sum + p.stock, 0));
         }
-
-        categoryDonutChartInstance.updateOptions({ 
+        categoryDonutChartInstance.updateOptions({
             labels: donutLabels,
-            // Thêm màu xám nhạt ở cuối cho mảng "Các SP Khác"
             colors: ['#2563eb', '#10b981', '#f59e0b', '#84cc16', '#a855f7', '#ec4899', '#cbd5e1']
         });
         categoryDonutChartInstance.updateSeries(donutSeries);
@@ -456,88 +358,150 @@ function updateFilteredCharts(selectedCategory, selectedStatus) {
 }
 
 // =========================================================================
-// 🔥 HÀM MỚI: XUẤT FILE TOÀN BỘ TRẠNG THÁI GIAO DIỆN
+// XUẤT FILE & LỊCH SỬ THỐNG KÊ
 // =========================================================================
+
 function triggerSystemExport() {
-    if (window.javaConnector) {
-        // Bắn tín hiệu qua Java để ghi file vào ổ D:
-        window.javaConnector.exportDashboardData();
+    if (typeof window.javaConnector !== 'undefined' && window.javaConnector !== null) {
+        try {
+            window.javaConnector.exportDashboardData();
+        } catch (err) {
+            alert("⚠️ Lỗi khi gọi Java:\n" + err.message);
+        }
     } else {
-        // Fallback khi bạn mở file HTML chạy chay trên Chrome
-        alert("Đang chạy chế độ Web độc lập! JSON State của giao diện đã sẵn sàng để xuất.");
+        alert("⚠️ Chưa kết nối với Java backend!\nHãy đợi trang load xong rồi thử lại.");
     }
 }
 
-// =========================================================================
-// 🔥 HÀM MỚI: TẢI DANH SÁCH LỊCH SỬ FILE VÀ PHỤC DỰNG GIAO DIỆN
-// =========================================================================
-
+/**
+ * Load danh sách file lịch sử vào dropdown.
+ * Được Java gọi sau khi trang load và sau mỗi lần xuất file.
+ */
 function loadExportHistory() {
-    if (window.javaConnector) {
+    if (typeof window.javaConnector === 'undefined' || window.javaConnector === null) return;
+
+    try {
         let historyJson = window.javaConnector.getExportHistoryList();
-        
-        // 🔥 DEBUG: In ra console để kiểm tra Java trả về gì
-        console.log("History JSON from Java:", historyJson);
-        
         let files = JSON.parse(historyJson);
-        console.log("Files count:", files.length);
-        
+
         let selector = document.getElementById("historySelector");
-        selector.innerHTML = '<option value="">Lich su xuat file</option>';
-        
+        // ✅ FIX ENCODING: Dùng createElement + textContent hoàn toàn,
+        //    KHÔNG dùng innerHTML để tránh lỗi UTF-8 tiếng Việt trong JavaFX WebView
+        selector.options.length = 0; // Xóa sạch tất cả option cũ
+
+        let defaultOpt = document.createElement("option");
+        defaultOpt.value = "";
+        defaultOpt.textContent = "Lịch sử xuất file"; // ASCII thuần — tránh lỗi JavaFX
+        selector.appendChild(defaultOpt);
+
+        // Thêm nút thoát lịch sử — chỉ hiện khi đang ở chế độ xem lịch sử
+        var caption = document.querySelector(".header-sub-caption");
+        if (caption && caption.dataset.isHistorical === "true") {
+            let exitOpt = document.createElement("option");
+            exitOpt.value = "__EXIT_HISTORY__";
+            exitOpt.textContent = "Thoát - Quay về dữ liệu thực";
+            selector.appendChild(exitOpt);
+        }
+
         files.forEach(function(f) {
-            console.log("Processing file:", f); // Xem tên file thật
-            
-            let displayName = f.replace(".json", "");
-            
-            // Xử lý cả 2 trường hợp tên file
-            if (f.indexOf("_") !== -1) {
-                let parts = displayName.split("_"); // Tách theo dấu _
-                // parts = ["Thongke", "31", "05", "2026"]
-                if (parts.length === 4) {
-                    displayName = "[" + parts[1] + "/" + parts[2] + "/" + parts[3] + "] Bao cao kho";
-                } else if (parts.length >= 2) {
-                    // Fallback: lấy 3 phần cuối
-                    let n = parts.length;
-                    displayName = "[" + parts[n-3] + "/" + parts[n-2] + "/" + parts[n-1] + "] Bao cao";
-                }
+            let displayName = f;
+            let match = f.match(/Thongke_(\d{2})_(\d{2})_(\d{4})\.json/);
+            if (match) {
+                // ASCII thuần, không dấu tiếng Việt
+                displayName = "[" + match[1] + "/" + match[2] + "/" + match[3] + "] Bao cao Kho";
             }
-            
             let opt = document.createElement("option");
             opt.value = f;
-            opt.innerText = displayName;
+            opt.textContent = displayName;
             selector.appendChild(opt);
         });
-    } else {
-        console.log("javaConnector chua san sang!");
+    } catch(e) {
+        console.error("loadExportHistory lỗi:", e);
     }
 }
 
-// Hàm 2: Khi user chọn 1 file -> Lấy data từ Java -> Cập nhật toàn bộ web
+/**
+ * Khi chọn file từ dropdown — xử lý cả lệnh thoát lịch sử.
+ */
 function loadHistoricalData(fileName) {
-    if (!fileName || fileName === "") return; // Nếu chọn dòng mặc định thì bỏ qua
+    if (!fileName || fileName === "") return;
 
-    if (window.javaConnector) {
-        // Thay vì kéo về, yêu cầu Java tự đọc và đẩy xuống
+    // ✅ Xử lý thoát chế độ lịch sử
+    if (fileName === "__EXIT_HISTORY__") {
+        exitHistoryMode();
+        return;
+    }
+
+    if (typeof window.javaConnector === 'undefined' || window.javaConnector === null) {
+        alert("⚠️ Chưa kết nối với Java. Hãy đợi trang load xong.");
+        return;
+    }
+    try {
         window.javaConnector.readAndLoadExportFile(fileName);
+    } catch(e) {
+        alert("⚠️ Lỗi tải file lịch sử: " + e.message);
     }
 }
 
-// Hàm 2B: Java gọi ngược lại hàm này, truyền Base64 vào để Javascript giải mã
+/**
+ * Thoát chế độ xem lịch sử, yêu cầu Java đồng bộ lại dữ liệu thực.
+ */
+function exitHistoryMode() {
+    // 1. Xóa flag lịch sử và reset caption
+    var caption = document.querySelector(".header-sub-caption");
+    if (caption) {
+        delete caption.dataset.isHistorical;
+        caption.textContent = "He thong phan tich ton kho, doanh so va dinh gia tai san thoi gian thuc";
+        caption.style.color = "";
+        caption.style.fontWeight = "";
+    }
+
+    // 2. Reset dropdown về mặc định, rebuild (nút thoát tự biến mất)
+    var selector = document.getElementById("historySelector");
+    if (selector) selector.value = "";
+    loadExportHistory();
+
+    // 3. Kích hoạt đồng bộ dữ liệu thực từ Java
+    alert("ACTION:SYNC");
+}
+
+/**
+ * Java gọi hàm này sau khi đọc file xong, truyền nội dung dạng base64.
+ * Dùng TextDecoder để giải mã UTF-8 tiếng Việt chuẩn xác.
+ */
 function applyHistoricalStateBase64(base64Data, fileName) {
     try {
-        // Giải mã Base64 sang chuẩn UTF-8 (Giữ nguyên vẹn Tiếng Việt)
-        let decodedString = decodeURIComponent(escape(window.atob(base64Data)));
+        // ✅ Giải mã UTF-8 đúng chuẩn — hỗ trợ đầy đủ tiếng Việt
+        let binaryStr = atob(base64Data);
+        let bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+        }
+        let decodedString = new TextDecoder('utf-8').decode(bytes);
         let historicalPayload = JSON.parse(decodedString);
-        
-        // Vẽ lại toàn bộ trang web bằng dữ liệu quá khứ
-        updateProductDashboard(historicalPayload); 
-        
-        // Bật cảnh báo giao diện đang ở chế độ quá khứ
-        document.querySelector(".header-sub-caption").innerText = "[CHE DO LICH SU] Dang xem du lieu tu file: " + fileName;
-        document.querySelector(".header-sub-caption").style.color = "#ef4444";
-        document.querySelector(".header-sub-caption").style.fontWeight = "bold";
+
+        // Vẽ lại toàn bộ dashboard bằng dữ liệu quá khứ
+        updateProductDashboard(historicalPayload);
+
+        // ✅ Đánh dấu đang ở chế độ lịch sử
+        var caption = document.querySelector(".header-sub-caption");
+        if (caption) {
+            caption.dataset.isHistorical = "true";
+            let dateDisplay = fileName;
+            let match = fileName.match(/Thongke_(\d{2})_(\d{2})_(\d{4})/);
+            if (match) dateDisplay = match[1] + "/" + match[2] + "/" + match[3];
+
+        caption.textContent = "[CHE DO LICH SU] Bao cao ngay: " + dateDisplay +
+                              " -- Chon 'Thoat' trong dropdown de quay ve du lieu thuc";
+            caption.style.color = "#ef4444";
+            caption.style.fontWeight = "bold";
+        }
+
+        // ✅ Rebuild dropdown để hiện nút "↩ Thoát"
+        loadExportHistory();
+
     } catch(e) {
-        alert("Lỗi giải mã file lịch sử: " + e.message);
+        alert("❌ Lỗi giải mã file lịch sử: " + e.message);
+        console.error("applyHistoricalStateBase64 error:", e);
     }
 }

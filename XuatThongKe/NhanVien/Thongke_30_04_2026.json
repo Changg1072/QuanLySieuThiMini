@@ -1,0 +1,109 @@
+{
+    "totalEmployees": 2,
+    "activeStaffCount": 2,
+    "globalWorkforceRevenue": 12500000.0,
+    "topPerformerName": "Changg Le",
+    "totalWorkHours": 168.0,
+    "totalLateOccurrences": 2,
+    "totalPayroll": 4200000,
+    "punctualityRate": 96.5,
+    "shiftDistribution": {
+        "Ca Sáng": 25,
+        "Ca Chiều": 15,
+        "Ca Tối": 16
+    },
+    "dualBarChart": {
+        "categories": [
+            "Changg Le",
+            "Changg"
+        ],
+        "revenues": [
+            8200000.0,
+            4300000.0
+        ],
+        "salaries": [
+            0,
+            4200000
+        ]
+    },
+    "employeeLeaderboard": [
+        {
+            "id": "NV002",
+            "name": "Changg Le",
+            "role": "ADMIN",
+            "revenue": 8200000.0,
+            "efficiencyRate": 100
+        },
+        {
+            "id": "NV001",
+            "name": "Changg",
+            "role": "Thu Ngân",
+            "revenue": 4300000.0,
+            "efficiencyRate": 52
+        }
+    ],
+    "employeeGridMatrix": [
+        {
+            "id": "NV002",
+            "name": "Changg Le",
+            "role": "ADMIN",
+            "status": "Đang Làm Việc",
+            "phone": "0973535936",
+            "workHours": 96.5,
+            "revenue": 8200000.0,
+            "salary": 0,
+            "lateCount": 1,
+            "penalty": 50000,
+            "invoicesCount": 145
+        },
+        {
+            "id": "NV001",
+            "name": "Changg",
+            "role": "Thu Ngân",
+            "status": "Đang Làm Việc",
+            "phone": "0973535937",
+            "workHours": 71.5,
+            "revenue": 4300000.0,
+            "salary": 4200000,
+            "lateCount": 1,
+            "penalty": 50000,
+            "invoicesCount": 82
+        }
+    ],
+    "workforceInsights": [
+        "<i class='ti ti-flame' style='color:#f59e0b;margin-right:6px'></i> Chiến thần doanh số 'Changg Le' xuất sắc dẫn đầu chi nhánh với 8,200,000 ₫.",
+        "<i class='ti ti-check' style='color:#10b981;margin-right:6px'></i> Tối ưu chi phí: Quỹ lương đang chiếm 33.6% doanh thu. Tỷ lệ này đã được cải thiện và duy trì ở mức an toàn."
+    ],
+    "shiftTimeline": [
+        {
+            "staff": "Changg Le",
+            "shiftId": "CA260430-001 (Ca tối)",
+            "dateLabel": "30/04",
+            "timeFrame": "17:50 → 22:15"
+        },
+        {
+            "staff": "Changg",
+            "shiftId": "CA260430-002 (Ca sáng)",
+            "dateLabel": "30/04",
+            "timeFrame": "07:55 → 12:05"
+        },
+        {
+            "staff": "Changg Le",
+            "shiftId": "CA260429-001 (Ca chiều)",
+            "dateLabel": "29/04",
+            "timeFrame": "12:50 → 17:10"
+        },
+        {
+            "staff": "Changg",
+            "shiftId": "CA260429-002 (Ca tối)",
+            "dateLabel": "29/04",
+            "timeFrame": "17:58 → 22:10"
+        },
+        {
+            "staff": "Changg",
+            "shiftId": "CA260428-001 (Ca sáng)",
+            "dateLabel": "28/04",
+            "timeFrame": "08:02 → 12:00"
+        }
+    ]
+}
