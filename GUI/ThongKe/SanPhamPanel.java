@@ -25,6 +25,8 @@ import javafx.scene.Scene;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.concurrent.Worker;
+import netscape.javascript.JSObject;
+import java.io.File;
 
 /**
  * 🚀 HYBRID RETAIL PRODUCT INTELLIGENCE & ANALYTICS PANEL
@@ -43,6 +45,7 @@ public class SanPhamPanel extends JPanel {
     
     // Internal cache to prevent constant database thrashing
     private TruyVanSieuTocDAO.DuLieuKiemKeSieuTocDTO cachedKiemKeDTO = null;
+    private final JsBridge myJsBridge = new JsBridge();
 
     public SanPhamPanel() {
         setName("SanPhamPanel");
@@ -68,6 +71,9 @@ public class SanPhamPanel extends JPanel {
             webEngine.getLoadWorker().stateProperty().addListener((observable, oldValue, newValue) -> {
                 if (newValue == Worker.State.SUCCEEDED) {
                     // Set up Java-to-JavaScript bridge communication hook if needed
+                    JSObject window = (JSObject) webEngine.executeScript("window");
+                    window.setMember("javaConnector", myJsBridge);
+                    executeJavaScript("loadExportHistory()");
                     pushProductDashboardData(false);
                 }
             });
@@ -232,8 +238,19 @@ public class SanPhamPanel extends JPanel {
                     int currentStock = kiemKeData.mapTongTonKho.getOrDefault(sp.getMaSP(), 0);
                     entry.addProperty("stock", currentStock);
                     entry.addProperty("unit", sp.getDonViTinh());
-                    entry.addProperty("image", sp.getLinkHinhAnh() != null ? sp.getLinkHinhAnh() : "");
                     
+                    // 🔥 BỔ SUNG: CẤU HÌNH ĐƯỜNG DẪN ẢNH TUYỆT ĐỐI CHO WEBKIT
+                    String imgFile = sp.getLinkHinhAnh();
+                    if (imgFile != null && !imgFile.trim().isEmpty()) {
+                        java.io.File file = new java.io.File(System.getProperty("user.dir") + java.io.File.separator + "images" + java.io.File.separator + imgFile);
+                        if (file.exists()) {
+                            entry.addProperty("image", file.toURI().toString()); // Dịch thành dạng file:///
+                        } else {
+                            entry.addProperty("image", "");
+                        }
+                    } else {
+                        entry.addProperty("image", "");
+                    }
                     // Assign smart functional metric tags based on runtime calculations
                     int unitsSold = topSellingMap.getOrDefault(sp.getTenSP(), 0);
                     entry.addProperty("unitsSold", unitsSold);
@@ -257,14 +274,16 @@ public class SanPhamPanel extends JPanel {
                 // =========================================================================
                 JsonArray smartInsights = new JsonArray();
                 if (lowStockCount > 0) {
-                    smartInsights.add("⚠️ Phát hiện " + lowStockCount + " mặt hàng chạm ngưỡng an toàn tối thiểu. Đề xuất chuẩn bị đơn nhập kho mới.");
+                    smartInsights.add("<span class='txt-badge-icon warn-badge'>!</span> Phát hiện " + lowStockCount + " mặt hàng chạm ngưỡng an toàn tối thiểu. Đề xuất chuẩn bị đơn nhập kho mới.");
                 }
                 
                 // Extract top product name dynamically
                 if (!salesRankingRaw.isEmpty()) {
-                    smartInsights.add("🚀 Sản phẩm '" + salesRankingRaw.get(0)[0] + "' đạt hiệu suất kinh doanh vượt bậc, dẫn đầu doanh số chi nhánh.");
+                    smartInsights.add("<span class='txt-badge-icon good-badge'>+</span> Sản phẩm '" + salesRankingRaw.get(0)[0] + "' đạt hiệu suất kinh doanh vượt bậc, dẫn đầu doanh số chi nhánh.");
                 }
-                smartInsights.add("💡 Các nhóm hàng thuộc danh mục '" + (categoryStockCount.keySet().stream().findFirst().orElse("Chưa phân loại")) + "' chiếm tỷ lệ lưu kho cao nhất.");
+                
+                smartInsights.add("<span class='txt-badge-icon info-badge'>i</span> Các nhóm hàng thuộc danh mục '" + (categoryStockCount.keySet().stream().findFirst().orElse("Chưa phân loại")) + "' chiếm tỷ lệ lưu kho cao nhất.");
+                
                 mainContainer.add("operationalInsights", smartInsights);
 
                 lastCachedDashboardJson = gson.toJson(mainContainer);
@@ -304,6 +323,130 @@ public class SanPhamPanel extends JPanel {
         // Invoke client side localized filters to keep interactions feeling instant, or force database reloading
         executeJavaScript(String.format("applyClientSideFilters('%s', '%s')", category, searchKeyword));
     }
+    // =========================================================================
+    // 🔥 BRIDGE: KẾT NỐI JAVASCRIPT GỌI NGƯỢC VỀ JAVA SWING
+    // =========================================================================
+    public class JsBridge {
+        // Hàm này sẽ được Javascript gọi khi user bấm nút "Chi tiết"
+        public void openProductDetail(String maSP) {
+            // Đưa tác vụ mở UI về luồng chính của Swing (Swing EDT) để không bị crash
+            SwingUtilities.invokeLater(() -> {
+                if (cachedKiemKeDTO != null) {
+                    // 1. Tìm sản phẩm từ trong Cache siêu tốc
+                    SanPham targetSp = cachedKiemKeDTO.dsSanPham.stream()
+                            .filter(sp -> sp.getMaSP().equals(maSP))
+                            .findFirst().orElse(null);
+                    
+                    if (targetSp != null) {
+                        // 2. Lấy tồn kho hiện tại
+                        int tonKho = cachedKiemKeDTO.mapTongTonKho.getOrDefault(maSP, 0);
+                        
+                        // 3. Gọi form Chi tiết của bạn lên, truyền callback để reload Data nếu có sửa
+                        GUI.HoTro.ChiTietSanPham.showModal(SanPhamPanel.this, targetSp, tonKho, () -> {
+                            // Hàm này chạy khi popup Chi tiết đóng lại (Trường hợp user có ấn "Sửa")
+                            System.out.println("Đã đóng form chi tiết, làm mới dữ liệu...");
+                            pushProductDashboardData(true); // force refresh
+                        });
+                    }
+                }
+            });
+        }
+        public void exportDashboardData() {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    // 1. Tạo thư mục nếu chưa tồn tại
+                    String folderPath = "D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\SanPham";
+                    java.io.File folder = new java.io.File(folderPath);
+                    if (!folder.exists()) {
+                        folder.mkdirs(); 
+                    }
+
+                    // 2. Tạo tên file theo format: Thongke_dd_MM_yyyy.json
+                    String dateStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd_MM_yyyy"));
+                    String fileName = "Thongke_" + dateStr + ".json";
+                    java.io.File fileExport = new java.io.File(folder, fileName);
+
+                    // 3. Ghi toàn bộ chuỗi JSON (Data gốc của Web) ra file với chuẩn UTF-8
+                    if (lastCachedDashboardJson != null && !lastCachedDashboardJson.isEmpty()) {
+                        try (java.io.Writer writer = new java.io.OutputStreamWriter(new java.io.FileOutputStream(fileExport), java.nio.charset.StandardCharsets.UTF_8)) {
+                            writer.write(lastCachedDashboardJson);
+                        }
+                        
+                        JOptionPane.showMessageDialog(SanPhamPanel.this, 
+                            "Xuất file thành công!\nĐã lưu trữ toàn bộ cấu trúc giao diện tại:\n" + fileExport.getAbsolutePath(), 
+                            "Hoàn tất", JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        JOptionPane.showMessageDialog(SanPhamPanel.this, 
+                            "Chưa có dữ liệu thống kê để xuất!", 
+                            "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(SanPhamPanel.this, 
+                        "Đã xảy ra lỗi khi ghi file:\n" + ex.getMessage(), 
+                        "Lỗi Hệ Thống", JOptionPane.ERROR_MESSAGE);
+                }
+            });
+        }
+        // =========================================================
+        // 🔥 ĐƯA HÀM NÀY VÀO BÊN TRONG JSBRIDGE
+        // =========================================================
+        public String getExportHistoryList() {
+            try {
+                java.io.File folder = new java.io.File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\SanPham");
+                if (!folder.exists() || !folder.isDirectory()) return "[]";
+                
+                java.io.File[] files = folder.listFiles((dir, name) -> name.endsWith(".json"));
+                if (files == null || files.length == 0) return "[]";
+                
+                // Sắp xếp mới nhất lên đầu
+                java.util.Arrays.sort(files, (a, b) -> b.getName().compareTo(a.getName()));
+                
+                JsonArray arr = new JsonArray();
+                for (java.io.File f : files) {
+                    arr.add(f.getName());
+                }
+                return arr.toString();
+            } catch (Exception e) {
+                return "[]";
+            }
+        }
+
+        // =========================================================
+        // 🔥 ĐƯA HÀM NÀY VÀO BÊN TRONG JSBRIDGE
+        // =========================================================
+        public void readAndLoadExportFile(String fileName) {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    java.io.File file = new java.io.File(
+                        "D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\SanPham", fileName);
+                    if (!file.exists()) {
+                        JOptionPane.showMessageDialog(SanPhamPanel.this, 
+                            "Khong tim thay file: " + fileName, "Loi", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    
+                    byte[] fileBytes = java.nio.file.Files.readAllBytes(file.toPath());
+                    if (fileBytes.length == 0) return;
+
+                    String base64Data = java.util.Base64.getEncoder().encodeToString(fileBytes);
+
+                    Platform.runLater(() -> {
+                        try {
+                            webEngine.executeScript(
+                                "applyHistoricalStateBase64('" + base64Data + "', '" + fileName + "')");
+                        } catch (Exception ex) {
+                            System.err.println("Loi day du lieu xuong Web: " + ex.getMessage());
+                        }
+                    });
+
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(SanPhamPanel.this, 
+                        "Loi doc file: " + e.getMessage(), "Loi", JOptionPane.ERROR_MESSAGE);
+                }
+            });
+        }
+    }
+   
 
     public static void main(String[] args) {
         // Test frame launcher environment for local visual validation layouts

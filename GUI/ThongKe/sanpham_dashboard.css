@@ -15,7 +15,7 @@
 }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Inter', 'Segoe UI Emoji', 'Apple Color Emoji', -apple-system, BlinkMacSystemFont, sans-serif;
     background-color: var(--bg-system-surface);
     margin: 0;
     padding: 0;
@@ -374,6 +374,12 @@ body {
     box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.02);
     border: 1px solid #f1f5f9;
     transition: var(--transition-smooth);
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px top 50%;
+    background-size: 10px auto;
 }
 
 .saas-catalog-card:hover {
@@ -551,3 +557,40 @@ body {
     30% { left: 150%; }
     100% { left: 150%; }
 }
+
+.insight-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 8px;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+.insight-icon.warn  { background: #fee2e2; color: #dc2626; }
+.insight-icon.good  { background: #d1fae5; color: #059669; }
+.insight-icon.info  { background: #dbeafe; color: #2563eb; }
+
+/* ===== WEBKIT-SAFE ICON BADGES (thay the emoji) ===== */
+.txt-badge-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 800;
+    margin-right: 8px;
+    font-style: normal;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+.warn-badge    { background: #fee2e2; color: #dc2626; }
+.good-badge    { background: #d1fae5; color: #059669; }
+.info-badge    { background: #dbeafe; color: #2563eb; }
+.emerald-badge { background: #d1fae5; color: #059669; font-size: 13px; }

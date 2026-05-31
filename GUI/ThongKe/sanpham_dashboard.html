@@ -14,7 +14,7 @@
         <!-- 1. HEADER SECTION -->
         <header class="saas-premium-header">
             <div class="header-branding-group">
-                <h1 class="header-main-title">Product Analytics</h1>
+                <h1 class="header-main-title">Phân Tích Sản Phẩm</h1>
                 <p class="header-sub-caption">Quản lý nâng cao và phân tích trí tuệ hiệu suất sản phẩm hàng hóa</p>
             </div>
             <div class="header-controls-group">
@@ -30,10 +30,15 @@
                     <option value="LOW_STOCK">⚠ Tồn Kho Thấp</option>
                     <option value="SLOW_MOVING">🐢 Bán Chậm</option>
                 </select>
+
+                <select id="historySelector" class="premium-dropdown-control" style="max-width: 170px; background-color: #f1f5f9; border-color: #cbd5e1;" onchange="loadHistoricalData(this.value)">
+                    <option value="">Lich su xuat file</option>
+                </select>
+
                 <button class="action-btn btn-secondary" onclick="triggerCoreDataSync()">
                     <span class="btn-icon"></span> Đồng bộ
                 </button>
-                <button class="action-btn btn-primary" onclick="alert('Tính năng liên kết với Excel Logic.')">
+                <button class="action-btn btn-primary" onclick="triggerSystemExport()">
                     <span class="btn-icon"></span> Xuất File
                 </button>
             </div>
@@ -46,7 +51,9 @@
                 <div class="metric-card-inner">
                     <div class="metric-header-meta">
                         <span class="metric-label-title">Tổng Phân Nhóm SKU</span>
-                        <div class="metric-icon-avatar blue-tint">📦</div>
+                        <div class="metric-icon-avatar blue-tint">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                        </div>
                     </div>
                     <h2 class="metric-counter-display" id="txt-total-products">0</h2>
                     <p class="metric-bottom-subtext" id="txt-total-categories">0 danh mục hàng hóa</p>
@@ -58,7 +65,9 @@
                 <div class="metric-card-inner">
                     <div class="metric-header-meta">
                         <span class="metric-label-title">Sản Phẩm Top 1</span>
-                        <div class="metric-icon-avatar amber-tint">🔥</div>
+                        <div class="metric-icon-avatar amber-tint">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                        </div>
                     </div>
                     <h2 class="metric-counter-display compact-text" id="txt-top-product-name">--</h2>
                     <p class="metric-bottom-subtext text-emerald" id="txt-top-product-qty">0 đơn vị đã chốt</p>
@@ -70,7 +79,9 @@
                 <div class="metric-card-inner">
                     <div class="metric-header-meta">
                         <span class="metric-label-title">Cảnh Báo Hụt Kho</span>
-                        <div class="metric-icon-avatar rose-tint">⚠️</div>
+                        <div class="metric-icon-avatar rose-tint">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        </div>
                     </div>
                     <h2 class="metric-counter-display text-rose" id="txt-low-stock-count">0</h2>
                     <p class="metric-bottom-subtext" id="txt-risk-caption">Mặt hàng cần lên đơn nhập gấp</p>
@@ -82,10 +93,14 @@
                 <div class="metric-card-inner">
                     <div class="metric-header-meta">
                         <span class="metric-label-title">Giá Trị Tổng Kho</span>
-                        <div class="metric-icon-avatar emerald-tint">💸</div>
+                        <div class="metric-icon-avatar emerald-tint">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        </div>
                     </div>
                     <h2 class="metric-counter-display" id="txt-valuation-display">0đ</h2>
-                    <p class="metric-bottom-subtext text-emerald">📈 Kiểm kê Real-time định kỳ</p>
+                    <p class="metric-bottom-subtext text-emerald">
+                        <span class="txt-badge-icon emerald-badge">+</span> Kiểm kê Real-time dinh ky
+                    </p>
                 </div>
             </div>
         </section>

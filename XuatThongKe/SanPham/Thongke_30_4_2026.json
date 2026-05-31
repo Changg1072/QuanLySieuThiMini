@@ -1,0 +1,490 @@
+{
+    "totalProducts": 40,
+    "totalCategories": 8,
+    "lowStockAlerts": 9,
+    "inventoryValuation": 163038000.0,
+    "topSellingProducts": [
+        {
+            "name": "Chả giò",
+            "quantity": 30
+        },
+        {
+            "name": "Khoai tây chiên đông lạnh",
+            "quantity": 29
+        },
+        {
+            "name": "Túi rác",
+            "quantity": 28
+        },
+        {
+            "name": "Coca Cola",
+            "quantity": 27
+        },
+        {
+            "name": "Pepsi",
+            "quantity": 27
+        }
+    ],
+    "categoryDistribution": {
+        "Bánh kẹo – đồ ăn vặt": 2578,
+        "Đồ uống": 841,
+        "Thực phẩm khô": 2051,
+        "Đồ gia dụng": 1075,
+        "Đồ ăn nhanh": 386,
+        "Thực phẩm tươi sống": 44,
+        "Thực phẩm đông lạnh": 28,
+        "Sữa và sản phẩm từ sữa": 308
+    },
+    "inventoryHealth": {
+        "low": 9,
+        "optimal": 28,
+        "excess": 3
+    },
+    "productGridMatrix": [
+        {
+            "id": "SP001",
+            "name": "Bánh quy bơ Cosy",
+            "category": "Bánh kẹo – đồ ăn vặt",
+            "price": 25000.0,
+            "stock": 38,
+            "unit": "Hộp",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/banh-quy-bo-sua-cosy-hop.jpg",
+            "unitsSold": 20,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP002",
+            "name": "Bánh gạo One One",
+            "category": "Bánh kẹo – đồ ăn vặt",
+            "price": 18000.0,
+            "stock": 212,
+            "unit": "Gói",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/banh-gao-vi-ngot-diu-one-one-goi-150g.jpg",
+            "unitsSold": 17,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP003",
+            "name": "Bánh Oreo socola",
+            "category": "Bánh kẹo – đồ ăn vặt",
+            "price": 15000.0,
+            "stock": 700,
+            "unit": "Gói",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/banh-quy-oreo-kem-socola-goi-665g.jpg",
+            "unitsSold": 10,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP004",
+            "name": "Bánh ChocoPie",
+            "category": "Bánh kẹo – đồ ăn vặt",
+            "price": 32000.0,
+            "stock": 187,
+            "unit": "Hộp",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/banh-choco-pie-hop-396g-12-cai.jpg",
+            "unitsSold": 13,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP005",
+            "name": "Bánh mì ngọt",
+            "category": "Bánh kẹo – đồ ăn vặt",
+            "price": 12000.0,
+            "stock": 5,
+            "unit": "Gói",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/banh-ngot-kinh-do.PNG",
+            "unitsSold": 18,
+            "intelligenceTag": "LOW_STOCK"
+        },
+        {
+            "id": "SP006",
+            "name": "Kẹo dẻo Haribo",
+            "category": "Bánh kẹo – đồ ăn vặt",
+            "price": 27000.0,
+            "stock": 149,
+            "unit": "Gói",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/keo-deo-haribo-star-mix-80g.jpg",
+            "unitsSold": 11,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP007",
+            "name": "Kẹo Alpenliebe",
+            "category": "Bánh kẹo – đồ ăn vặt",
+            "price": 15000.0,
+            "stock": 331,
+            "unit": "Gói",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/keo-ngam-sua-caramen-alpenliebe.jpg",
+            "unitsSold": 7,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP008",
+            "name": "Kẹo Mentos",
+            "category": "Bánh kẹo – đồ ăn vặt",
+            "price": 10000.0,
+            "stock": 611,
+            "unit": "Cuộn",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/keo-nhai-huong-bac-ha-mentos-goi-1134g.jpg",
+            "unitsSold": 2,
+            "intelligenceTag": "SLOW_MOVING"
+        },
+        {
+            "id": "SP009",
+            "name": "Kẹo socola M&M",
+            "category": "Bánh kẹo – đồ ăn vặt",
+            "price": 28000.0,
+            "stock": 1,
+            "unit": "Gói",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/keo-socola-sua-m-ms-goi-90g.jpg",
+            "unitsSold": 12,
+            "intelligenceTag": "LOW_STOCK"
+        },
+        {
+            "id": "SP010",
+            "name": "Kẹo cứng trái cây",
+            "category": "Bánh kẹo – đồ ăn vặt",
+            "price": 12000.0,
+            "stock": 344,
+            "unit": "Gói",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/keo-bon-mua.jpg",
+            "unitsSold": 22,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP011",
+            "name": "Coca Cola",
+            "category": "Đồ uống",
+            "price": 10000.0,
+            "stock": 5,
+            "unit": "Lon",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/thung-24-lon-nuoc-ngot-coca-cola-320m.jpg",
+            "unitsSold": 27,
+            "intelligenceTag": "LOW_STOCK"
+        },
+        {
+            "id": "SP012",
+            "name": "Pepsi",
+            "category": "Đồ uống",
+            "price": 10000.0,
+            "stock": 253,
+            "unit": "Lon",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/nuoc-ngot-pepsi-cola-lon-320ml.jpg",
+            "unitsSold": 27,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP013",
+            "name": "Trà xanh C2",
+            "category": "Đồ uống",
+            "price": 9000.0,
+            "stock": 579,
+            "unit": "Chai",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/tra-xanh-c2.PNG",
+            "unitsSold": 2,
+            "intelligenceTag": "SLOW_MOVING"
+        },
+        {
+            "id": "SP014",
+            "name": "Nước cam Twister",
+            "category": "Đồ uống",
+            "price": 12000.0,
+            "stock": 4,
+            "unit": "Chai",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/nuoc-cam-ep-twister-tropicana-455ml.jpg",
+            "unitsSold": 23,
+            "intelligenceTag": "LOW_STOCK"
+        },
+        {
+            "id": "SP016",
+            "name": "Nước mắm Nam Ngư",
+            "category": "Thực phẩm khô",
+            "price": 35000.0,
+            "stock": 634,
+            "unit": "Chai",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/nuoc-mam-nam-ngu-ca-com-tuoi.png",
+            "unitsSold": 13,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP017",
+            "name": "Nước tương Maggi",
+            "category": "Thực phẩm khô",
+            "price": 25000.0,
+            "stock": 180,
+            "unit": "Chai",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/nuoc-tuong-maggi-dam-dac-12x700ml.jpg",
+            "unitsSold": 11,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP018",
+            "name": "Tương ớt Chinsu",
+            "category": "Thực phẩm khô",
+            "price": 18000.0,
+            "stock": 1,
+            "unit": "Chai",
+            "image": "",
+            "unitsSold": 5,
+            "intelligenceTag": "LOW_STOCK"
+        },
+        {
+            "id": "SP019",
+            "name": "Hạt nêm Knorr",
+            "category": "Thực phẩm khô",
+            "price": 42000.0,
+            "stock": 432,
+            "unit": "Gói",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/hat-nem-knorr.jpg",
+            "unitsSold": 7,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP020",
+            "name": "Đường cát trắng",
+            "category": "Thực phẩm khô",
+            "price": 15000.0,
+            "stock": 108,
+            "unit": "Kg",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/duong_tinh_luyen.png",
+            "unitsSold": 21,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP021",
+            "name": "Nước rửa chén Sunlight",
+            "category": "Đồ gia dụng",
+            "price": 38000.0,
+            "stock": 196,
+            "unit": "Chai",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/nuoc-rua-chen-sunlight-chiet-xuat-chanh.jpg",
+            "unitsSold": 23,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP022",
+            "name": "Bột giặt Omo",
+            "category": "Đồ gia dụng",
+            "price": 125000.0,
+            "stock": 60,
+            "unit": "Túi",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/bot-giat-omo.jpg",
+            "unitsSold": 15,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP023",
+            "name": "Nước lau sàn Gift hương hoa lily",
+            "category": "Đồ gia dụng",
+            "price": 45000.0,
+            "stock": 74,
+            "unit": "Chai",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/nuoc-lau-san-gift-huong-hoa-lily-chai-1-lit.jpg",
+            "unitsSold": 7,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP024",
+            "name": "Khăn giấy Pulppy",
+            "category": "Đồ gia dụng",
+            "price": 20000.0,
+            "stock": 535,
+            "unit": "Hộp",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/khan-giay-lua-pulppy-hop-180-to-2-lop.jpg",
+            "unitsSold": 14,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP025",
+            "name": "Túi rác",
+            "category": "Đồ gia dụng",
+            "price": 15000.0,
+            "stock": 210,
+            "unit": "Cuộn",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/tui-dung-rac-cuon-mau-den.jpg",
+            "unitsSold": 28,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP026",
+            "name": "Xúc xích CP",
+            "category": "Đồ ăn nhanh",
+            "price": 28000.0,
+            "stock": 291,
+            "unit": "Gói",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/xuc-xich-heo-tiet-trung.jpg",
+            "unitsSold": 27,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP027",
+            "name": "Cá viên",
+            "category": "Đồ ăn nhanh",
+            "price": 45000.0,
+            "stock": 1,
+            "unit": "Kg",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/ca-vien-chien.jpg",
+            "unitsSold": 10,
+            "intelligenceTag": "LOW_STOCK"
+        },
+        {
+            "id": "SP028",
+            "name": "Bò viên",
+            "category": "Đồ ăn nhanh",
+            "price": 52000.0,
+            "stock": 51,
+            "unit": "Kg",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/bo-vien-fcook-goi.jpg",
+            "unitsSold": 26,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP029",
+            "name": "Chả giò",
+            "category": "Đồ ăn nhanh",
+            "price": 48000.0,
+            "stock": 17,
+            "unit": "Hộp",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/cha-gio-xop.jpg",
+            "unitsSold": 30,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP030",
+            "name": "Khoai tây chiên đông lạnh",
+            "category": "Đồ ăn nhanh",
+            "price": 60000.0,
+            "stock": 26,
+            "unit": "Túi",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/khoai-tay-chien.jpg",
+            "unitsSold": 29,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP031",
+            "name": "Đùi gà",
+            "category": "Thực phẩm tươi sống",
+            "price": 30000.0,
+            "stock": 44,
+            "unit": "Hộp",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/dui-ga-goc-tu-1kg.jpg",
+            "unitsSold": 7,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP032",
+            "name": "Ba chỉ bò Mỹ Hot pot",
+            "category": "Thực phẩm đông lạnh",
+            "price": 130000.0,
+            "stock": 27,
+            "unit": "Hộp",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/ba-chi-bo-my-hot-pot-an-gia-food-goi-250g.jpg",
+            "unitsSold": 2,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP033",
+            "name": "Gạo ST25",
+            "category": "Thực phẩm khô",
+            "price": 145000.0,
+            "stock": 10,
+            "unit": "Túi",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/gao-thom-neptune-st25-extra-tui-5kg.jpg",
+            "unitsSold": 26,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP034",
+            "name": "Bột bắp",
+            "category": "Thực phẩm khô",
+            "price": 10000.0,
+            "stock": 133,
+            "unit": "Túi",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/bot-bap-tan-sang-goi-150g.jpg",
+            "unitsSold": 26,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP035",
+            "name": "Bột chiên giòn",
+            "category": "Thực phẩm khô",
+            "price": 11000.0,
+            "stock": 0,
+            "unit": "Túi",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/bot-chien-gion-aji-quick-goi-150g.jpg",
+            "unitsSold": 0,
+            "intelligenceTag": "LOW_STOCK"
+        },
+        {
+            "id": "SP036",
+            "name": "Mỳ Hảo Hảo",
+            "category": "Thực phẩm khô",
+            "price": 6000.0,
+            "stock": 238,
+            "unit": "Gói",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/my-hao-hao.jpg",
+            "unitsSold": 17,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP037",
+            "name": "Mỳ Siêu Cay",
+            "category": "Thực phẩm khô",
+            "price": 14000.0,
+            "stock": 315,
+            "unit": "Gói",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/mi-siukay-vi-hai-san-goi-128gr.jpg",
+            "unitsSold": 26,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP038",
+            "name": "Sữa chua",
+            "category": "Sữa và sản phẩm từ sữa",
+            "price": 25000.0,
+            "stock": 82,
+            "unit": "Hộp",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/loc-4-hop-sua-chua-an-khong-duong-nutimilk-100g.jpg",
+            "unitsSold": 14,
+            "intelligenceTag": "OPTIMAL"
+        },
+        {
+            "id": "SP039",
+            "name": "Kem Socola",
+            "category": "Thực phẩm đông lạnh",
+            "price": 84000.0,
+            "stock": 1,
+            "unit": "Cây",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/kem-socola.jpg",
+            "unitsSold": 13,
+            "intelligenceTag": "LOW_STOCK"
+        },
+        {
+            "id": "SP040",
+            "name": "Sữa tươi Vinamilk",
+            "category": "Sữa và sản phẩm từ sữa",
+            "price": 32000.0,
+            "stock": 226,
+            "unit": "Hộp",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/sua%20tuoi-vinamilk-it-duong-hop-180ml.jpg",
+            "unitsSold": 5,
+            "intelligenceTag": "SLOW_MOVING"
+        },
+        {
+            "id": "SP041",
+            "name": "CHANGG",
+            "category": "Đồ ăn nhanh",
+            "price": 54000.0,
+            "stock": 0,
+            "unit": "Con",
+            "image": "file:/D:/Code/QuanLySieuThiMini/images/Screenshot%202026-03-18%20022317.png",
+            "unitsSold": 0,
+            "intelligenceTag": "LOW_STOCK"
+        }
+    ],
+    "operationalInsights": [
+        "<span class='txt-badge-icon warn-badge'>!</span> Phát hiện 9 mặt hàng chạm ngưỡng an toàn tối thiểu. Đề xuất chuẩn bị đơn nhập kho mới.",
+        "<span class='txt-badge-icon good-badge'>+</span> Sản phẩm 'Chả giò' đạt hiệu suất kinh doanh vượt bậc, dẫn đầu doanh số chi nhánh.",
+        "<span class='txt-badge-icon info-badge'>i</span> Các nhóm hàng thuộc danh mục 'Bánh kẹo – đồ ăn vặt' chiếm tỷ lệ lưu kho cao nhất."
+    ]
+}
