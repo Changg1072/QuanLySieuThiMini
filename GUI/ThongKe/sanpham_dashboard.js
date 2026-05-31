@@ -97,6 +97,7 @@ function updateProductDashboard(payload) {
         });
 
         dispatchFilterCoordinates();
+        renderLowStockDetails();
     }
 }
 
@@ -274,4 +275,35 @@ function loaiBoDauTiengViet(str) {
     str = str.replace(/đ/g, "d");
     // Xóa các ký tự kết hợp Unicode
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+// =========================================================================
+// 🔥 HÀM MỚI: TỰ ĐỘNG LỌC VÀ HIỂN THỊ DANH SÁCH CHI TIẾT HỤT KHO
+// =========================================================================
+function renderLowStockDetails() {
+    const container = document.getElementById("lowStockDetailsContainer");
+    const listTarget = document.getElementById("lowStockListTarget");
+    
+    // Lọc lấy tất cả sản phẩm bị dán mác LOW_STOCK từ dữ liệu tổng
+    const lowStockItems = masterProductDataset.filter(p => p.intelligenceTag === "LOW_STOCK");
+    
+    if (lowStockItems.length > 0) {
+        container.style.display = "block"; // Bật khung cảnh báo lên
+        listTarget.innerHTML = "";
+        
+        // Render từng item
+        lowStockItems.forEach(item => {
+            listTarget.innerHTML += `
+                <div class="low-stock-item">
+                    <div class="low-stock-item-info">
+                        <span class="low-stock-item-name" title="${item.name}">${item.name}</span>
+                        <span class="low-stock-item-id">${item.id} - ${item.category}</span>
+                    </div>
+                    <span class="low-stock-item-qty">Tồn: ${item.stock}</span>
+                </div>
+            `;
+        });
+    } else {
+        // Nếu kho dồi dào, tự động ẩn khung cảnh báo này đi
+        container.style.display = "none";
+    }
 }

@@ -289,12 +289,34 @@ public class ThongKeUI extends JPanel {
         this.routerCallback = cb;
         
         // 1. Nối dây thần kinh xuống Nhân Viên
+        // 1. Nối dây thần kinh xuống Nhân Viên
         if (nhanVienPanel != null) {
             nhanVienPanel.setCallback(new NhanVienPanel.NhanVienPanelCallback() {
                 @Override
-                public void moThemNhanVien() { if (routerCallback != null) routerCallback.dieuHuongTrang("NHAN_VIEN"); }
+                public void moThemNhanVien() { 
+                    if (routerCallback != null) routerCallback.dieuHuongTrang("NHAN_VIEN"); 
+                }
+                
                 @Override
-                public void moPhanCa() { if (routerCallback != null) routerCallback.dieuHuongTrang("CA_LAM"); }
+                public void moPhanCa() { 
+                    if (routerCallback != null) routerCallback.dieuHuongTrang("CA_LAM"); 
+                }
+                
+                // 🔥 ĐÃ BỔ SUNG: Xử lý sự kiện khi bấm nút "Hồ sơ"
+                @Override
+                public void xemHoSoLuong(String maNV) {
+                    // MỞ GIAO DIỆN BẢNG LƯƠNG CỦA RIÊNG NHÂN VIÊN ĐÓ DƯỚI DẠNG DIALOG NỔI
+                    Window parentWindow = SwingUtilities.getWindowAncestor(ThongKeUI.this);
+                    JDialog dialog = new JDialog(parentWindow, "Hồ sơ Lịch sử Lương - " + maNV, Dialog.ModalityType.APPLICATION_MODAL);
+                    
+                    // Khởi tạo BangLuongUi ở chế độ xem cá nhân (truyền maNV vào)
+                    GUI.BangLuongUi pnlHoSo = new GUI.BangLuongUi(maNV); 
+                    
+                    dialog.setContentPane(pnlHoSo);
+                    dialog.setSize(1100, 700); // Kích thước cửa sổ hồ sơ
+                    dialog.setLocationRelativeTo(null); // Căn giữa màn hình
+                    dialog.setVisible(true); // Hiển thị lên
+                }
             });
         }
         

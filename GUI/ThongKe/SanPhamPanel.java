@@ -117,12 +117,13 @@ public class SanPhamPanel extends JPanel {
                 // =========================================================================
                 Map<String, String> mapTenLoai = new HashMap<>();
                 try (java.sql.Connection con = Dao.ConnectDB.getInstance().getConnection();
-                     java.sql.Statement st = con.createStatement();
-                     java.sql.ResultSet rs = st.executeQuery("SELECT MaLoai, TenLoai FROM LoaiHang")) { 
+                    java.sql.Statement st = con.createStatement();
+                    // SỬA "LoaiHang" THÀNH "LoaiSP" Ở DÒNG DƯỚI NÀY:
+                    java.sql.ResultSet rs = st.executeQuery("SELECT MaLoai, TenLoai FROM LoaiSP")) { 
                     while (rs.next()) {
                         mapTenLoai.put(rs.getString("MaLoai"), rs.getString("TenLoai"));
                     }
-                } catch (Exception e) {
+                }catch (Exception e) {
                     // Cấu hình dự phòng nếu bảng của bạn tên là LoaiSanPham thay vì LoaiHang
                     try (java.sql.Connection con2 = Dao.ConnectDB.getInstance().getConnection();
                          java.sql.Statement st2 = con2.createStatement();

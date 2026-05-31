@@ -843,7 +843,7 @@ public class TruyVanSieuTocDAO {
 
             // 📦 Kết quả 3: Nạp Tên Loại Sản Phẩm siêu tốc vào Cache
             try {
-                try (ResultSet rs = st.executeQuery("SELECT MaLoai, TenLoai FROM LoaiHang")) {
+                try (ResultSet rs = st.executeQuery("SELECT MaLoai, TenLoai FROM LoaiSP")) {
                     while (rs.next()) {
                         dto.mapTenLoai.put(rs.getString("MaLoai"), rs.getString("TenLoai"));
                     }
@@ -1011,5 +1011,122 @@ public class TruyVanSieuTocDAO {
             System.err.println("🔥 [SieuTocDAO] Lỗi tải lịch sử khách hàng: " + e.getMessage());
         }
         return list;
+    }
+    // =========================================================================
+    // 14. TẢI TOÀN BỘ DỮ LIỆU THỐNG KÊ NHÂN VIÊN SIÊU TỐC (Giải quyết N+1 Query) 🚀
+    // =========================================================================
+    public static class DuLieuThongKeNhanVienDTO {
+        // Key = MaNV
+        public Map<String, BigDecimal> mapTongGioLam = new HashMap<>();
+        public Map<String, Integer>    mapSoLanTre   = new HashMap<>();
+        public Map<String, BigDecimal> mapTongPhat   = new HashMap<>();
+        public Map<String, BigDecimal> mapLuongTheoGio = new HashMap<>();
+        public List<ChiaCa>            tatCaCaTrongThang = new ArrayList<>();
+    }
+
+    public DuLieuThongKeNhanVienDTO loadThongKeNhanVienSieuToc(int thang, int nam) {
+        DuLieuThongKeNhanVienDTO dto = new DuLieuThongKeNhanVienDTO();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return dto;
+
+        // 4 truy vấn gom thành 1 mẻ, chỉ 1 lần round-trip mạng
+        String sql =
+            // RS 1: Tổng giờ làm của mọi nhân viên trong tháng
+            "SELECT MaNV, SUM(DATEDIFF(MINUTE, ThoiGianCheckIn, ThoiGianCheckOut)) AS TongPhut " +
+            "FROM ChiaCa " +
+            "WHERE MONTH(NgayLam) = " + thang + " AND YEAR(NgayLam) = " + nam +
+            " AND TinhTrang = N'Đã hoàn thành' " +
+            "AND ThoiGianCheckIn IS NOT NULL AND ThoiGianCheckOut IS NOT NULL " +
+            "GROUP BY MaNV; " +
+
+            // RS 2: Số lần đi trễ của mọi nhân viên trong tháng
+            // (Check-in trễ hơn GioBatDau của LoaiCa > 5 phút)
+            "SELECT cc.MaNV, COUNT(*) AS SoLanTre, " +
+            "SUM(CASE WHEN cc.TienChenhLech < 0 THEN ABS(cc.TienChenhLech) ELSE 0 END) AS TongPhat " +
+            "FROM ChiaCa cc " +
+            "JOIN LoaiCa lc ON cc.MaLoaiCa = lc.MaLoaiCa " +
+            "WHERE MONTH(cc.NgayLam) = " + thang + " AND YEAR(cc.NgayLam) = " + nam +
+            " AND cc.ThoiGianCheckIn IS NOT NULL " +
+            " AND DATEDIFF(MINUTE, " +
+            "     CAST(CAST(cc.NgayLam AS NVARCHAR) + ' ' + CAST(lc.GioBatDau AS NVARCHAR) AS DATETIME), " +
+            "     cc.ThoiGianCheckIn) > 5 " +
+            "GROUP BY cc.MaNV; " +
+
+            // RS 3: Cấu hình lương hiện tại của mọi nhân viên
+            "SELECT MaNV, LuongTheoGio FROM CauHinhLuong " +
+            "WHERE TrangThai = N'Đang áp dụng'; " +
+
+            // RS 4: Toàn bộ ca trong tháng (để vẽ timeline + biểu đồ phân ca)
+            "SELECT * FROM ChiaCa " +
+            "WHERE MONTH(NgayLam) = " + thang + " AND YEAR(NgayLam) = " + nam +
+            " AND TinhTrang <> N'Đã hủy';";
+
+        try (Statement st = con.createStatement()) {
+            boolean hasResults = st.execute(sql);
+
+            // 📦 RS 1: Tổng giờ làm
+            if (hasResults) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        int tongPhut = rs.getInt("TongPhut");
+                        BigDecimal tongGio = BigDecimal.valueOf(tongPhut / 60.0)
+                                                    .setScale(2, java.math.RoundingMode.HALF_UP);
+                        dto.mapTongGioLam.put(rs.getString("MaNV"), tongGio);
+                    }
+                }
+            }
+
+            // 📦 RS 2: Số lần trễ + tổng phạt
+            if (st.getMoreResults()) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        String maNV = rs.getString("MaNV");
+                        dto.mapSoLanTre.put(maNV, rs.getInt("SoLanTre"));
+                        BigDecimal tongPhat = rs.getBigDecimal("TongPhat");
+                        dto.mapTongPhat.put(maNV, tongPhat != null ? tongPhat : BigDecimal.ZERO);
+                    }
+                }
+            }
+
+            // 📦 RS 3: Lương theo giờ
+            if (st.getMoreResults()) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        dto.mapLuongTheoGio.put(
+                            rs.getString("MaNV"),
+                            rs.getBigDecimal("LuongTheoGio")
+                        );
+                    }
+                }
+            }
+
+            // 📦 RS 4: Toàn bộ ca trong tháng
+            if (st.getMoreResults()) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        Data.ChiaCa cc = new Data.ChiaCa();
+                        cc.setMaCa(rs.getString("MaCa"));
+                        cc.setMaNV(rs.getString("MaNV"));
+                        cc.setMaLoaiCa(rs.getString("MaLoaiCa"));
+
+                        java.sql.Date ngay = rs.getDate("NgayLam");
+                        if (ngay != null) cc.setNgayLam(ngay.toLocalDate());
+
+                        java.sql.Timestamp tsIn = rs.getTimestamp("ThoiGianCheckIn");
+                        if (tsIn != null) cc.setThoiGianCheckIn(tsIn.toLocalDateTime());
+
+                        java.sql.Timestamp tsOut = rs.getTimestamp("ThoiGianCheckOut");
+                        if (tsOut != null) cc.setThoiGianCheckOut(tsOut.toLocalDateTime());
+
+                        cc.setTinhTrang(rs.getString("TinhTrang"));
+                        dto.tatCaCaTrongThang.add(cc);
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            System.err.println("🔥 [SieuTocDAO] Lỗi loadThongKeNhanVienSieuToc: " + e.getMessage());
+        }
+        return dto;
     }
 }

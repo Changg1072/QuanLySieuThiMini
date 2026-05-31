@@ -1,8 +1,14 @@
 package GUI.ThongKe;
 
+import Dao.CauHinhLuongDAO;
+import Dao.ChiaCaDAO;
 import Dao.TruyVanSieuTocDAO;
-import Logic.ThongKeLogic;
-import Data.*; // Đảm bảo gọi toàn bộ Data Model
+import Data.CauHinhLuong;
+import Data.ChiaCa;
+import Data.NhanVien;
+import Logic.BangLuongLogic;
+import Logic.NhanVienLogic;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -10,16 +16,13 @@ import com.google.gson.JsonObject;
 import javax.swing.*;
 import java.awt.*;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URL;
-import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors; // 🔥 FIX LỖI THIẾU THƯ VIỆN Ở ĐÂY
 
 import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
@@ -34,15 +37,18 @@ public class NhanVienPanel extends JPanel {
     private WebEngine webEngine;
     private final Gson gson = new Gson();
     private String lastCachedDashboardJson = null;
+    
     public interface NhanVienPanelCallback {
         void moThemNhanVien();
         void moPhanCa();
+        void xemHoSoLuong(String maNV);
     }
     private NhanVienPanelCallback actionCallback;
     
     public void setCallback(NhanVienPanelCallback callback) {
         this.actionCallback = callback;
     }
+
     public NhanVienPanel() {
         setName("NhanVienPanel");
         setLayout(new BorderLayout());
@@ -83,11 +89,10 @@ public class NhanVienPanel extends JPanel {
                 } else {
                     webEngine.loadContent("<html><body style='font-family:sans-serif;padding:30px;color:#ef4444;'>"
                         + "<h3>🚨 Lỗi tải giao diện</h3>"
-                        + "<p>Không tìm thấy file <code>nhanvien_dashboard.html</code>. Hãy chắc chắn bạn đã copy nó vào thư mục bin/GUI/ThongKe/</p>"
-                        + "</body></html>");
+                        + "<p>Không tìm thấy file nhanvien_dashboard.html</p></body></html>");
                 }
             } catch (Exception e) {
-                System.err.println("[NhanVienPanel Bridge] Initialization breakdown: " + e.getMessage());
+                System.err.println("[NhanVienPanel Bridge] Lỗi khởi tạo: " + e.getMessage());
             }
 
             Scene scene = new Scene(webView);
@@ -105,226 +110,253 @@ public class NhanVienPanel extends JPanel {
             try {
                 JsonObject mainContainer = new JsonObject();
                 
+                // 1. Khởi tạo các Logic & DAO
+                BangLuongLogic bangLuongLogic = new BangLuongLogic();
+                NhanVienLogic nhanVienLogic = new NhanVienLogic();
+                CauHinhLuongDAO cauHinhLuongDAO = CauHinhLuongDAO.getInstance();
+                ChiaCaDAO chiaCaDAO = ChiaCaDAO.getInstance();
                 TruyVanSieuTocDAO.DuLieuDonHangDTO ordersDTO = TruyVanSieuTocDAO.getInstance().loadToanBoDuLieuDonHang();
                 
-                List<Data.ChiaCa> dsChiaCa = new ArrayList<>();
-                Map<String, String> mapChucVuNhanVien = new HashMap<>();
-                Map<String, String> mapSdtNhanVien = new HashMap<>();
+                // BỔ SUNG FIX 1: Lấy danh sách Loại Ca để map Tên Ca chính xác
+                Logic.LoaiCaLogic loaiCaLogic = new Logic.LoaiCaLogic();
+                List<Data.LoaiCa> dsLoaiCa = loaiCaLogic.layDanhSachLoaiCa();
                 
-                try (java.sql.Connection con = Dao.ConnectDB.getInstance().getConnection();
-                     java.sql.Statement st = con.createStatement()) {
-                    
-                    try (java.sql.ResultSet rs = st.executeQuery("SELECT * FROM ChiaCa")) {
-                        while (rs.next()) {
-                            Data.ChiaCa cc = new Data.ChiaCa();
-                            cc.setMaCa(rs.getString("MaCa"));
-                            cc.setMaLoaiCa(rs.getString("MaLoaiCa"));
-                            cc.setMaNV(rs.getString("MaNV"));
-                            cc.setTinhTrang(rs.getString("TinhTrang"));
-                            
-                            java.sql.Date sqlNgay = rs.getDate("NgayLam");
-                            if (sqlNgay != null) cc.setNgayLam(sqlNgay.toLocalDate());
-                            
-                            java.sql.Timestamp tsIn = rs.getTimestamp("ThoiGianCheckIn");
-                            if (tsIn != null) cc.setThoiGianCheckIn(tsIn.toLocalDateTime());
-                            
-                            java.sql.Timestamp tsOut = rs.getTimestamp("ThoiGianCheckOut");
-                            if (tsOut != null) cc.setThoiGianCheckOut(tsOut.toLocalDateTime());
-                            
-                            cc.setTienBanHang(rs.getBigDecimal("TienBanHang"));
-                            dsChiaCa.add(cc);
-                        }
-                    }
-                    
-                    try (java.sql.ResultSet rs = st.executeQuery("SELECT MaNV, ChucVu, SDT FROM NhanVien")) {
-                        while (rs.next()) {
-                            String maNV = rs.getString("MaNV");
-                            mapChucVuNhanVien.put(maNV, rs.getString("ChucVu"));
-                            mapSdtNhanVien.put(maNV, rs.getString("SDT"));
-                        }
-                    }
-                } catch (Exception ex) {
-                    System.err.println("[NhanVienPanel SQL Fetch] Handled anomaly: " + ex.getMessage());
-                }
-
+                List<NhanVien> dsNhanVien = nhanVienLogic.layDanhSachNhanVien();
                 int targetMonth = LocalDate.now().getMonthValue();
                 int targetYear = LocalDate.now().getYear();
+                LocalDate homNay = LocalDate.now();
 
-                Set<String> uniqueActiveStaffIds = new HashSet<>(mapChucVuNhanVien.keySet());
-                int totalEmployeesCount = uniqueActiveStaffIds.size();
-
-                Map<String, BigDecimal> staffSalesRevenueMap = new HashMap<>();
-                Map<String, Integer> staffInvoiceCountMap = new HashMap<>();
-                Map<String, Double> staffWorkHoursMap = new HashMap<>();
-                Map<String, Integer> staffLateCheckInCountMap = new HashMap<>();
-                
-                for (String employeeId : uniqueActiveStaffIds) {
-                    staffSalesRevenueMap.put(employeeId, BigDecimal.ZERO);
-                    staffInvoiceCountMap.put(employeeId, 0);
-                    staffWorkHoursMap.put(employeeId, 0.0);
-                    staffLateCheckInCountMap.put(employeeId, 0);
-                }
-
+                int totalEmployeesCount = dsNhanVien.size();
+                int activeStaffCount = 0;
                 BigDecimal globalWorkforceRevenueSum = BigDecimal.ZERO;
-                if (ordersDTO != null && ordersDTO.dsHoaDon != null) {
-                    for (var hd : ordersDTO.dsHoaDon) {
-                        if (hd.getMaNV() != null && hd.getThanhTien() != null) {
-                            String empId = hd.getMaNV().trim();
-                            if (uniqueActiveStaffIds.contains(empId)) {
-                                staffSalesRevenueMap.put(empId, staffSalesRevenueMap.get(empId).add(hd.getThanhTien()));
-                                staffInvoiceCountMap.put(empId, staffInvoiceCountMap.get(empId) + 1);
-                            }
-                            globalWorkforceRevenueSum = globalWorkforceRevenueSum.add(hd.getThanhTien());
-                        }
-                    }
-                }
-
+                BigDecimal totalPayrollPool = BigDecimal.ZERO;
+                
                 int totalLateOccurrences = 0;
                 double aggregatedWorkHours = 0.0;
-                int activeShiftsThisMonth = 0;
                 int shiftMorningCount = 0, shiftAfternoonCount = 0, shiftNightCount = 0;
+                int pastOrActiveShiftsCount = 0; // Mẫu số tính Tỷ lệ đúng giờ
 
-                for (Data.ChiaCa shift : dsChiaCa) {
-                    if (shift.getMaNV() == null) continue;
-                    String empId = shift.getMaNV().trim();
-                    if (!uniqueActiveStaffIds.contains(empId)) continue;
+                List<ChiaCa> tatCaCaThangNay = new ArrayList<>();
+                List<JsonObject> allEmployeeStats = new ArrayList<>();
 
-                    String loaiCa = shift.getMaLoaiCa() != null ? shift.getMaLoaiCa().toLowerCase() : "";
-                    if (loaiCa.contains("ca1") || loaiCa.contains("sáng")) shiftMorningCount++;
-                    else if (loaiCa.contains("ca2") || loaiCa.contains("chiều")) shiftAfternoonCount++;
-                    else shiftNightCount++;
+                // 2. Quét từng nhân viên để tổng hợp liệu thống kê
+                for (NhanVien nv : dsNhanVien) {
+                    if ("Đã Nghỉ".equalsIgnoreCase(nv.getTrangThai())) continue;
+                    activeStaffCount++;
+                    String empId = nv.getMaNV();
 
-                    if (shift.getNgayLam() != null 
-                            && shift.getNgayLam().getMonthValue() == targetMonth 
-                            && shift.getNgayLam().getYear() == targetYear) {
+                    // --- Tính Doanh Thu ---
+                    BigDecimal staffRevenue = BigDecimal.ZERO;
+                    int invoiceCount = 0;
+                    if (ordersDTO != null && ordersDTO.dsHoaDon != null) {
+                        for (var hd : ordersDTO.dsHoaDon) {
+                            if (empId.equals(hd.getMaNV()) && hd.getThanhTien() != null) {
+                                staffRevenue = staffRevenue.add(hd.getThanhTien());
+                                invoiceCount++;
+                            }
+                        }
+                    }
+                    globalWorkforceRevenueSum = globalWorkforceRevenueSum.add(staffRevenue);
+
+                    // --- BỔ SUNG FIX 2: Thống kê Chia ca chuẩn xác ---
+                    List<ChiaCa> dsCaCuaNV = chiaCaDAO.layDanhSachChiaCaTheoThang(empId, targetMonth, targetYear);
+                    if (dsCaCuaNV != null) {
+                        for (ChiaCa shift : dsCaCuaNV) {
+                            // Lọc bỏ ca bị hủy
+                            if ("Đã hủy".equalsIgnoreCase(shift.getTinhTrang())) continue;
+                            
+                            tatCaCaThangNay.add(shift);
+
+                            // Map ID loại ca thành Tên loại ca
+                            boolean daPhanLoai = false;
+                            String maCaCuaShift = (shift.getMaLoaiCa() != null) ? shift.getMaLoaiCa().trim() : "";
+
+                            if (dsLoaiCa != null && !maCaCuaShift.isEmpty()) {
+                                for (Data.LoaiCa lc : dsLoaiCa) {
+                                    String maLoaiCaTruyXuat = (lc.getMaLoaiCa() != null) ? lc.getMaLoaiCa().trim() : "";
+                                    
+                                    // Dùng equalsIgnoreCase và trim để đảm bảo so sánh chuỗi chính xác 100%
+                                    if (maLoaiCaTruyXuat.equalsIgnoreCase(maCaCuaShift)) {
+                                        
+                                        if (lc.getGioBatDau() != null) {
+                                            int gioBatDau = lc.getGioBatDau().getHour();
+                                            
+                                            if (gioBatDau >= 4 && gioBatDau < 12) {
+                                                shiftMorningCount++;       // Ca Sáng (4h - 11h59)
+                                            } else if (gioBatDau >= 12 && gioBatDau < 18) {
+                                                shiftAfternoonCount++;     // Ca Chiều (12h - 17h59)
+                                            } else {
+                                                shiftNightCount++;         // Ca Tối (18h trở đi)
+                                            }
+                                            daPhanLoai = true;
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // Nếu không khớp mã nào thì đưa vào ca trống/tối
+                            if (!daPhanLoai) {
+                                shiftNightCount++;
+                            }
+                            // Đếm số ca đã qua hoặc đang làm để làm mẫu số tính kỷ luật
+                            if (shift.getNgayLam() != null && !shift.getNgayLam().isAfter(homNay)) {
+                                pastOrActiveShiftsCount++;
+                            }
+                        }
+                    }
+
+                    // --- Tính Lương & Khấu Trừ ---
+                    BigDecimal hoursWorked = bangLuongLogic.tinhTongGioLamTrongThang(empId, targetMonth, targetYear);
+                    aggregatedWorkHours += hoursWorked.doubleValue();
+
+                    BangLuongLogic.ChiTietKhauTru chiTietKhauTru = bangLuongLogic.tinhChiTietKhauTru(empId, targetMonth, targetYear);
+                    totalLateOccurrences += chiTietKhauTru.soLanTre;
+
+                    CauHinhLuong cauHinh = cauHinhLuongDAO.layCauHinhHienTaiTheoMaNV(empId);
+                    BigDecimal hourlyWage = (cauHinh != null && cauHinh.getLuongTheoGio() != null) ? cauHinh.getLuongTheoGio() : BigDecimal.ZERO;
+                    
+                    BigDecimal estimatedSalary = hourlyWage.multiply(hoursWorked).setScale(0, RoundingMode.HALF_UP);
+                    totalPayrollPool = totalPayrollPool.add(estimatedSalary);
+
+                    // --- Lưu JSON ---
+                    JsonObject stats = new JsonObject();
+                    stats.addProperty("id", empId);
+                    stats.addProperty("name", nv.getHoTen());
+                    stats.addProperty("role", nv.getChucVu());
+                    stats.addProperty("phone", nv.getSDT() != null ? nv.getSDT() : "---");
+                    stats.addProperty("workHours", hoursWorked);
+                    stats.addProperty("revenue", staffRevenue);
+                    stats.addProperty("salary", estimatedSalary);
+                    stats.addProperty("lateCount", chiTietKhauTru.soLanTre);
+                    stats.addProperty("penalty", chiTietKhauTru.tongTienPhat);
+                    stats.addProperty("invoicesCount", invoiceCount);
+                    allEmployeeStats.add(stats);
+                }
+
+                allEmployeeStats.sort((a, b) -> b.get("revenue").getAsBigDecimal().compareTo(a.get("revenue").getAsBigDecimal()));
+
+                JsonArray datatableArray = new JsonArray();
+                JsonArray chartCategories = new JsonArray();
+                JsonArray chartRevenues = new JsonArray();
+                JsonArray chartSalaries = new JsonArray();
+                JsonArray leaderboardArray = new JsonArray();
+
+                BigDecimal highestRevenue = allEmployeeStats.isEmpty() ? BigDecimal.ZERO : allEmployeeStats.get(0).get("revenue").getAsBigDecimal();
+                String topPerformerName = allEmployeeStats.isEmpty() ? "Chưa ghi nhận" : allEmployeeStats.get(0).get("name").getAsString();
+
+                for (int i = 0; i < allEmployeeStats.size(); i++) {
+                    JsonObject s = allEmployeeStats.get(i);
+                    datatableArray.add(s);
+                    if (i < 5) {
+                        chartCategories.add(s.get("name").getAsString());
+                        chartRevenues.add(s.get("revenue").getAsBigDecimal());
+                        chartSalaries.add(s.get("salary").getAsBigDecimal());
+
+                        JsonObject card = new JsonObject();
+                        card.addProperty("id", s.get("id").getAsString());
+                        card.addProperty("name", s.get("name").getAsString());
+                        card.addProperty("role", s.get("role").getAsString());
+                        card.addProperty("revenue", s.get("revenue").getAsBigDecimal());
                         
-                        activeShiftsThisMonth++;
-
-                        if (shift.getThoiGianCheckIn() != null && shift.getThoiGianCheckOut() != null) {
-                            long minutesDiff = Duration.between(shift.getThoiGianCheckIn(), shift.getThoiGianCheckOut()).toMinutes();
-                            double calculatedHours = minutesDiff / 60.0;
-                            if (calculatedHours > 0 && calculatedHours < 16) { 
-                                staffWorkHoursMap.put(empId, staffWorkHoursMap.get(empId) + calculatedHours);
-                                aggregatedWorkHours += calculatedHours;
-                            }
-                        }
-
-                        if (shift.getThoiGianCheckIn() != null) {
-                            LocalTime timeToken = shift.getThoiGianCheckIn().toLocalTime();
-                            if ((timeToken.isAfter(LocalTime.of(8, 15)) && timeToken.isBefore(LocalTime.of(11, 45))) || 
-                                (timeToken.isAfter(LocalTime.of(13, 15)) && timeToken.isBefore(LocalTime.of(17, 45)))) {
-                                staffLateCheckInCountMap.put(empId, staffLateCheckInCountMap.get(empId) + 1);
-                                totalLateOccurrences++;
-                            }
-                        }
+                        double targetRatio = highestRevenue.compareTo(BigDecimal.ZERO) > 0 ? (s.get("revenue").getAsDouble() / highestRevenue.doubleValue()) * 100.0 : 100.0;
+                        card.addProperty("efficiencyRate", Math.round(targetRatio));
+                        leaderboardArray.add(card);
                     }
                 }
 
-                String topPerformerName = "Chưa ghi nhận";
-                BigDecimal highestRevenue = BigDecimal.ZERO;
-                for (var entry : staffSalesRevenueMap.entrySet()) {
-                    if (entry.getValue().compareTo(highestRevenue) > 0) {
-                        highestRevenue = entry.getValue();
-                        if (ordersDTO != null && ordersDTO.mapNhanVien.containsKey(entry.getKey())) {
-                            topPerformerName = ordersDTO.mapNhanVien.get(entry.getKey());
-                        } else {
-                            topPerformerName = entry.getKey();
-                        }
-                    }
-                }
-
+                // 3. Gắn thông số KPI
                 mainContainer.addProperty("totalEmployees", totalEmployeesCount);
-                mainContainer.addProperty("activeStaffCount", totalEmployeesCount); 
+                mainContainer.addProperty("activeStaffCount", activeStaffCount); 
                 mainContainer.addProperty("globalWorkforceRevenue", globalWorkforceRevenueSum);
                 mainContainer.addProperty("topPerformerName", topPerformerName);
                 mainContainer.addProperty("totalWorkHours", Math.round(aggregatedWorkHours));
-                mainContainer.addProperty("averageHoursPerEmployee", totalEmployeesCount > 0 ? Math.round(aggregatedWorkHours / totalEmployeesCount) : 0);
                 mainContainer.addProperty("totalLateOccurrences", totalLateOccurrences);
-                
-                double safePunctualityRate = activeShiftsThisMonth > 0 ? ((double)(activeShiftsThisMonth - totalLateOccurrences) / activeShiftsThisMonth) * 100.0 : 100.0;
-                mainContainer.addProperty("punctualityRate", Math.max(0, Math.min(100, Math.round(safePunctualityRate))));
+                mainContainer.addProperty("totalPayroll", totalPayrollPool);
 
-                JsonObject revenueChartNode = new JsonObject();
+                // BỔ SUNG FIX 3: Tính tỷ lệ đúng giờ chỉ trên các ca ĐÃ XẢY RA
+                double punctualityRate = pastOrActiveShiftsCount > 0 ? ((double)(pastOrActiveShiftsCount - totalLateOccurrences) / pastOrActiveShiftsCount) * 100.0 : 100.0;
+                mainContainer.addProperty("punctualityRate", Math.max(0, Math.min(100, Math.round(punctualityRate))));
+
                 JsonObject shiftsChartNode = new JsonObject();
-                
                 shiftsChartNode.addProperty("Ca Sáng", shiftMorningCount);
                 shiftsChartNode.addProperty("Ca Chiều", shiftAfternoonCount);
                 shiftsChartNode.addProperty("Ca Tối", shiftNightCount);
                 mainContainer.add("shiftDistribution", shiftsChartNode);
 
-                JsonArray leaderboardArray = new JsonArray();
-                List<Map.Entry<String, BigDecimal>> sortedStaffSales = staffSalesRevenueMap.entrySet().stream()
-                        .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
-                        .limit(5)
-                        .collect(Collectors.toList()); // ĐÃ SỬA LỖI Ở ĐÂY
+                JsonObject dualChart = new JsonObject();
+                dualChart.add("categories", chartCategories);
+                dualChart.add("revenues", chartRevenues);
+                dualChart.add("salaries", chartSalaries);
+                mainContainer.add("dualBarChart", dualChart);
 
-                for (var entry : sortedStaffSales) {
-                    String empId = entry.getKey();
-                    JsonObject card = new JsonObject();
-                    card.addProperty("id", empId);
-                    
-                    String hoTen = ordersDTO != null && ordersDTO.mapNhanVien.containsKey(empId) ? ordersDTO.mapNhanVien.get(empId) : "Nhân viên " + empId;
-                    card.addProperty("name", hoTen);
-                    card.addProperty("role", mapChucVuNhanVien.getOrDefault(empId, "Thu Ngân"));
-                    card.addProperty("revenue", entry.getValue());
-                    card.addProperty("invoicesCount", staffInvoiceCountMap.getOrDefault(empId, 0));
-                    
-                    double targetRatio = highestRevenue.compareTo(BigDecimal.ZERO) > 0 ? (entry.getValue().doubleValue() / highestRevenue.doubleValue()) * 100.0 : 100.0;
-                    card.addProperty("efficiencyRate", Math.round(targetRatio));
-                    leaderboardArray.add(card);
-                    
-                    revenueChartNode.addProperty(hoTen, entry.getValue());
-                }
-                mainContainer.add("salesByEmployee", revenueChartNode);
                 mainContainer.add("employeeLeaderboard", leaderboardArray);
-
-                JsonArray datatableArray = new JsonArray();
-                for (String empId : mapChucVuNhanVien.keySet()) {
-                    JsonObject row = new JsonObject();
-                    row.addProperty("id", empId);
-                    
-                    String hoTen = ordersDTO != null && ordersDTO.mapNhanVien.containsKey(empId) ? ordersDTO.mapNhanVien.get(empId) : "Nhân viên " + empId;
-                    row.addProperty("name", hoTen);
-                    row.addProperty("role", mapChucVuNhanVien.getOrDefault(empId, "Thu Ngân"));
-                    row.addProperty("phone", mapSdtNhanVien.getOrDefault(empId, "---"));
-                    row.addProperty("revenue", staffSalesRevenueMap.getOrDefault(empId, BigDecimal.ZERO));
-                    row.addProperty("workHours", Math.round(staffWorkHoursMap.getOrDefault(empId, 0.0) * 10.0) / 10.0);
-                    row.addProperty("lateCount", staffLateCheckInCountMap.getOrDefault(empId, 0));
-                    row.addProperty("status", "ACTIVE");
-                    datatableArray.add(row);
-                }
                 mainContainer.add("employeeGridMatrix", datatableArray);
 
+                // AI Insights
                 JsonArray operationalInsights = new JsonArray();
                 if (highestRevenue.compareTo(BigDecimal.ZERO) > 0) {
-                    operationalInsights.add("🔥 Chiến thần doanh số '" + topPerformerName + "' xuất sắc dẫn đầu chỉ số KPI doanh thu cá nhân chi nhánh.");
+                    operationalInsights.add("<i class='ti ti-flame' style='color:#f59e0b;margin-right:6px'></i> Chiến thần doanh số '" + topPerformerName + "' xuất sắc dẫn đầu chi nhánh.");
                 }
-                if (totalLateOccurrences > 0) {
-                    operationalInsights.add("⚠️ Ghi nhận " + totalLateOccurrences + " lượt đi trễ trong tháng. Đề xuất ban quản lý nhắc nhở kỷ luật phân ca.");
-                } else {
-                    operationalInsights.add("🚀 Chỉ số tuân thủ giờ giấc của tập thể đạt tỷ lệ tối ưu 100%. Không có trường hợp đi trễ.");
+                if (globalWorkforceRevenueSum.compareTo(BigDecimal.ZERO) > 0) {
+                    double payrollRatio = (totalPayrollPool.doubleValue() / globalWorkforceRevenueSum.doubleValue()) * 100;
+                    if (payrollRatio > 40) {
+                        operationalInsights.add("<i class='ti ti-alert-triangle' style='color:#f43f5e;margin-right:6px'></i> BÁO ĐỘNG ĐỎ: Chi phí lương chiếm " + String.format("%.1f", payrollRatio) + "% doanh thu. Cần tối ưu lại lịch phân ca hoặc đẩy mạnh bán hàng!");
+                    } else {
+                        operationalInsights.add("<span class='emo'>✅</span> Tỷ suất Lương / Doanh thu đạt mức " + String.format("%.1f", payrollRatio) + "%. Hiệu suất chi phí đang được kiểm soát tốt.");
+                    }
                 }
-                operationalInsights.add("💡 Phân ca làm việc buổi tối ('Ca Tối') đang tạo ra hiệu suất giao dịch thương mại sầm uất nhất.");
                 mainContainer.add("workforceInsights", operationalInsights);
 
+                // BỔ SUNG FIX 4: Timeline logic chuẩn xác
                 JsonArray timelineArray = new JsonArray();
                 DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
-                
-                dsChiaCa.stream()
+                tatCaCaThangNay.stream()
+                        .filter(c -> c.getNgayLam() != null)
                         .sorted((c1, c2) -> {
-                            if (c1.getNgayLam() == null || c2.getNgayLam() == null) return 0;
-                            return c2.getNgayLam().compareTo(c1.getNgayLam());
+                            int dateCompare = c2.getNgayLam().compareTo(c1.getNgayLam());
+                            if (dateCompare != 0) return dateCompare;
+                            if (c1.getThoiGianCheckIn() == null && c2.getThoiGianCheckIn() == null) return 0;
+                            if (c1.getThoiGianCheckIn() == null) return 1;
+                            if (c2.getThoiGianCheckIn() == null) return -1;
+                            return c2.getThoiGianCheckIn().compareTo(c1.getThoiGianCheckIn());
                         })
-                        .limit(5)
+                        .limit(8)
                         .forEach(shift -> {
                             JsonObject cell = new JsonObject();
-                            String nvName = ordersDTO != null && ordersDTO.mapNhanVien.containsKey(shift.getMaNV()) ? ordersDTO.mapNhanVien.get(shift.getMaNV()) : shift.getMaNV();
+                            String nvName = shift.getMaNV();
+                            for (JsonObject s : allEmployeeStats) {
+                                if (s.get("id").getAsString().equals(shift.getMaNV())) { nvName = s.get("name").getAsString(); break; }
+                            }
                             cell.addProperty("staff", nvName);
-                            cell.addProperty("shiftId", shift.getMaCa() + " (" + shift.getMaLoaiCa() + ")");
-                            cell.addProperty("dateLabel", shift.getNgayLam() != null ? shift.getNgayLam().format(DateTimeFormatter.ofPattern("dd/MM")) : "--");
+                            
+                            // Map lại tên ca cho đẹp (VD: LC01 -> Ca Sáng)
+                            String hienThiCa = shift.getMaLoaiCa();
+                            if (dsLoaiCa != null) {
+                                for (Data.LoaiCa lc : dsLoaiCa) {
+                                    // Áp dụng trim() ở đây nữa để timeline hiện đúng chữ "Ca Sáng", "Ca Chiều"
+                                    if (lc.getMaLoaiCa() != null && lc.getMaLoaiCa().trim().equalsIgnoreCase(shift.getMaLoaiCa().trim())) {
+                                        hienThiCa = lc.getTenCa(); 
+                                        break;
+                                    }
+                                }
+                            }
+                            cell.addProperty("shiftId", shift.getMaCa() + " (" + hienThiCa + ")");
+                            cell.addProperty("dateLabel", shift.getNgayLam().format(DateTimeFormatter.ofPattern("dd/MM")));
                             
                             String checkInStr = shift.getThoiGianCheckIn() != null ? shift.getThoiGianCheckIn().format(timeFormatter) : "--:--";
-                            String checkOutStr = shift.getThoiGianCheckOut() != null ? shift.getThoiGianCheckOut().format(timeFormatter) : "Đang ca";
+                            String checkOutStr = "";
+                            
+                            if (shift.getThoiGianCheckOut() != null) {
+                                checkOutStr = shift.getThoiGianCheckOut().format(timeFormatter);
+                            } else if (shift.getThoiGianCheckIn() != null) {
+                                checkOutStr = "Đang ca";
+                            } else if (shift.getNgayLam().isAfter(homNay)) {
+                                checkOutStr = "Chưa tới giờ";
+                            } else {
+                                checkOutStr = "Vắng mặt";
+                            }
+                            
                             cell.addProperty("timeFrame", checkInStr + " → " + checkOutStr);
                             timelineArray.add(cell);
                         });
@@ -333,7 +365,6 @@ public class NhanVienPanel extends JPanel {
                 lastCachedDashboardJson = gson.toJson(mainContainer);
                 return lastCachedDashboardJson;
                 
-            // BẮT LỖI CỰC MẠNH: Nếu có lỗi hệ thống, nó sẽ in thẳng ra Console đỏ chót
             } catch (Throwable e) {
                 System.err.println("🔥 [CRITICAL ERROR] Quá trình xử lý nền bị sập: " + e.getMessage());
                 e.printStackTrace();
@@ -349,9 +380,7 @@ public class NhanVienPanel extends JPanel {
     private void executeJavaScript(String scriptText) {
         Platform.runLater(() -> {
             try {
-                if (webEngine != null) {
-                    webEngine.executeScript(scriptText);
-                }
+                if (webEngine != null) webEngine.executeScript(scriptText);
             } catch (Exception e) {}
         });
     }
@@ -362,41 +391,17 @@ public class NhanVienPanel extends JPanel {
                 pushLiveWorkforceAnalytics(true);
             } else if ("ADD_STAFF".equalsIgnoreCase(actionToken)) {
                 if (actionCallback != null) actionCallback.moThemNhanVien();
-                else JOptionPane.showMessageDialog(this, "Chưa kết nối Router: Chuẩn bị mở form Thêm Nhân Viên");
             } else if ("ASSIGN_SHIFT".equalsIgnoreCase(actionToken)) {
                 if (actionCallback != null) actionCallback.moPhanCa();
-                else JOptionPane.showMessageDialog(this, "Chưa kết nối Router: Chuẩn bị mở form Phân Ca");
-            } else if ("EXPORT".equalsIgnoreCase(actionToken)) {
-                JOptionPane.showMessageDialog(this, "Đang khởi tạo tệp trích xuất đối soát hiệu suất nhân sự ra Excel...", "Xuất Báo Cáo", JOptionPane.INFORMATION_MESSAGE);
             } else if (actionToken.startsWith("VIEW_")) {
+                
+                // --- ĐÃ SỬA: Thay vì hiện thông báo popup, gọi callback ---
                 String staffId = actionToken.substring(5);
-                JOptionPane.showMessageDialog(this, "Đang mở hồ sơ của Nhân viên: " + staffId, "Hồ sơ Nhân sự", JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
-    }
-
-    public static void main(String[] args) {
-        try {
-            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    UIManager.setLookAndFeel(info.getClassName());
-                    break;
+                if (actionCallback != null) {
+                    actionCallback.xemHoSoLuong(staffId);
                 }
+                
             }
-        } catch (Exception e) {
-            try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ex) {}
-        }
-
-        SwingUtilities.invokeLater(() -> {
-            JFrame devFrame = new JFrame("Workforce Intelligence HR SaaS Engine - Standalone Runtime Verification");
-            devFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            devFrame.setSize(1420, 830);
-            devFrame.setMinimumSize(new Dimension(1050, 660));
-            devFrame.setLocationRelativeTo(null);
-
-            NhanVienPanel workforcePanel = new NhanVienPanel();
-            devFrame.add(workforcePanel, BorderLayout.CENTER);
-            devFrame.setVisible(true);
         });
     }
 }

@@ -4,7 +4,6 @@ let filteredWorkforcePartition = [];
 let salesBarChartInstance = null;
 let shiftDonutChartInstance = null;
 
-// Datatable paging configuration metrics
 let currentPagerPageIndex = 0;
 const tablePageSizeLimit = 5;
 
@@ -13,18 +12,24 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function initializeGraphicalShellStructures() {
-    // Render standard initial bar chart frames matching Java data arrays
+    // 🔥 ĐÃ SỬA: Cấu hình biểu đồ Cột Kép (Stacked/Grouped Bar)
     salesBarChartInstance = new ApexCharts(document.querySelector("#chartSalesByEmployee"), {
-        series: [{ name: 'Doanh số tạo ra', data: [0, 0, 0, 0, 0] }],
+        series: [
+            { name: 'Doanh Thu', data: [0, 0, 0, 0, 0] },
+            { name: 'Chi Phí Lương', data: [0, 0, 0, 0, 0] }
+        ],
         chart: { type: 'bar', height: 255, toolbar: { show: false }, fontFamily: 'Inter' },
-        plotOptions: { bar: { columnWidth: '45%', borderRadius: 6 } },
-        colors: ['#0284c7'],
-        xaxis: { categories: ['Nhân viên A', 'Nhân viên B', 'Nhân viên C', 'Nhân viên D', 'Nhân viên E'] },
-        yaxis: { labels: { formatter: val => new Intl.NumberFormat('vi-VN').format(val) + "đ" } }
+        plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4, dataLabels: { position: 'top' } } },
+        dataLabels: { enabled: false },
+        stroke: { show: true, width: 2, colors: ['transparent'] },
+        colors: ['#10b981', '#f59e0b'], // Xanh ngọc cho Doanh Thu, Vàng Cam cho Lương
+        xaxis: { categories: ['NV A', 'NV B', 'NV C', 'NV D', 'NV E'] },
+        yaxis: { labels: { formatter: val => new Intl.NumberFormat('vi-VN').format(val) + "đ" } },
+        fill: { opacity: 1 },
+        tooltip: { y: { formatter: function (val) { return new Intl.NumberFormat('vi-VN').format(val) + " VNĐ" } } }
     });
     salesBarChartInstance.render();
 
-    // Render configuration metrics for shift segments donuts
     shiftDonutChartInstance = new ApexCharts(document.querySelector("#chartShiftDistribution"), {
         series: [1, 1, 1],
         chart: { type: 'donut', height: 255, fontFamily: 'Inter' },
@@ -35,49 +40,50 @@ function initializeGraphicalShellStructures() {
     shiftDonutChartInstance.render();
 }
 
-/**
- * HIGH-PERFORMANCE DATA INJECTION BRIDGE POINT EXECUTES FROM JAVA APPLICATION LOOP
- */
 function updateWorkforceDashboard(payload) {
     if (!payload) return;
 
-    // 1. Assign numeric nodes into Counter Metric Grid Card Elements
+    // 1. Cập nhật thẻ KPI
     document.getElementById("txt-total-employees").innerText = payload.totalEmployees || 0;
-    document.getElementById("txt-active-count").innerText = (payload.activeStaffCount || 0) + " tài khoản đang hoạt động";
+    document.getElementById("txt-active-count").innerText = (payload.activeStaffCount || 0) + " đang hoạt động";
     document.getElementById("txt-global-revenue").innerText = new Intl.NumberFormat('vi-VN').format(payload.globalWorkforceRevenue || 0) + "đ";
-    document.getElementById("txt-top-performer").innerText = "Top Performer: " + payload.topPerformerName;
-    document.getElementById("txt-total-hours").innerText = (payload.totalWorkHours || 0) + "h";
-    document.getElementById("txt-avg-hours").innerText = "Trung bình: " + (payload.averageHoursPerEmployee || 0) + "h / nhân sự";
+    document.getElementById("txt-top-performer").innerText = "Top: " + payload.topPerformerName;
+    
+    // 🔥 ĐÃ SỬA: Nạp dữ liệu Quỹ lương thay vì Giờ công
+    document.getElementById("txt-total-payroll").innerText = new Intl.NumberFormat('vi-VN').format(payload.totalPayroll || 0) + "đ";
+    document.getElementById("txt-total-hours").innerText = "Dựa trên tổng " + (payload.totalWorkHours || 0) + "h công";
+    
     document.getElementById("txt-late-count").innerText = (payload.totalLateOccurrences || 0) + " lượt";
-    document.getElementById("txt-punctuality-rate").innerText = "Tỷ lệ đúng giờ: " + (payload.punctualityRate || 100) + "%";
+    document.getElementById("txt-punctuality-rate").innerText = "Đúng giờ: " + (payload.punctualityRate || 100) + "%";
 
-    // 2. Refresh dynamic chart arrays elements seamlessly
-    if (payload.salesByEmployee) {
-        const categories = Object.keys(payload.salesByEmployee);
-        const dataValues = Object.values(payload.salesByEmployee);
-        salesBarChartInstance.updateOptions({ xaxis: { categories: categories } });
-        salesBarChartInstance.updateSeries([{ name: 'Doanh thu cá nhân', data: dataValues }]);
+    // 2. Cập nhật biểu đồ kép Doanh Thu vs Lương
+    if (payload.dualBarChart) {
+        salesBarChartInstance.updateOptions({
+            xaxis: { 
+                categories: payload.dualBarChart.categories 
+            },
+            series: [
+                { name: 'Doanh Thu', data: payload.dualBarChart.revenues },
+                { name: 'Chi Phí Lương', data: payload.dualBarChart.salaries }
+            ]
+        }, false, true); // Thêm cờ ép biểu đồ tự động tính toán lại kích thước hiển thị
     }
 
     if (payload.shiftDistribution) {
-        const donutLabels = Object.keys(payload.shiftDistribution);
-        const donutSeries = Object.values(payload.shiftDistribution);
-        shiftDonutChartInstance.updateOptions({ labels: donutLabels });
-        shiftDonutChartInstance.updateSeries(donutSeries);
+        shiftDonutChartInstance.updateOptions({ labels: Object.keys(payload.shiftDistribution) });
+        shiftDonutChartInstance.updateSeries(Object.values(payload.shiftDistribution));
     }
 
-    // 3. Render AI Intelligence Bulletin Rows
+    // 3. AI Insights
     const insightsFeedBox = document.getElementById("insightsContainerTarget");
     insightsFeedBox.innerHTML = "";
     if (payload.workforceInsights && payload.workforceInsights.length > 0) {
         payload.workforceInsights.forEach(bulletText => {
             insightsFeedBox.innerHTML += `<div class="ai-insight-row-card">${bulletText}</div>`;
         });
-    } else {
-        insightsFeedBox.innerHTML = '<div style="padding:10px;color:#64748b;font-size:13px;">✅ Chỉ số vận hành tối ưu. Không ghi nhận biến động nhân sự cấp bách.</div>';
     }
 
-    // 4. Render Luxury MVP Leaderboard Rows
+    // 4. Leaderboard
     const leaderboardBox = document.getElementById("leaderboardContainerTarget");
     leaderboardBox.innerHTML = "";
     if (payload.employeeLeaderboard && payload.employeeLeaderboard.length > 0) {
@@ -91,65 +97,70 @@ function updateWorkforceDashboard(payload) {
                         <div style="font-weight:600;">${staff.name}</div>
                         <span class="badge-pill-tier">${staff.role}</span>
                     </div>
-                    <div class="leader-cell-node" style="width:30%; text-align:right; font-weight:700; color:var(--blue-premium-accent);">
+                    <div class="leader-cell-node" style="width:30%; text-align:right; font-weight:700; color:var(--emerald-success);">
                         ${new Intl.NumberFormat('vi-VN').format(staff.revenue)}đ
                         <div style="font-size:11px; color:#64748b; font-weight:400; margin-top:2px;">Hiệu suất: ${staff.efficiencyRate}%</div>
                     </div>
                 </div>
             `;
         });
-    } else {
-        leaderboardBox.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;">Chưa có chỉ số xếp hạng doanh thu kỳ này.</div>';
     }
 
-    // 5. Append Realtime Shift Tracker Stream elements
+    // 5. Timeline
     const timelineBox = document.getElementById("timelineContainerTarget");
     timelineBox.innerHTML = "";
     if (payload.shiftTimeline && payload.shiftTimeline.length > 0) {
         payload.shiftTimeline.forEach(log => {
             timelineBox.innerHTML += `
                 <div class="timeline-event-card">
-                    <span class="timeline-stamp-lbl">Ngày ${log.dateLabel} - Lịch trình ca làm: ${log.shiftId}</span>
+                    <span class="timeline-stamp-lbl">Ngày ${log.dateLabel} - Lịch trình ca: ${log.shiftId}</span>
                     <div class="timeline-main-desc">${log.staff} check-in</div>
                     <div style="font-size:12px; color:#475569;">Thời gian thực nhận diện: <b>${log.timeFrame}</b></div>
                 </div>
             `;
         });
-    } else {
-        timelineBox.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;">Chưa có nhật ký check-in ca kíp gần đây.</div>';
     }
 
-    // 6. Bind complete dataset memory rows for high performance offline search structures
+    // 6. Datatable Binding
     if (payload.employeeGridMatrix) {
         hrmMasterDataset = payload.employeeGridMatrix;
         dispatchRealtimeFilterCoordinates();
     }
 }
 
-// =========================================================================
-// 🔥 DIACRITIC REMOVAL FILTERING TECHNIQUE (O(1) PROCESSING COMPLEXITY)
-// =========================================================================
 function removeVietnameseAccents(str) {
     if (!str) return "";
-    return str.toLowerCase()
-        .normalize("NFD")
-        .replace(/[̀-ͯ]/g, "")
-        .replace(/đ/g, "d");
+    return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
 }
 
 function dispatchRealtimeFilterCoordinates() {
+    // 1. Lấy từ khóa từ giao diện (HTML)
     const rawSearchToken = document.getElementById("hrmSearchField").value;
     const cleanKeyword = removeVietnameseAccents(rawSearchToken.trim());
     const roleSelectorValue = document.getElementById("roleFilterBox").value;
 
+    // 2. Lọc mảng dữ liệu gốc (hrmMasterDataset)
     filteredWorkforcePartition = hrmMasterDataset.filter(staff => {
-        const normalizedName = removeVietnameseAccents(staff.name);
-        const matchesSearch = normalizedName.includes(cleanKeyword) || staff.id.toLowerCase().includes(cleanKeyword) || staff.phone.includes(cleanKeyword);
-        const matchesRole = (roleSelectorValue === "ALL" || staff.role.includes(roleSelectorValue));
+        // Chuẩn hóa dữ liệu chống Null/Undefined để tránh sập bộ lọc
+        const safeName = staff.name ? removeVietnameseAccents(staff.name) : "";
+        const safeId = staff.id ? staff.id.toLowerCase() : "";
+        const safePhone = staff.phone ? staff.phone.toLowerCase() : "";
+        const safeRole = staff.role ? staff.role : "";
+
+        // So khớp từ khóa (Tìm theo Tên, Mã NV hoặc SĐT)
+        const matchesSearch = cleanKeyword === "" || 
+                              safeName.includes(cleanKeyword) || 
+                              safeId.includes(cleanKeyword) || 
+                              safePhone.includes(cleanKeyword);
+                              
+        // So khớp Dropdown chức vụ
+        const matchesRole = (roleSelectorValue === "ALL" || safeRole.includes(roleSelectorValue));
+        
         return matchesSearch && matchesRole;
     });
 
-    currentPagerPageIndex = 0; // Back to initial segment frame index
+    // 3. Reset phân trang về trang 1 và vẽ lại bảng
+    currentPagerPageIndex = 0;
     compileDatatableDOMStructure();
 }
 
@@ -157,28 +168,40 @@ function compileDatatableDOMStructure() {
     const tbody = document.getElementById("hrmTableRowsTarget");
     tbody.innerHTML = "";
 
+    // Tính toán vị trí cắt mảng cho Phân trang
     const startIndex = currentPagerPageIndex * tablePageSizeLimit;
     const endIndex = startIndex + tablePageSizeLimit;
     const currentPartitionSegment = filteredWorkforcePartition.slice(startIndex, endIndex);
 
-    // Update index trackers coordinates indicators text metrics
+    // Cập nhật nhãn đếm "Hiển thị 1 - 5 của X nhân viên"
+    const totalItems = filteredWorkforcePartition.length;
+    const startLabel = totalItems > 0 ? startIndex + 1 : 0;
+    const endLabel = Math.min(endIndex, totalItems);
+    
     document.getElementById("txtPaginationDisplayLabel").innerText = 
-        `Hiển thị ${filteredWorkforcePartition.length > 0 ? startIndex + 1 : 0} - ${Math.min(endIndex, filteredWorkforcePartition.length)} của ${filteredWorkforcePartition.length} nhân sự`;
+        `Hiển thị ${startLabel} - ${endLabel} của ${totalItems} nhân sự`;
 
+    // NẾU TÌM KHÔNG THẤY AI -> Báo rỗng
     if (currentPartitionSegment.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b;padding:30px;">Không tìm thấy kết quả đối soát nhân sự phù hợp.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#64748b; padding:40px; font-size:14px;">🔍 Không tìm thấy nhân viên nào khớp với bộ lọc.</td></tr>`;
         return;
     }
 
+    // NẾU CÓ DỮ LIỆU -> Vẽ từng dòng (Nối dây nút Hồ Sơ sang Java)
     currentPartitionSegment.forEach(s => {
+        const penaltyStr = s.penalty > 0 ? '-' + new Intl.NumberFormat('vi-VN').format(s.penalty) + 'đ' : '0đ';
+        
         tbody.innerHTML += `
             <tr>
                 <td style="font-weight:600; color:var(--blue-premium-accent);">${s.id}</td>
-                <td><b>${s.name}</b><div style="font-size:11px; color:#64748b;">Số đi trễ: ${s.lateCount} lần</div></td>
-                <td>${s.phone}</td>
-                <td><span style="font-weight:500;">${s.role}</span></td>
-                <td style="text-align:right; font-weight:600; color:#475569;">${s.workHours}h</td>
-                <td style="text-align:right; font-weight:700; color:var(--text-slate-primary);">${new Intl.NumberFormat('vi-VN').format(s.revenue)}đ</td>
+                <td>
+                    <b>${s.name}</b>
+                    <div style="font-size:11px; color:#64748b; margin-top:2px;">Điện thoại: ${s.phone || '---'}</div>
+                </td>
+                <td><span style="font-weight:600; color:#475569;">${s.workHours}h</span></td>
+                <td style="text-align:right; font-weight:700; color:var(--emerald-success);">${new Intl.NumberFormat('vi-VN').format(s.revenue)}đ</td>
+                <td style="text-align:right; font-weight:700; color:var(--amber-warning);">${new Intl.NumberFormat('vi-VN').format(s.salary)}đ</td>
+                <td style="text-align:right; font-weight:600; color:var(--rose-danger);">${penaltyStr}</td>
                 <td style="text-align:right;">
                     <button class="micro-action-btn" onclick="alert('ACTION:VIEW_${s.id}')">Hồ sơ</button>
                 </td>
@@ -190,7 +213,7 @@ function compileDatatableDOMStructure() {
 function adjustPagerPagePointer(direction) {
     const maximumPossiblePages = Math.ceil(filteredWorkforcePartition.length / tablePageSizeLimit);
     const calculatedNextIndex = currentPagerPageIndex + direction;
-
+    
     if (calculatedNextIndex >= 0 && calculatedNextIndex < maximumPossiblePages) {
         currentPagerPageIndex = calculatedNextIndex;
         compileDatatableDOMStructure();
