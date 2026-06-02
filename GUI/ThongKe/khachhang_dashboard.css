@@ -42,6 +42,11 @@ body {
     width: 100%;
     margin-bottom: 28px;
     display: block;
+    
+    /* 🔥 THÊM 2 DÒNG NÀY ĐỂ KÉO LỊCH NỔI LÊN TRÊN CÙNG */
+    position: relative; 
+    z-index: 9999;      
+    transform: translateZ(0);
 }
 
 .header-branding-block {
@@ -140,6 +145,8 @@ body {
     width: 100%;
     margin-bottom: 28px;
     display: block;
+    position: relative;
+    z-index: 1;
 }
 
 .kpi-column-dimension {
@@ -483,3 +490,172 @@ body {
     display: block;
     width: 100%;
 }
+
+/* Giao diện bộ lọc thời gian */
+.date-picker-group {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+    background: var(--card-surface);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    position: relative;
+}
+.date-picker-group:hover {
+    border-color: var(--blue-accent);
+}
+.premium-date-box {
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--text-slate-heavy);
+    background: transparent;
+    cursor: pointer;
+    text-align: center; /* Căn giữa ngày tháng giống ảnh của bạn */
+    font-weight: 500;
+}
+
+.date-separator {
+    color: var(--text-slate-muted);
+    margin: 0 6px;
+    font-weight: 600;
+}
+
+/* Xóa block flatpickr cũ, thêm style này */
+#dateStart, #dateEnd {
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text-slate-heavy);
+    background: transparent;
+    cursor: pointer;
+    font-weight: 500;
+    vertical-align: middle;
+}
+.inline-calendar-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 16px;
+    width: 300px;
+    /* Làm viền bóng đổ đậm hơn 1 xíu để nổi bật */
+    box-shadow: 0 8px 30px rgba(15,23,42,0.15); 
+    
+    /* 🔥 Kéo z-index max tầm và ép Hardware Acceleration */
+    z-index: 99999;
+    transform: translateZ(0);
+    white-space: normal; 
+    text-align: left;
+}
+
+.cal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.cal-nav-btn {
+    flex: 0 0 32px; /* Khóa cứng chiều rộng đúng 32px, không cho co rút */
+    height: 32px;   /* Thêm chiều cao để nút vuông vắn */
+    background: #f1f5f9;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    text-align: center;
+    padding: 0;
+    line-height: 32px; /* Căn giữa mũi tên theo chiều dọc */
+    transition: var(--transition-smooth);
+}
+.cal-nav-btn:hover { 
+    background: #e2e8f0; 
+}
+
+.cal-month-title {
+    flex: 1; /* Tự động đẩy 2 nút ra sát 2 mép, chiếm hết khoảng trống ở giữa */
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-slate-heavy);
+}
+
+.cal-weekdays {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    margin-bottom: 4px;
+}
+.cal-weekdays span {
+    display: table-cell;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    padding: 4px 0;
+}
+
+.cal-days-grid {
+    display: block;
+    width: 100%;
+    font-size: 0; /* loại bỏ khoảng trắng giữa inline-block */
+}
+.cal-day-cell {
+    display: inline-block;
+    width: 14.2857%; /* 100/7 */
+    text-align: center;
+    padding: 6px 0;
+    font-size: 13px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text-slate-heavy);
+    font-weight: 500;
+    box-sizing: border-box;
+}
+.cal-day-cell:hover:not(.disabled):not(.empty) {
+    background: #eff6ff;
+    color: var(--blue-accent);
+}
+.cal-day-cell.empty { cursor: default; }
+.cal-day-cell.disabled { color: #cbd5e1; cursor: not-allowed; }
+.cal-day-cell.in-range { background: #dbeafe; color: #1d4ed8; }
+.cal-day-cell.sel-start,
+.cal-day-cell.sel-end {
+    background: var(--blue-accent) !important;
+    color: white !important;
+    font-weight: 700;
+}
+
+.cal-footer {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    margin-top: 12px;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 10px;
+}
+.cal-footer span { display: table-cell; vertical-align: middle; }
+.cal-confirm-btn {
+    display: table-cell;
+    width: 80px;
+    background: var(--blue-accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 0;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    font-family: inherit;
+}
+.cal-confirm-btn:hover { opacity: 0.9; }

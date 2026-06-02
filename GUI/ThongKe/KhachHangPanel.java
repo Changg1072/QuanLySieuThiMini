@@ -38,6 +38,8 @@ public class KhachHangPanel extends JPanel {
     private final Gson gson = new Gson();
     private String lastCachedJson = null;
     private final Map<String, KhachHang> customerCache = new HashMap<>();
+    private LocalDate filterStartDate = LocalDate.now().withDayOfMonth(1);
+    private LocalDate filterEndDate = LocalDate.now();
 
     public KhachHangPanel() {
         setName("KhachHangPanel");
@@ -130,8 +132,8 @@ public class KhachHangPanel extends JPanel {
                 // ✅ Dùng biến 'customers' (effectively final) trong tất cả lambda bên dưới
                 long newCustomersThisMonth = customers.stream()
                         .filter(c -> c.getNgayDangKy() != null
-                                && c.getNgayDangKy().getMonthValue() == currentMonthValue
-                                && c.getNgayDangKy().getYear() == currentYearValue)
+                                && !c.getNgayDangKy().isBefore(filterStartDate)
+                                && !c.getNgayDangKy().isAfter(filterEndDate))
                         .count();
 
                 long vipCount = customers.stream()
@@ -179,14 +181,31 @@ public class KhachHangPanel extends JPanel {
                 }
 
                 if (dsHoaDon != null) {
-                    totalInvoiceCount = dsHoaDon.size();
+                    // Xóa totalInvoiceCount = dsHoaDon.size(); đi, ta sẽ tự đếm bên dưới
+                    totalInvoiceCount = 0; 
+
                     for (HoaDon bill : dsHoaDon) {
+                        
+                        // 🔥 BƯỚC 1: KIỂM TRA ĐIỀU KIỆN LỌC THEO NGÀY THÁNG
+                        LocalDate ngayTao = null;
+                        if (bill.getNgayTao() != null) {
+                            ngayTao = bill.getNgayTao().toLocalDate(); // Đổi từ LocalDateTime sang LocalDate
+                        }
+                        
+                        // Nếu hóa đơn nằm ngoài khoảng thời gian lọc -> Bỏ qua không tính
+                        if (ngayTao == null || ngayTao.isBefore(filterStartDate) || ngayTao.isAfter(filterEndDate)) {
+                            continue;
+                        }
+
+                        // 🔥 BƯỚC 2: TÍNH TOÁN CHO CÁC HÓA ĐƠN HỢP LỆ BÊN TRONG MỐC THỜI GIAN
+                        totalInvoiceCount++; // Tăng biến đếm đơn hàng hợp lệ
+                        
                         double thanhTienBill = bill.getThanhTien() != null ? bill.getThanhTien().doubleValue() : 0.0;
                         
-                        // 🔥 Logic kiểm tra đơn trả hàng (Dựa vào boolean isTraHang của class HoaDon)
+                        // Logic kiểm tra đơn trả hàng 
                         boolean isTraHang = false; 
                         try {
-                            isTraHang = bill.getTraHang(); // LƯU Ý: Nếu class HoaDon của bạn dùng getTraHang(), hãy sửa lại chữ is thành get nhé!
+                            isTraHang = bill.getTraHang(); // LƯU Ý: Nếu dùng getTraHang(), giữ nguyên nhé!
                         } catch (Exception ignored) {}
 
                         if (isTraHang) {
@@ -399,34 +418,40 @@ public class KhachHangPanel extends JPanel {
         });
     }
 
-    private void processClientDomSignal(String actionData) {
+        private void processClientDomSignal(String actionData) {
         SwingUtilities.invokeLater(() -> {
             if ("SYNC".equalsIgnoreCase(actionData)) {
                 pushLiveCustomerAnalytics(true);
-            } else if ("ADD_CUSTOMER".equalsIgnoreCase(actionData)) {
-                JOptionPane.showMessageDialog(this, "He thong chuan bi kich hoat Form: THEM MOI KHACH HANG",
-                        "CRM Bridge", JOptionPane.INFORMATION_MESSAGE);
-            } else if ("EXPORT".equalsIgnoreCase(actionData)) {
-                JOptionPane.showMessageDialog(this, "Dang trich xuat bao cao phan tich tep khach hang CRM...",
-                        "Excel Export", JOptionPane.INFORMATION_MESSAGE);
-            } else if (actionData.startsWith("VIEW_")) {
+            } 
+            // 🔥 XỬ LÝ LỌC THEO NGÀY
+            else if (actionData.startsWith("DATE_SYNC|")) {
+                try {
+                    String[] parts = actionData.split("\\|");
+                    filterStartDate = LocalDate.parse(parts[1]); // YYYY-MM-DD
+                    filterEndDate = LocalDate.parse(parts[2]);
+                    pushLiveCustomerAnalytics(true); // Yêu cầu tính lại toàn bộ
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            } 
+            // 🔥 XỬ LÝ NÚT XUẤT EXCEL KÈM TÊN FILE
+            else if (actionData.startsWith("EXPORT|")) {
+                String fileName = actionData.split("\\|")[1];
+                JOptionPane.showMessageDialog(this, 
+                        "Hệ thống đang trích xuất dữ liệu ra file:\n" + fileName,
+                        "Xuất báo cáo CRM", JOptionPane.INFORMATION_MESSAGE);
                 
-                // 1. Tách lấy Mã Khách Hàng (VD: VIEW_KH001 -> KH001)
+                // GỌI HÀM XUẤT EXCEL THỰC TẾ CỦA BẠN TẠI ĐÂY...
+                
+            } 
+            else if (actionData.startsWith("VIEW_")) {
                 String targetId = actionData.substring(5);
-                
-                // 2. 🚀 TRUY VẤN SIÊU TỐC O(1) TỪ RAM (Bỏ qua gọi DB)
                 KhachHang kh = customerCache.get(targetId);
-                
-                // 3. Hiển thị Dialog (Bên trong Dialog sẽ tự kích hoạt TruyVanSieuTocDAO lấy chi tiết hóa đơn)
                 if (kh != null) {
                     LichSuMuaHangDialog.showModal(this, kh);
                 } else {
-                    JOptionPane.showMessageDialog(this, 
-                        "Không tìm thấy thông tin chi tiết của khách hàng: " + targetId,
-                        "Lỗi Dữ Liệu", 
-                        JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Không tìm thấy thông tin khách hàng: " + targetId, "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
-                
             }
         });
     }

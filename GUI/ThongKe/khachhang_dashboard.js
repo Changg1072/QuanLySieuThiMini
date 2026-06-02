@@ -3,15 +3,160 @@ let localizedFilteredPartition = [];
 let customerRanksDonutInstance = null;
 let originalDashboardData = null;
 let tierRevenueBarChartInstance = null;
-
+let fpDateRangeInstance = null;
 // Table pagination pointer limits
 let currentPagerIndex = 0;
 const pagerPageSizeValue = 5;
 
 document.addEventListener("DOMContentLoaded", function () {
     preInitializeGraphicalShells();
+    initDatePickers(); // Khởi tạo ngày mặc định
 });
+let calViewYear  = new Date().getFullYear();
+let calViewMonth = new Date().getMonth(); // 0-based
+let calSelStart  = null; // Date object
+let calSelEnd    = null; // Date object
+let calPickStep  = 1;
+// Khởi tạo bảng lịch khi tải trang
+function initDatePickers() {
+    const today = new Date();
+    calViewYear  = today.getFullYear();
+    calViewMonth = today.getMonth();
+    // Mặc định: từ đầu tháng đến hôm nay
+    calSelStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    calSelEnd   = new Date(today);
+    calPickStep = 1;
+    updateDateRangeLabel();
+    renderCalendarGrid();
+}
 
+function toggleCalendarPanel() {
+    const panel = document.getElementById("inlineCalendarPanel");
+    panel.style.display = (panel.style.display === "none") ? "block" : "none";
+    if (panel.style.display === "block") renderCalendarGrid();
+}
+
+function shiftCalendarMonth(dir) {
+    calViewMonth += dir;
+    if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+    if (calViewMonth < 0)  { calViewMonth = 11; calViewYear--; }
+    renderCalendarGrid();
+}
+
+function renderCalendarGrid() {
+    const monthNames = ["Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6",
+                        "Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"];
+    document.getElementById("calMonthYearLabel").innerText = monthNames[calViewMonth] + " " + calViewYear;
+
+    const grid = document.getElementById("calDaysGrid");
+    grid.innerHTML = "";
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const firstDayOfMonth = new Date(calViewYear, calViewMonth, 1);
+    // Thứ 2 = 0 trong grid của ta (getDay() trả 0=CN, 1=T2...)
+    let startOffset = firstDayOfMonth.getDay() - 1;
+    if (startOffset < 0) startOffset = 6;
+
+    const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+
+    // Ô trống đầu tháng
+    for (let i = 0; i < startOffset; i++) {
+        const empty = document.createElement("div");
+        empty.className = "cal-day-cell empty";
+        grid.appendChild(empty);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const cellDate = new Date(calViewYear, calViewMonth, d);
+        cellDate.setHours(0,0,0,0);
+
+        const cell = document.createElement("div");
+        cell.className = "cal-day-cell";
+        cell.innerText = d;
+
+        // Disable ngày tương lai
+        if (cellDate > today) {
+            cell.classList.add("disabled");
+        } else {
+            // Highlight range
+            if (calSelStart && calSelEnd) {
+                if (cellDate >= calSelStart && cellDate <= calSelEnd) cell.classList.add("in-range");
+            }
+            if (calSelStart && cellDate.getTime() === calSelStart.getTime()) cell.classList.add("sel-start");
+            if (calSelEnd   && cellDate.getTime() === calSelEnd.getTime())   cell.classList.add("sel-end");
+
+            cell.onclick = () => onCalDayClick(new Date(cellDate));
+        }
+
+        grid.appendChild(cell);
+    }
+
+    // Cập nhật hint
+    const hint = document.getElementById("calSelectionHint");
+    if (calPickStep === 1) hint.innerText = "Chọn ngày bắt đầu";
+    else hint.innerText = "Chọn ngày kết thúc";
+}
+
+function onCalDayClick(date) {
+    if (calPickStep === 1) {
+        calSelStart = date;
+        calSelEnd   = null;
+        calPickStep = 2;
+    } else {
+        if (date < calSelStart) {
+            calSelEnd   = calSelStart;
+            calSelStart = date;
+        } else {
+            calSelEnd = date;
+        }
+        calPickStep = 1;
+    }
+    renderCalendarGrid();
+    updateDateRangeLabel();
+}
+
+function updateDateRangeLabel() {
+    const label = document.getElementById("dateRangeDisplayLabel");
+    if (calSelStart && calSelEnd) {
+        label.innerText = fmtDate(calSelStart) + "  →  " + fmtDate(calSelEnd);
+    } else if (calSelStart) {
+        label.innerText = fmtDate(calSelStart) + "  →  ...";
+    } else {
+        label.innerText = "Chọn khoảng thời gian...";
+    }
+}
+
+function fmtDate(d) {
+    return String(d.getDate()).padStart(2,'0') + '/' +
+           String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+}
+
+function fmtDateISO(d) {
+    return d.getFullYear() + '-' +
+           String(d.getMonth()+1).padStart(2,'0') + '-' +
+           String(d.getDate()).padStart(2,'0');
+}
+
+function confirmDateRange() {
+    if (!calSelStart || !calSelEnd) {
+        document.getElementById("calSelectionHint").innerText = "Vui lòng chọn đủ 2 ngày!";
+        return;
+    }
+    document.getElementById("inlineCalendarPanel").style.display = "none";
+    alert(`ACTION:DATE_SYNC|${fmtDateISO(calSelStart)}|${fmtDateISO(calSelEnd)}`);
+}
+
+function exportDataToExcel() {
+    let fileName = "Thong_Ke_Khach_Hang";
+    if (calSelStart && calSelEnd) {
+        const s = fmtDateISO(calSelStart).split("-").reverse().join("_");
+        const e = fmtDateISO(calSelEnd).split("-").reverse().join("_");
+        fileName = `Thong_Ke_Khach_Hang_Tu_${s}_Den_${e}.xlsx`;
+    } else {
+        fileName += ".xlsx";
+    }
+    alert(`ACTION:EXPORT|${fileName}`);
+}
 function preInitializeGraphicalShells() {
     customerRanksDonutInstance = new ApexCharts(document.querySelector("#chartCustomerRanks"), {
         series: [1, 1, 1, 1, 1],
@@ -66,7 +211,7 @@ function updateCustomerDashboard(jsonPackage) {
 
     // 1. Assign KPI Metric counter representations
     document.getElementById("val-total-customers").innerText = jsonPackage.totalCustomers || 0;
-    document.getElementById("val-new-customers-month").innerText = (jsonPackage.newCustomersThisMonth || 0) + " hội viên tháng này";
+    document.getElementById("val-new-customers-month").innerText = (jsonPackage.newCustomersThisMonth || 0) + " hội viên mới";
     document.getElementById("val-vip-count").innerText = jsonPackage.vipCount || 0;
     document.getElementById("val-total-invoices").innerText = new Intl.NumberFormat('vi-VN').format(jsonPackage.totalInvoiceCount || 0) + " đơn";
     document.getElementById("val-avg-ticket").innerText = "Vé trung bình: " + new Intl.NumberFormat('vi-VN').format(jsonPackage.averageTicketSize || 0) + "đ";
@@ -399,3 +544,16 @@ function updateFilteredKPIsAndCharts() {
         ]);
     }
 }
+// Bắt sự kiện click chuột ra ngoài để tự động đóng lịch
+document.addEventListener("click", function(event) {
+    const calendarPanel = document.getElementById("inlineCalendarPanel");
+    const toggleBtn = document.getElementById("calendarToggleBtn");
+    
+    // Nếu bảng lịch đang mở, và click chuột KHÔNG nằm trong bảng lịch, CŨNG KHÔNG nằm trên nút bật lịch
+    if (calendarPanel.style.display === "block") {
+        if (!calendarPanel.contains(event.target) && !toggleBtn.contains(event.target)) {
+            calendarPanel.style.display = "none";
+        }
+    }
+});
+
