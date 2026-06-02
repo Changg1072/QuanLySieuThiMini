@@ -4,7 +4,11 @@ import Dao.KhachHangDAO;
 import Dao.TruyVanSieuTocDAO;
 import Logic.ThongKeLogic;
 import Data.KhachHang;
-//import Data.Layer.KhachHangCustom; // Fallback mapping verification
+import Dao.HoaDonDAO;
+import Data.HoaDon;
+import GUI.HoTro.LichSuMuaHangDialog;
+import Dao.KhachHangDAO;
+import Data.KhachHang;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -27,17 +31,13 @@ import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.concurrent.Worker;
 
-/**
- * 🚀 HYBRID CUSTOMER INTELLIGENCE & CRM ANALYTICS PANEL
- * Designed for standard enterprise Java Swing environments utilizing modern WebKit layout abstractions.
- * Leverages in-memory processing structures to prevent standard main UI thread blockages.
- */
 public class KhachHangPanel extends JPanel {
 
     private JFXPanel jfxPanel;
     private WebEngine webEngine;
     private final Gson gson = new Gson();
     private String lastCachedJson = null;
+    private final Map<String, KhachHang> customerCache = new HashMap<>();
 
     public KhachHangPanel() {
         setName("KhachHangPanel");
@@ -59,7 +59,6 @@ public class KhachHangPanel extends JPanel {
             webEngine = webView.getEngine();
             webEngine.setJavaScriptEnabled(true);
 
-            // Interface signal hook listener to process events triggered inside Web DOM
             webEngine.setOnAlert(event -> {
                 String signal = event.getData();
                 if (signal != null && signal.startsWith("ACTION:")) {
@@ -79,12 +78,12 @@ public class KhachHangPanel extends JPanel {
                     webEngine.load(htmlUrl.toExternalForm());
                 } else {
                     webEngine.loadContent("<html><body style='padding:30px;font-family:sans-serif;color:#ef4444;'>"
-                            + "<h3>🚨 File Configuration Failure</h3>"
-                            + "<p>Unable to compile or extract resource token path for <code>khachhang_dashboard.html</code>.</p>"
+                            + "<h3>Loi tai giao dien</h3>"
+                            + "<p>Khong tim thay file <code>khachhang_dashboard.html</code>.</p>"
                             + "</body></html>");
                 }
             } catch (Exception e) {
-                System.err.println("[KhachHangPanel Bridge] Core startup exception: " + e.getMessage());
+                System.err.println("[KhachHangPanel] Loi khoi tao: " + e.getMessage());
             }
 
             Scene scene = new Scene(webView);
@@ -92,10 +91,6 @@ public class KhachHangPanel extends JPanel {
         });
     }
 
-    /**
-     * Aggregates relational client-side customer and transactional matrix indicators into a
-     * fully compiled complex JSON package and injects it straight into WebKit memory boundaries.
-     */
     public void pushLiveCustomerAnalytics(boolean forceRefresh) {
         if (!forceRefresh && lastCachedJson != null) {
             executeJavaScript("updateCustomerDashboard(" + lastCachedJson + ")");
@@ -105,155 +100,276 @@ public class KhachHangPanel extends JPanel {
         CompletableFuture.supplyAsync(() -> {
             try {
                 JsonObject dataset = new JsonObject();
-                
-                // 1. Core Fetch Layers from Turbo DAO Engine and standard repositories
-                List<KhachHang> rawCustomers = KhachHangDAO.getInstance().layDanhSachKhachHang();
-                if (rawCustomers == null) rawCustomers = new ArrayList<>();
 
-                TruyVanSieuTocDAO.DuLieuDonHangDTO ordersDTO = TruyVanSieuTocDAO.getInstance().loadToanBoDuLieuDonHang();
-                
+                // ✅ FIX CHÍNH: Lấy list rồi đưa ngay vào final List để lambda dùng được
+                List<KhachHang> rawList = KhachHangDAO.getInstance().layDanhSachKhachHang();
+                if (rawList == null) rawList = new ArrayList<>();
+                customerCache.clear();
+                for (KhachHang c : rawList) {
+                    if (c != null && c.getMaKH() != null) {
+                        customerCache.put(c.getMaKH(), c);
+                    }
+                }
+                // Lọc dữ liệu rác — tạo list MỚI thay vì removeIf trên list gốc
+                // để đảm bảo biến cuối cùng là effectively final khi dùng trong lambda
+                final List<KhachHang> customers = rawList.stream()
+                        .filter(c -> c != null
+                                && c.getMaKH() != null
+                                && !c.getMaKH().trim().isEmpty()
+                                && !c.getMaKH().equalsIgnoreCase("null"))
+                        .collect(Collectors.toList());
+
+                // Lấy Hóa Đơn
+                List<HoaDon> dsHoaDon = HoaDonDAO.getInstance().layDanhSachHoaDon();
+
                 int currentMonthValue = LocalDate.now().getMonthValue();
                 int currentYearValue = LocalDate.now().getYear();
 
-                // 2. Process KPI Targets
-                int totalCustomers = rawCustomers.size();
-                long newCustomersThisMonth = rawCustomers.stream()
-                        .filter(c -> c.getNgayDangKy() != null 
-                                && c.getNgayDangKy().getMonthValue() == currentMonthValue 
+                int totalCustomers = customers.size();
+
+                // ✅ Dùng biến 'customers' (effectively final) trong tất cả lambda bên dưới
+                long newCustomersThisMonth = customers.stream()
+                        .filter(c -> c.getNgayDangKy() != null
+                                && c.getNgayDangKy().getMonthValue() == currentMonthValue
                                 && c.getNgayDangKy().getYear() == currentYearValue)
                         .count();
 
-                long vipCount = rawCustomers.stream()
-                        .filter(c -> c.getBacKH() != null && (c.getBacKH().equalsIgnoreCase("Vip") || c.getBacKH().equalsIgnoreCase("Vàng")))
+                long vipCount = customers.stream()
+                        .filter(c -> c.getBacKH() != null
+                                && (c.getBacKH().equalsIgnoreCase("Vip")
+                                    || c.getBacKH().equalsIgnoreCase("Vàng")))
                         .count();
 
-                BigDecimal totalSystemLoyaltyPoints = rawCustomers.stream()
+                BigDecimal totalSystemLoyaltyPoints = customers.stream()
                         .filter(c -> c.getDiemTichLuy() != null)
                         .map(KhachHang::getDiemTichLuy)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-                // Compute Return Customer Rates accurately using transactional maps
+                // Map hạng thẻ
+                Map<String, String> khToTier = new HashMap<>();
+                for (KhachHang c : customers) {
+                    String t = "KhongHang";
+                    if (c.getBacKH() != null) {
+                        if (c.getBacKH().equalsIgnoreCase("Đồng"))  t = "Dong";
+                        else if (c.getBacKH().equalsIgnoreCase("Bạc"))  t = "Bac";
+                        else if (c.getBacKH().equalsIgnoreCase("Vàng")) t = "Vang";
+                        else if (c.getBacKH().equalsIgnoreCase("Vip"))  t = "KimCuong";
+                    }
+                    khToTier.put(c.getMaKH(), t);
+                }
+
+                // Phân loại hóa đơn
                 Map<String, Integer> customerOrderFrequencies = new HashMap<>();
+                Map<String, Double> customerSpendingAggregateMap = new HashMap<>();
                 BigDecimal totalOrderValueSum = BigDecimal.ZERO;
                 int totalInvoiceCount = 0;
+                int returnedInvoiceCount = 0; // 🔥 Đếm đơn trả hàng
+                double totalRefundAmount = 0.0;
+                int vangLaiOrdersCount = 0;
+                double vangLaiTotalSpent = 0.0;
 
-                if (ordersDTO != null && ordersDTO.dsHoaDon != null) {
-                    totalInvoiceCount = ordersDTO.dsHoaDon.size();
-                    for (var bill : ordersDTO.dsHoaDon) {
-                        if (bill.getMaKH() != null && !bill.getMaKH().trim().isEmpty()) {
-                            customerOrderFrequencies.put(bill.getMaKH(), customerOrderFrequencies.getOrDefault(bill.getMaKH(), 0) + 1);
+                String[] tiers = {"KhachVangLai", "KhongHang", "Dong", "Bac", "Vang", "KimCuong"};
+                Map<String, Integer> customerReturnFreq = new HashMap<>();
+                Map<String, Double> customerRefundMap = new HashMap<>();
+                Map<String, Integer> tierCountMap = new HashMap<>();
+                Map<String, Double> tierRevenueMap = new HashMap<>();
+                for (String t : tiers) {
+                    tierCountMap.put(t, 0);
+                    tierRevenueMap.put(t, 0.0);
+                }
+
+                if (dsHoaDon != null) {
+                    totalInvoiceCount = dsHoaDon.size();
+                    for (HoaDon bill : dsHoaDon) {
+                        double thanhTienBill = bill.getThanhTien() != null ? bill.getThanhTien().doubleValue() : 0.0;
+                        
+                        // 🔥 Logic kiểm tra đơn trả hàng (Dựa vào boolean isTraHang của class HoaDon)
+                        boolean isTraHang = false; 
+                        try {
+                            isTraHang = bill.getTraHang(); // LƯU Ý: Nếu class HoaDon của bạn dùng getTraHang(), hãy sửa lại chữ is thành get nhé!
+                        } catch (Exception ignored) {}
+
+                        if (isTraHang) {
+                            returnedInvoiceCount++;
+                            totalRefundAmount += thanhTienBill;
+                        } else {
+                            totalOrderValueSum = totalOrderValueSum.add(bill.getThanhTien() != null ? bill.getThanhTien() : BigDecimal.ZERO);
                         }
-                        if (bill.getThanhTien() != null) {
-                            totalOrderValueSum = totalOrderValueSum.add(bill.getThanhTien());
+
+                        String maKH = bill.getMaKH();
+                        String targetTier;
+
+                        if (maKH != null && !maKH.trim().isEmpty() && khToTier.containsKey(maKH)) {
+                            if (isTraHang) {
+                                // Nếu là trả hàng, lưu vào Map trả hàng của Khách
+                                customerReturnFreq.put(maKH, customerReturnFreq.getOrDefault(maKH, 0) + 1);
+                                customerRefundMap.put(maKH, customerRefundMap.getOrDefault(maKH, 0.0) + thanhTienBill);
+                            } else {
+                                // Nếu mua bình thường
+                                customerOrderFrequencies.put(maKH, customerOrderFrequencies.getOrDefault(maKH, 0) + 1);
+                                customerSpendingAggregateMap.put(maKH, customerSpendingAggregateMap.getOrDefault(maKH, 0.0) + thanhTienBill);
+                            }
+                            targetTier = khToTier.get(maKH);
+                        } else {
+                            targetTier = "KhachVangLai";
+                            if (!isTraHang) {
+                                vangLaiOrdersCount++;
+                                vangLaiTotalSpent += thanhTienBill;
+                            }
+                        }
+
+                        if (!isTraHang) { // Chart doanh thu thường chỉ tính đơn thành công
+                            tierCountMap.put(targetTier, tierCountMap.get(targetTier) + 1);
+                            tierRevenueMap.put(targetTier, tierRevenueMap.get(targetTier) + thanhTienBill);
                         }
                     }
                 }
 
-                long returningCustomersCount = customerOrderFrequencies.values().stream().filter(count -> count >= 2).count();
-                double returnCustomerRatePercentage = totalCustomers > 0 ? ((double) returningCustomersCount / totalCustomers) * 100.0 : 0.0;
-                double systemAverageTicketSize = totalInvoiceCount > 0 ? totalOrderValueSum.doubleValue() / totalInvoiceCount : 0.0;
+                JsonObject tierStatsNode = new JsonObject();
+                for (String t : tiers) {
+                    JsonObject obj = new JsonObject();
+                    obj.addProperty("count", tierCountMap.get(t));
+                    obj.addProperty("revenue", tierRevenueMap.get(t));
+                    tierStatsNode.add(t, obj);
+                }
+                dataset.add("tierStats", tierStatsNode);
+
+                long returningCustomersCount = customerOrderFrequencies.values().stream()
+                        .filter(count -> count >= 2).count();
+                double returnCustomerRatePercentage = totalCustomers > 0
+                        ? ((double) returningCustomersCount / totalCustomers) * 100.0 : 0.0;
+                double systemAverageTicketSize = totalInvoiceCount > 0
+                        ? totalOrderValueSum.doubleValue() / totalInvoiceCount : 0.0;
 
                 dataset.addProperty("totalCustomers", totalCustomers);
                 dataset.addProperty("newCustomersThisMonth", newCustomersThisMonth);
                 dataset.addProperty("vipCount", vipCount);
                 dataset.addProperty("totalLoyaltyPoints", totalSystemLoyaltyPoints);
-                dataset.addProperty("returnCustomerRate", Math.round(returnCustomerRatePercentage * 10.0) / 10.0);
+                dataset.addProperty("totalInvoiceCount", totalInvoiceCount);
                 dataset.addProperty("averageTicketSize", Math.round(systemAverageTicketSize));
+                dataset.addProperty("returnedInvoiceCount", returnedInvoiceCount);
+                dataset.addProperty("totalRefundAmount", Math.round(totalRefundAmount));
 
-                // 3. Compute Structural Rank Distributions (Donut chart coordinates)
-                long copperCount = rawCustomers.stream().filter(c -> c.getBacKH() == null || c.getBacKH().equalsIgnoreCase("Đồng") || c.getBacKH().equalsIgnoreCase("Không hạng")).count();
-                long silverCount = rawCustomers.stream().filter(c -> c.getBacKH() != null && c.getBacKH().equalsIgnoreCase("Bạc")).count();
-                long goldCount = rawCustomers.stream().filter(c -> c.getBacKH() != null && c.getBacKH().equalsIgnoreCase("Vàng")).count();
-                long diamondCount = rawCustomers.stream().filter(c -> c.getBacKH() != null && c.getBacKH().equalsIgnoreCase("Vip")).count();
+                // Donut chart phân hạng
+                long khongHangCount = customers.stream()
+                        .filter(c -> c.getBacKH() == null || c.getBacKH().trim().isEmpty()
+                                || c.getBacKH().equalsIgnoreCase("Không hạng"))
+                        .count();
+                long copperCount  = customers.stream().filter(c -> c.getBacKH() != null && c.getBacKH().equalsIgnoreCase("Đồng")).count();
+                long silverCount  = customers.stream().filter(c -> c.getBacKH() != null && c.getBacKH().equalsIgnoreCase("Bạc")).count();
+                long goldCount    = customers.stream().filter(c -> c.getBacKH() != null && c.getBacKH().equalsIgnoreCase("Vàng")).count();
+                long diamondCount = customers.stream().filter(c -> c.getBacKH() != null && c.getBacKH().equalsIgnoreCase("Vip")).count();
 
                 JsonObject ranksNode = new JsonObject();
-                ranksNode.addProperty("Dong", copperCount);
-                ranksNode.addProperty("Bac", silverCount);
-                ranksNode.addProperty("Vang", goldCount);
-                ranksNode.addProperty("KimCuong", diamondCount);
+                ranksNode.addProperty("KhongHang", khongHangCount);
+                ranksNode.addProperty("Dong",      copperCount);
+                ranksNode.addProperty("Bac",       silverCount);
+                ranksNode.addProperty("Vang",      goldCount);
+                ranksNode.addProperty("KimCuong",  diamondCount);
                 dataset.add("rankDistributions", ranksNode);
 
-                // 4. Generate Leaderboard Ranking Node Array (Top Spent Customers)
-                Map<String, Double> customerSpendingAggregateMap = new HashMap<>();
-                if (ordersDTO != null && ordersDTO.dsHoaDon != null) {
-                    for (var bill : ordersDTO.dsHoaDon) {
-                        if (bill.getMaKH() != null && bill.getThanhTien() != null) {
-                            customerSpendingAggregateMap.put(bill.getMaKH(), customerSpendingAggregateMap.getOrDefault(bill.getMaKH(), 0.0) + bill.getThanhTien().doubleValue());
-                        }
-                    }
-                }
-
+                // Leaderboard top 5 chi tiêu
                 JsonArray leaderboardArray = new JsonArray();
-                List<Map.Entry<String, Double>> sortedSpendingList = customerSpendingAggregateMap.entrySet().stream()
+                customerSpendingAggregateMap.entrySet().stream()
                         .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
                         .limit(5)
-                        .collect(Collectors.toList());
-
-                for (var entry : sortedSpendingList) {
-                    String targetMaKH = entry.getKey();
-                    KhachHang customerObj = rawCustomers.stream().filter(c -> c.getMaKH().equalsIgnoreCase(targetMaKH)).findFirst().orElse(null);
-                    if (customerObj != null) {
-                        JsonObject card = new JsonObject();
-                        card.addProperty("id", customerObj.getMaKH());
-                        card.addProperty("name", customerObj.getHoTen());
-                        card.addProperty("tier", customerObj.getBacKH() != null ? customerObj.getBacKH() : "Đồng");
-                        card.addProperty("totalSpent", entry.getValue());
-                        card.addProperty("points", customerObj.getDiemTichLuy());
-                        card.addProperty("ordersCount", customerOrderFrequencies.getOrDefault(targetMaKH, 0));
-                        leaderboardArray.add(card);
-                    }
-                }
+                        .forEach(entry -> {
+                            String targetMaKH = entry.getKey();
+                            // ✅ Dùng 'customers' (effectively final) — không lỗi
+                            KhachHang customerObj = customers.stream()
+                                    .filter(c -> c.getMaKH().equalsIgnoreCase(targetMaKH))
+                                    .findFirst().orElse(null);
+                            if (customerObj != null) {
+                                JsonObject card = new JsonObject();
+                                card.addProperty("id", customerObj.getMaKH());
+                                card.addProperty("name", customerObj.getHoTen());
+                                card.addProperty("tier", (customerObj.getBacKH() != null && !customerObj.getBacKH().trim().isEmpty())
+                                        ? customerObj.getBacKH() : "Không hạng");
+                                card.addProperty("totalSpent", entry.getValue());
+                                card.addProperty("points", customerObj.getDiemTichLuy() != null
+                                        ? customerObj.getDiemTichLuy() : BigDecimal.ZERO);
+                                card.addProperty("ordersCount", customerOrderFrequencies.getOrDefault(targetMaKH, 0));
+                                leaderboardArray.add(card);
+                            }
+                        });
                 dataset.add("loyaltyLeaderboard", leaderboardArray);
 
-                // 5. Complete Customer Matrix Datatable Array Payload
+                // Datatable
                 JsonArray tableArray = new JsonArray();
                 DateTimeFormatter datePrinter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                for (KhachHang c : rawCustomers) {
+                for (KhachHang c : customers) {
                     JsonObject row = new JsonObject();
                     row.addProperty("id", c.getMaKH());
                     row.addProperty("name", c.getHoTen());
                     row.addProperty("phone", c.getSDT() != null ? c.getSDT() : "---");
-                    row.addProperty("tier", c.getBacKH() != null ? c.getBacKH() : "Đồng");
+                    row.addProperty("tier", (c.getBacKH() != null && !c.getBacKH().trim().isEmpty())
+                            ? c.getBacKH() : "Không hạng");
                     row.addProperty("points", c.getDiemTichLuy() != null ? c.getDiemTichLuy() : BigDecimal.ZERO);
                     row.addProperty("totalSpent", customerSpendingAggregateMap.getOrDefault(c.getMaKH(), 0.0));
                     row.addProperty("ordersCount", customerOrderFrequencies.getOrDefault(c.getMaKH(), 0));
                     row.addProperty("joinDate", c.getNgayDangKy() != null ? c.getNgayDangKy().format(datePrinter) : "---");
+                    row.addProperty("returnCount", customerReturnFreq.getOrDefault(c.getMaKH(), 0));
+                    row.addProperty("refundAmount", customerRefundMap.getOrDefault(c.getMaKH(), 0.0));
                     tableArray.add(row);
                 }
+
+                // Hàng tổng hợp khách vãng lai
+                JsonObject vangLaiRow = new JsonObject();
+                vangLaiRow.addProperty("id", "KVL");
+                vangLaiRow.addProperty("name", "Khách vãng lai (Tổng hợp)");
+                vangLaiRow.addProperty("phone", "---");
+                vangLaiRow.addProperty("tier", "Khách vãng lai");
+                vangLaiRow.addProperty("points", 0);
+                vangLaiRow.addProperty("totalSpent", vangLaiTotalSpent);
+                vangLaiRow.addProperty("ordersCount", vangLaiOrdersCount);
+                vangLaiRow.addProperty("joinDate", "---");
+                tableArray.add(vangLaiRow);
                 dataset.add("customerGridMatrix", tableArray);
 
-                // 6. Generate Context Insights Bullets
+                // AI Insights
                 JsonArray insights = new JsonArray();
-                insights.add("🔥 Tỷ lệ giữ chân và quay lại mua sắm đạt mức lý tưởng " + Math.round(returnCustomerRatePercentage) + "%.");
+                insights.add("<i class='ti ti-flame' style='color:#f59e0b;font-size:15px;margin-right:6px;vertical-align:-2px;'></i> He thong dat "
+                        + totalInvoiceCount + " giao dich (bao gom vang lai). Ty le giu chan CRM la "
+                        + Math.round(returnCustomerRatePercentage) + "%.");
                 if (vipCount > 0) {
-                    insights.add("💎 Đã ghi nhận tổng cộng " + vipCount + " hội viên đạt phân hạng Vàng & VIP trên toàn hệ thống.");
+                    insights.add("<i class='ti ti-diamond' style='color:#8b5cf6;font-size:15px;margin-right:6px;vertical-align:-2px;'></i> Ghi nhan "
+                            + vipCount + " hoi vien dat phan hang Vang & VIP.");
                 }
-                long lowActivityCount = rawCustomers.stream().filter(c -> customerOrderFrequencies.getOrDefault(c.getMaKH(), 0) == 0).count();
+                // ✅ Dùng 'customers' (effectively final)
+                long lowActivityCount = customers.stream()
+                        .filter(c -> customerOrderFrequencies.getOrDefault(c.getMaKH(), 0) == 0)
+                        .count();
                 if (lowActivityCount > 0) {
-                    insights.add("⚠️ Phát hiện " + lowActivityCount + " tài khoản chưa phát sinh giao dịch. Đề xuất gửi mã voucher kích cầu mua sắm.");
+                    insights.add("<i class='ti ti-alert-triangle' style='color:#ef4444;font-size:15px;margin-right:6px;vertical-align:-2px;'></i> "
+                            + lowActivityCount + " tai khoan chua giao dich. Can remarketing.");
                 }
                 dataset.add("intelligenceInsights", insights);
 
-                // 7. Generate Micro-Transaction Purchase Timeline Cards (Last 5 Global Invoices)
+                // Timeline 5 hóa đơn gần nhất
                 JsonArray timelineArray = new JsonArray();
-                if (ordersDTO != null && ordersDTO.dsHoaDon != null) {
-                    ordersDTO.dsHoaDon.stream()
-                            .sorted((h1, h2) -> {
-                                if (h1.getNgayTao() == null || h2.getNgayTao() == null) return 0;
-                                return h2.getNgayTao().compareTo(h1.getNgayTao());
-                            })
+                if (dsHoaDon != null) {
+                    dsHoaDon.stream()
+                            .filter(h -> h.getNgayTao() != null)
+                            .sorted((h1, h2) -> h2.getNgayTao().compareTo(h1.getNgayTao()))
                             .limit(5)
                             .forEach(invoice -> {
                                 JsonObject timeCard = new JsonObject();
-                                timeCard.addProperty("id", invoice.getMaHD());
-                                String clientName = "Khách vãng lai";
-                                if (invoice.getMaKH() != null && ordersDTO.mapKhachHang.containsKey(invoice.getMaKH())) {
-                                    clientName = ordersDTO.mapKhachHang.get(invoice.getMaKH())[0];
+                                timeCard.addProperty("id", invoice.getMaHD() != null ? invoice.getMaHD() : "---");
+
+                                String clientName = "Khach vang lai";
+                                if (invoice.getMaKH() != null && khToTier.containsKey(invoice.getMaKH())) {
+                                    // ✅ Dùng 'customers' (effectively final)
+                                    KhachHang kh = customers.stream()
+                                            .filter(c -> c.getMaKH().equals(invoice.getMaKH()))
+                                            .findFirst().orElse(null);
+                                    if (kh != null) clientName = kh.getHoTen();
                                 }
                                 timeCard.addProperty("customer", clientName);
                                 timeCard.addProperty("amount", invoice.getThanhTien());
-                                timeCard.addProperty("method", invoice.getPhuongThucTT() != null ? invoice.getPhuongThucTT() : "Tiền mặt");
-                                timeCard.addProperty("time", invoice.getNgayTao() != null ? invoice.getNgayTao().format(DateTimeFormatter.ofPattern("dd/MM HH:mm")) : "---");
+                                timeCard.addProperty("method", invoice.getPhuongThucTT() != null
+                                        ? invoice.getPhuongThucTT() : "Tien mat");
+                                timeCard.addProperty("time", invoice.getNgayTao()
+                                        .format(DateTimeFormatter.ofPattern("dd/MM HH:mm")));
                                 timelineArray.add(timeCard);
                             });
                 }
@@ -261,8 +377,8 @@ public class KhachHangPanel extends JPanel {
 
                 lastCachedJson = gson.toJson(dataset);
                 return lastCachedJson;
+
             } catch (Exception e) {
-                System.err.println("[KhachHangPanel Math Core] Failure building analytical trees: " + e.getMessage());
                 e.printStackTrace();
                 return null;
             }
@@ -276,11 +392,9 @@ public class KhachHangPanel extends JPanel {
     private void executeJavaScript(String scriptText) {
         Platform.runLater(() -> {
             try {
-                if (webEngine != null) {
-                    webEngine.executeScript(scriptText);
-                }
+                if (webEngine != null) webEngine.executeScript(scriptText);
             } catch (Exception e) {
-                // Suppressed noise
+                // Suppressed
             }
         });
     }
@@ -290,41 +404,41 @@ public class KhachHangPanel extends JPanel {
             if ("SYNC".equalsIgnoreCase(actionData)) {
                 pushLiveCustomerAnalytics(true);
             } else if ("ADD_CUSTOMER".equalsIgnoreCase(actionData)) {
-                // Đã sửa INFORMATION_METHOD thành INFORMATION_MESSAGE
-                JOptionPane.showMessageDialog(this, "Hệ thống chuẩn bị kích hoạt Form: THÊM MỚI KHÁCH HÀNG", "CRM Bridge Notification", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "He thong chuan bi kich hoat Form: THEM MOI KHACH HANG",
+                        "CRM Bridge", JOptionPane.INFORMATION_MESSAGE);
             } else if ("EXPORT".equalsIgnoreCase(actionData)) {
-                JOptionPane.showMessageDialog(this, "Đang trích xuất báo cáo phân tích tệp khách hàng CRM ra định dạng Excel...", "Excel Tool Link", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Dang trich xuat bao cao phan tich tep khach hang CRM...",
+                        "Excel Export", JOptionPane.INFORMATION_MESSAGE);
             } else if (actionData.startsWith("VIEW_")) {
+                
+                // 1. Tách lấy Mã Khách Hàng (VD: VIEW_KH001 -> KH001)
                 String targetId = actionData.substring(5);
-                JOptionPane.showMessageDialog(this, "Đang mở hồ sơ CRM đối soát lịch sử hành vi của Khách hàng: " + targetId, "Hồ sơ Khách hàng VIP", JOptionPane.INFORMATION_MESSAGE);
+                
+                // 2. 🚀 TRUY VẤN SIÊU TỐC O(1) TỪ RAM (Bỏ qua gọi DB)
+                KhachHang kh = customerCache.get(targetId);
+                
+                // 3. Hiển thị Dialog (Bên trong Dialog sẽ tự kích hoạt TruyVanSieuTocDAO lấy chi tiết hóa đơn)
+                if (kh != null) {
+                    LichSuMuaHangDialog.showModal(this, kh);
+                } else {
+                    JOptionPane.showMessageDialog(this, 
+                        "Không tìm thấy thông tin chi tiết của khách hàng: " + targetId,
+                        "Lỗi Dữ Liệu", 
+                        JOptionPane.ERROR_MESSAGE);
+                }
+                
             }
         });
     }
 
-    /**
-     * Standalone Test Window Launcher Package for local testing validation.
-     */
     public static void main(String[] args) {
-        try {
-            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (Exception e) {
-            try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ex) {}
-        }
-
         SwingUtilities.invokeLater(() -> {
-            JFrame verifyFrame = new JFrame("Customer Intelligence CRM SaaS Platform - Verification Runtime");
+            JFrame verifyFrame = new JFrame("Customer Intelligence CRM - Test");
             verifyFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             verifyFrame.setSize(1400, 820);
             verifyFrame.setMinimumSize(new Dimension(1050, 650));
             verifyFrame.setLocationRelativeTo(null);
-
-            KhachHangPanel crmPanel = new KhachHangPanel();
-            verifyFrame.add(crmPanel, BorderLayout.CENTER);
+            verifyFrame.add(new KhachHangPanel(), BorderLayout.CENTER);
             verifyFrame.setVisible(true);
         });
     }

@@ -143,7 +143,7 @@ body {
 }
 
 .kpi-column-dimension {
-    width: 25%;
+    width: 20%;
     float: left;
     padding-right: 16px;
 }
@@ -191,6 +191,8 @@ body {
 .purple-tint { background: #f5f3ff; color: #7c3aed; }
 .emerald-tint { background: #ecfdf5; color: #10b981; }
 .amber-tint { background: #fffbeb; color: #d97706; }
+.rose-tint { background: #fff1f2; color: #e11d48; }
+.text-rose { color: #e11d48 !important; }
 
 .kpi-cell-content {
     display: table-cell;
@@ -283,8 +285,9 @@ body {
 
 /* 4. INSIGHT FEED ELEMENT STRUCTURAL LINES */
 .insights-feed-container {
-    height: 250px;
-    overflow-y: auto;
+    height: auto;          /* bỏ fixed height */
+    overflow-y: visible;   /* bỏ scroll */
+    display: block;        /* bỏ flex */
 }
 
 .insight-item-bullet {
@@ -457,4 +460,26 @@ body {
 }
 @keyframes runShimmerVector {
     0% { left: -100%; } 20% { left: 160%; } 100% { left: 160%; }
+}
+.action-trigger .ti {
+    font-size: 16px;
+    vertical-align: -2px;
+    margin-right: 6px;
+}
+.insight-full-width-panel {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.insight-full-width-panel .insights-feed-container {
+    display: block;
+    height: auto;
+    overflow-y: visible;
+    gap: 0;
+}
+
+.insight-item-bullet {
+    /* giữ nguyên, chỉ đảm bảo display: block */
+    display: block;
+    width: 100%;
 }
