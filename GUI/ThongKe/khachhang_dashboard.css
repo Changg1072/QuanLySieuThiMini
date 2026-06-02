@@ -41,17 +41,22 @@ body {
 .crm-premium-header {
     width: 100%;
     margin-bottom: 28px;
-    display: block;
     
-    /* 🔥 THÊM 2 DÒNG NÀY ĐỂ KÉO LỊCH NỔI LÊN TRÊN CÙNG */
+    /* 🔥 DÙNG FLEXBOX ĐỂ CHO PHÉP RỚT DÒNG */
+    display: flex;
+    flex-wrap: wrap; /* Tự động xuống dòng nếu chật */
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px; /* Khoảng cách giữa tiêu đề và cụm nút khi bị rớt dòng */
+    
     position: relative; 
-    z-index: 9999;      
-    transform: translateZ(0);
+    z-index: 99999;      
+    transform: translateZ(0); 
 }
 
 .header-branding-block {
-    float: left;
-    width: 32%; /* Thu hẹp tiêu đề lại một chút */
+    flex: 1 1 min-content;
+    min-width: 320px; /* Giữ tiêu đề không bị bóp méo */
 }
 
 .header-main-title {
@@ -70,11 +75,12 @@ body {
 }
 
 .header-actions-block {
-    float: right;
-    width: 68%; /* Nới rộng không gian cho các nút bấm */
-    text-align: right;
-    padding-top: 4px;
-    white-space: nowrap; /* 🔥 KHÓA RỚT DÒNG */
+    display: flex;
+    flex-wrap: wrap; /* Các nút cũng tự rớt dòng nếu màn hình quá nhỏ */
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px; /* Khoảng cách đều tăm tắp giữa các nút */
+    flex: 2 1 auto;
 }
 .search-field-container, .premium-select-box, .action-trigger {
     display: inline-block;
@@ -144,15 +150,22 @@ body {
 .kpi-cards-matrix-row {
     width: 100%;
     margin-bottom: 28px;
-    display: block;
     position: relative;
     z-index: 1;
+    
+    /* 🔥 DÙNG FLEXBOX ÉP NẰM 1 HÀNG */
+    display: flex;
+    flex-wrap: nowrap; /* TUYỆT ĐỐI CẤM RỚT DÒNG */
+    gap: 16px; /* Khoảng cách đồng đều giữa 5 thẻ */
 }
-
 .kpi-column-dimension {
-    width: 20%;
-    float: left;
-    padding-right: 16px;
+    flex: 1; /* Chia đều không gian cho 5 thẻ (Mỗi thẻ chiếm 20%) */
+    min-width: 0; /* Ép text bên trong không được đẩy tràn viền */
+    
+    /* Xóa các thuộc tính cũ gây lỗi */
+    float: none; 
+    padding-right: 0; 
+    width: auto;
 }
 
 .kpi-column-dimension:last-child {

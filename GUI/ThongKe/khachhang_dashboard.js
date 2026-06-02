@@ -11,6 +11,7 @@ const pagerPageSizeValue = 5;
 document.addEventListener("DOMContentLoaded", function () {
     preInitializeGraphicalShells();
     initDatePickers(); // Khởi tạo ngày mặc định
+    setTimeout(() => { alert("ACTION:LOAD_HISTORY_LIST"); }, 500); 
 });
 let calViewYear  = new Date().getFullYear();
 let calViewMonth = new Date().getMonth(); // 0-based
@@ -149,14 +150,15 @@ function confirmDateRange() {
 function exportDataToExcel() {
     let fileName = "Thong_Ke_Khach_Hang";
     if (calSelStart && calSelEnd) {
-        const s = fmtDateISO(calSelStart).split("-").reverse().join("_");
-        const e = fmtDateISO(calSelEnd).split("-").reverse().join("_");
+        const s = fmtDate(calSelStart).replace(/\//g, "_"); // DD_MM_YYYY
+        const e = fmtDate(calSelEnd).replace(/\//g, "_");
         fileName = `Thong_Ke_Khach_Hang_Tu_${s}_Den_${e}.xlsx`;
     } else {
         fileName += ".xlsx";
     }
     alert(`ACTION:EXPORT|${fileName}`);
 }
+
 function preInitializeGraphicalShells() {
     customerRanksDonutInstance = new ApexCharts(document.querySelector("#chartCustomerRanks"), {
         series: [1, 1, 1, 1, 1],
@@ -557,3 +559,99 @@ document.addEventListener("click", function(event) {
     }
 });
 
+// ==========================================
+// TÍNH NĂNG ĐỌC FILE LỊCH SỬ & NÚT HÓA ĐƠN
+// ==========================================
+function applyHistoricalStateBase64(base64Str, fileName) {
+    try {
+        // 🔥 DECODE ĐÚNG: Java gửi Base64 chuẩn, dùng atob() để decode
+        const decodedString = decodeURIComponent(
+            atob(base64Str).split('').map(c =>
+                '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+            ).join('')
+        );
+        const historicalPayload = JSON.parse(decodedString);
+
+        // 1. Cập nhật toàn bộ dashboard bằng data lịch sử
+        updateCustomerDashboard(historicalPayload);
+
+        // 2. 🔥 CẬP NHẬT CALENDAR LABEL theo ngày trong file lịch sử
+        // Tên file dạng: Thong_Ke_Khach_Hang_Tu_DD_MM_YYYY_Den_DD_MM_YYYY.json
+        const match = fileName.match(/Tu_(\d{2})_(\d{2})_(\d{4})_Den_(\d{2})_(\d{2})_(\d{4})/);
+        if (match) {
+            // Xây lại Date object từ tên file
+            calSelStart = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+            calSelEnd   = new Date(parseInt(match[6]), parseInt(match[5]) - 1, parseInt(match[4]));
+            calViewYear  = calSelStart.getFullYear();
+            calViewMonth = calSelStart.getMonth();
+            updateDateRangeLabel(); // 🔥 Cập nhật ô lịch hiển thị đúng ngày lịch sử
+        }
+
+        // 3. Đổi màu caption báo đang ở chế độ lịch sử
+        const caption = document.querySelector(".header-sub-caption");
+        if (caption) {
+            let dateDisplay = fileName.replace(".json", "").replace(/_/g, " ");
+            if (match) {
+                dateDisplay = `${match[1]}/${match[2]}/${match[3]} → ${match[4]}/${match[5]}/${match[6]}`;
+            }
+            caption.textContent = "[LỊCH SỬ] Đang xem dữ liệu: " + dateDisplay + " — Chọn 'Thoát' để về hiện tại";
+            caption.style.color = "#ef4444";
+            caption.style.fontWeight = "600";
+        }
+
+        // 4. Refresh dropdown list
+        alert("ACTION:LOAD_HISTORY_LIST");
+
+    } catch(e) {
+        console.error("applyHistoricalStateBase64 error:", e);
+        alert("FILE_ERROR: " + e.message);
+    }
+}
+function updateHistoryDropdown(filesJson) {
+    let files = JSON.parse(filesJson);
+    let dropdown = document.getElementById("exportHistoryDropdown");
+    
+    dropdown.innerHTML = '<option value="" disabled selected>Lich su xuat file...</option>';
+    dropdown.innerHTML += '<option value="EXIT">Thoat che do lich su (Ve hien tai)</option>';
+    
+    if (files.length > 0) {
+        files.forEach(f => {
+            dropdown.innerHTML += `<option value="${f.path}">${f.name}</option>`;
+        });
+        dropdown.style.display = "inline-block"; // Chỉ hiện khi có file
+    } else {
+        dropdown.style.display = "none";
+    }
+}
+function handleHistoryFileSelect(val) {
+    if (!val) return; // Bỏ qua nếu user lỡ click lại vào dòng tiêu đề
+    
+    if (val === "EXIT") {
+        alert("ACTION:EXIT_HISTORY");
+        
+        // 🔥 RESET CALENDAR VỀ MẶC ĐỊNH (đầu tháng → hôm nay)
+        const today = new Date();
+        calSelStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        calSelEnd   = new Date(today);
+        calViewYear  = today.getFullYear();
+        calViewMonth = today.getMonth();
+        calPickStep  = 1;
+        updateDateRangeLabel(); // Cập nhật lại label hiển thị
+        
+        // Reset caption
+        const caption = document.querySelector(".header-sub-caption");
+        if (caption) {
+            caption.textContent = "Phân tích hành vi dữ liệu tệp khách hàng và quản lý chương trình thẻ thân thiết (CRM)";
+            caption.style.color = "";
+            caption.style.fontWeight = "normal";
+        }
+        
+        document.getElementById("exportHistoryDropdown").selectedIndex = 0;
+    } else {
+        alert("ACTION:LOAD_HISTORY_FILE|" + val);
+    }
+}
+
+function triggerViewAllInvoices() {
+    alert("ACTION:VIEW_ALL_INVOICES");
+}

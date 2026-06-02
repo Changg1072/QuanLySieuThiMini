@@ -31,6 +31,9 @@ import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.concurrent.Worker;
 
+import java.io.File;
+import java.nio.file.Files;
+
 public class KhachHangPanel extends JPanel {
 
     private JFXPanel jfxPanel;
@@ -417,8 +420,7 @@ public class KhachHangPanel extends JPanel {
             }
         });
     }
-
-        private void processClientDomSignal(String actionData) {
+    private void processClientDomSignal(String actionData) {
         SwingUtilities.invokeLater(() -> {
             if ("SYNC".equalsIgnoreCase(actionData)) {
                 pushLiveCustomerAnalytics(true);
@@ -443,7 +445,33 @@ public class KhachHangPanel extends JPanel {
                 
                 // GỌI HÀM XUẤT EXCEL THỰC TẾ CỦA BẠN TẠI ĐÂY...
                 
-            } 
+                // 🔥 LƯU FILE JSON LỊCH SỬ VÀO ĐÚNG FOLDER YÊU CẦU
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        // ĐƯỜNG DẪN CỨNG Ổ D THEO YÊU CẦU
+                        File dir = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\KhachHang");
+                        if (!dir.exists()) dir.mkdirs(); // Tự động tạo folder nếu chưa có
+                        
+                        // Đổi đuôi .xlsx thành .json
+                        String jsonFileName = fileName.replace(".xlsx", ".json");
+                        File jsonFile = new File(dir, jsonFileName);
+                        
+                        // Ghi chuỗi lastCachedJson ra file
+                        if (lastCachedJson != null) {
+                            Files.write(jsonFile.toPath(), lastCachedJson.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        }
+                        
+                        // Yêu cầu web cập nhật lại Dropdown
+                        processClientDomSignal("LOAD_HISTORY_LIST");
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+            }
+            else if (actionData.startsWith("VIEW_ALL_INVOICES")) {
+                JOptionPane.showMessageDialog(this, "Mở giao diện tra cứu TOÀN BỘ HÓA ĐƠN của hệ thống!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                // GỌI FORM HÓA ĐƠN CỦA BẠN: LichSuHoaDonDialog.showModal(this); (hoặc tương tự)
+            }
             else if (actionData.startsWith("VIEW_")) {
                 String targetId = actionData.substring(5);
                 KhachHang kh = customerCache.get(targetId);
@@ -452,6 +480,47 @@ public class KhachHangPanel extends JPanel {
                 } else {
                     JOptionPane.showMessageDialog(this, "Không tìm thấy thông tin khách hàng: " + targetId, "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
+            }
+            else if (actionData.startsWith("LOAD_HISTORY_LIST")) {
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        // 🔥 ĐÃ ĐỒNG BỘ ĐƯỜNG DẪN CỨNG Ổ D CHO BỘ ĐỌC LỊCH SỬ
+                        File dir = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\KhachHang");
+                        if (!dir.exists()) dir.mkdirs();
+                        File[] files = dir.listFiles((d, name) -> name.endsWith(".json"));
+                        
+                        JsonArray arr = new JsonArray();
+                        if (files != null) {
+                            // Sắp xếp file mới nhất lên đầu
+                            Arrays.sort(files, (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
+                            for (File f : files) {
+                                JsonObject obj = new JsonObject();
+                                obj.addProperty("name", f.getName());
+                                obj.addProperty("path", f.getAbsolutePath().replace("\\", "/"));
+                                arr.add(obj);
+                            }
+                        }
+                        String json = gson.toJson(arr);
+                        Platform.runLater(() -> webEngine.executeScript("updateHistoryDropdown('" + json + "')"));
+                    } catch (Exception e) { e.printStackTrace(); }
+                });
+            }
+            else if (actionData.startsWith("LOAD_HISTORY_FILE|")) {
+                String path = actionData.substring("LOAD_HISTORY_FILE|".length());
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        File f = new File(path);
+                        if (f.exists()) {
+                            byte[] bytes = Files.readAllBytes(f.toPath());
+                            String base64 = Base64.getEncoder().encodeToString(bytes);
+                            String safeName = f.getName().replace("'", "\\'");
+                            Platform.runLater(() -> webEngine.executeScript("applyHistoricalStateBase64('" + base64 + "', '" + safeName + "')"));
+                        }
+                    } catch (Exception e) { e.printStackTrace(); }
+                });
+            }
+            else if (actionData.startsWith("EXIT_HISTORY")) {
+                pushLiveCustomerAnalytics(true); // Lấy lại dữ liệu thực tế từ DB
             }
         });
     }

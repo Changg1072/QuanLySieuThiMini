@@ -1,0 +1,150 @@
+{
+  "tierStats": {
+    "KhachVangLai": {
+      "count": 25,
+      "revenue": 1050000.0
+    },
+    "KhongHang": {
+      "count": 5,
+      "revenue": 150000.0
+    },
+    "Dong": {
+      "count": 2,
+      "revenue": 500000.0
+    },
+    "Bac": {
+      "count": 0,
+      "revenue": 0.0
+    },
+    "Vang": {
+      "count": 0,
+      "revenue": 0.0
+    },
+    "KimCuong": {
+      "count": 0,
+      "revenue": 0.0
+    }
+  },
+  "totalCustomers": 7,
+  "newCustomersThisMonth": 5,
+  "vipCount": 2,
+  "totalLoyaltyPoints": 1250.0,
+  "totalInvoiceCount": 32,
+  "averageTicketSize": 53125,
+  "returnedInvoiceCount": 2,
+  "totalRefundAmount": 45000,
+  "rankDistributions": {
+    "KhongHang": 5,
+    "Dong": 2,
+    "Bac": 0,
+    "Vang": 0,
+    "KimCuong": 0
+  },
+  "loyaltyLeaderboard": [
+    {
+      "id": "KH001",
+      "name": "Changg",
+      "tier": "Đồng",
+      "totalSpent": 350000.0,
+      "points": 850.0,
+      "ordersCount": 5
+    },
+    {
+      "id": "KH002",
+      "name": "Nam",
+      "tier": "Đồng",
+      "totalSpent": 150000.0,
+      "points": 400.0,
+      "ordersCount": 2
+    }
+  ],
+  "customerGridMatrix": [
+    {
+      "id": "KH000",
+      "name": "Khách vãng lai",
+      "phone": "---",
+      "tier": "Không hạng",
+      "points": 0.0,
+      "totalSpent": 0.0,
+      "ordersCount": 0,
+      "joinDate": "---",
+      "returnCount": 0,
+      "refundAmount": 0.0
+    },
+    {
+      "id": "KH001",
+      "name": "Changg",
+      "phone": "0973535937",
+      "tier": "Đồng",
+      "points": 850.0,
+      "totalSpent": 350000.0,
+      "ordersCount": 5,
+      "joinDate": "13/05/2026",
+      "returnCount": 0,
+      "refundAmount": 0.0
+    },
+    {
+      "id": "KH002",
+      "name": "Nam",
+      "phone": "0912345678",
+      "tier": "Đồng",
+      "points": 400.0,
+      "totalSpent": 150000.0,
+      "ordersCount": 2,
+      "joinDate": "05/06/2026",
+      "returnCount": 1,
+      "refundAmount": 20000.0
+    },
+    {
+      "id": "KVL",
+      "name": "Khách vãng lai (Tổng hợp)",
+      "phone": "---",
+      "tier": "Khách vãng lai",
+      "points": 0,
+      "totalSpent": 1050000.0,
+      "ordersCount": 25,
+      "joinDate": "---"
+    }
+  ],
+  "intelligenceInsights": [
+    "<i class='ti ti-flame' style='color:#f59e0b;font-size:15px;margin-right:6px;vertical-align:-2px;'></i> He thong dat 32 giao dich (bao gom vang lai). Ty le giu chan CRM tang len 15%.",
+    "<i class='ti ti-check' style='color:#10b981;font-size:15px;margin-right:6px;vertical-align:-2px;'></i> Da co 2 khach hang thang hang len Dong trong thang nay."
+  ],
+  "purchaseTimeline": [
+    {
+      "id": "HD260615-003",
+      "customer": "Changg",
+      "amount": 120000.0,
+      "method": "Chuyển khoản",
+      "time": "15/06 14:30"
+    },
+    {
+      "id": "HD260615-002",
+      "customer": "Nam",
+      "amount": 75000.0,
+      "method": "Tiền mặt",
+      "time": "15/06 10:15"
+    },
+    {
+      "id": "HD260615-001",
+      "customer": "Khach vang lai",
+      "amount": 25000.0,
+      "method": "Tiền mặt",
+      "time": "15/06 09:00"
+    },
+    {
+      "id": "HD260614-002",
+      "customer": "Khach vang lai",
+      "amount": 55000.0,
+      "method": "Chuyển khoản",
+      "time": "14/06 19:45"
+    },
+    {
+      "id": "HD260614-001",
+      "customer": "Changg",
+      "amount": 80000.0,
+      "method": "Tiền mặt",
+      "time": "14/06 18:20"
+    }
+  ]
+}

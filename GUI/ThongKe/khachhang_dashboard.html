@@ -17,9 +17,10 @@
         <!-- 1. BRANDING HEADER COMPONENT -->
         <header class="crm-premium-header">
             <div class="header-branding-block">
-                <h1 class="header-main-title">Customer Intelligence</h1>
+                <h1 class="header-main-title">Thống kê Khách Hàng</h1>
                 <p class="header-sub-caption">Phân tích hành vi dữ liệu tệp khách hàng và quản lý chương trình thẻ thân thiết (CRM)</p>
             </div>
+            <div class="header-actions-block">
             <div class="header-actions-block">
                 <div class="search-field-container">
                     <input type="text" id="crmSearchInput" placeholder="Tìm tên, sđt khách hàng..." oninput="handleRealtimeFiltering()">
@@ -50,6 +51,13 @@
                     </div>
                     
                 </div>
+                
+                <select id="exportHistoryDropdown" class="premium-select-box" onchange="handleHistoryFileSelect(this.value)" style="display: none; width: 170px; border-color: #0ea5e9; color: #0ea5e9; font-weight: 600; cursor: pointer; text-overflow: ellipsis;">
+                    <option value="" disabled selected>🕒 Lịch sử xuất...</option>
+                    <option value="EXIT">↩ Thoát chế độ lịch sử</option>
+                </select>
+
+
                 <select id="tierSelector" class="premium-select-box" onchange="handleRealtimeFiltering()">
                     <option value="ALL">Mọi Phân Hạng</option>
                     <option value="Vip">VIP</option>
@@ -59,6 +67,7 @@
                     <option value="Không hạng">Không hạng (CRM)</option>
                     <option value="Khách vãng lai">Khách vãng lai</option>
                 </select>
+
                 <button class="action-trigger btn-excel" onclick="exportDataToExcel()"><i class="ti ti-download"></i> Xuất Excel</button>
             </div>
 
