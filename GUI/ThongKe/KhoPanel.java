@@ -21,6 +21,11 @@ import java.net.URL;
 import java.time.LocalDate;
 import java.util.concurrent.CompletableFuture;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.time.format.DateTimeFormatter;
+import java.util.Base64;
+
 public class KhoPanel extends JPanel {
     private JFXPanel jfxPanel;
     private WebEngine webEngine;
@@ -55,32 +60,130 @@ public class KhoPanel extends JPanel {
             // 1. BẮT SỰ KIỆN NÚT BẤM TỪ JS (NHẬP HÀNG, KIỂM KÊ...)
             webEngine.setOnAlert(event -> {
                 String action = event.getData();
-                System.out.println("📢 Tín hiệu từ Web gửi lên Java: " + action); // In ra để kiểm tra
+                System.out.println("📢 Tín hiệu từ Web gửi lên Java: " + action);
 
                 if (action.startsWith("ACTION:DATE_SYNC|")) {
                     try {
-                        String[] parts = action.substring(7).split("\\|");
-                        // parts[1] là ngày bắt đầu, parts[2] là ngày kết thúc
+                        String[] parts = action.split("\\|");
                         this.filterStartDate = LocalDate.parse(parts[1]);
                         this.filterEndDate = LocalDate.parse(parts[2]);
-                        
                         System.out.println("✅ Java đã nhận ngày mới: " + filterStartDate + " ĐẾN " + filterEndDate);
-                        
-                        // Chạy lại bảng thống kê với ngày mới
                         refreshDashboardData(true); 
                     } catch (Exception e) {
                         System.err.println("❌ Lỗi đọc ngày: " + e.getMessage());
                     }
                 } 
+                // =========================================================
+                // 🔥 LOGIC TẢI DANH SÁCH LỊCH SỬ KHO
+                // =========================================================
+                else if (action.equals("ACTION:LOAD_HISTORY_LIST")) {
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            java.io.File dir = new java.io.File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\Kho");
+                            if (!dir.exists()) dir.mkdirs();
+                            
+                            java.io.File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".json"));
+                            JsonArray arr = new JsonArray();
+                            if (files != null) {
+                                java.util.Arrays.sort(files, (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
+                                for (java.io.File f : files) {
+                                    JsonObject obj = new JsonObject();
+                                    obj.addProperty("name", f.getName());
+                                    obj.addProperty("path", f.getAbsolutePath().replace("\\", "/")); 
+                                    arr.add(obj);
+                                }
+                            }
+                            String jsonPayload = gson.toJson(arr).replace("'", "\\'");
+                            Platform.runLater(() -> webEngine.executeScript("populateHistoryDropdown('" + jsonPayload + "')"));
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
+                }
+                // =========================================================
+                // 🔥 LOGIC XUẤT FILE MỚI
+                // =========================================================
+                else if (action.startsWith("ACTION:EXPORT_KHO|")) {
+                    String jsonPayload = action.substring("ACTION:EXPORT_KHO|".length());
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            java.io.File dir = new java.io.File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\Kho");
+                            if (!dir.exists()) dir.mkdirs();
+
+                            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy");
+                            String fileName = "ThongKe_" + filterStartDate.format(fmt) + "_den_" + filterEndDate.format(fmt) + ".json";
+                            java.io.File targetFile = new java.io.File(dir, fileName);
+
+                            java.nio.file.Files.write(targetFile.toPath(), jsonPayload.getBytes("UTF-8"));
+                            
+                            Platform.runLater(() -> {
+                                JOptionPane.showMessageDialog(this, "Đã lưu bản Thống kê Kho thành công vào:\n" + targetFile.getAbsolutePath(), "Xuất File Thành Công", JOptionPane.INFORMATION_MESSAGE);
+                                webEngine.executeScript("alert('ACTION:LOAD_HISTORY_LIST')");
+                            });
+                        } catch (Exception e) { 
+                            e.printStackTrace(); 
+                            Platform.runLater(() -> JOptionPane.showMessageDialog(this, "Lỗi khi lưu file: " + e.getMessage(), "Lỗi Xuất File", JOptionPane.ERROR_MESSAGE));
+                        }
+                    });
+                }
+                // =========================================================
+                // 🔥 ĐÂY LÀ ĐOẠN ĐỌC FILE BỊ MẤT TÍCH LÚC NÃY
+                // =========================================================
+                else if (action.startsWith("ACTION:LOAD_HISTORY_FILE|")) {
+                    String path = action.substring("ACTION:LOAD_HISTORY_FILE|".length());
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            java.io.File f = new java.io.File(path);
+                            if (f.exists()) {
+                                byte[] bytes = java.nio.file.Files.readAllBytes(f.toPath());
+                                String base64 = java.util.Base64.getEncoder().encodeToString(bytes);
+                                String safeName = f.getName().replace("'", "\\'");
+                                Platform.runLater(() -> webEngine.executeScript("applyHistoricalStateBase64('" + base64 + "', '" + safeName + "')"));
+                            }
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
+                }
+                // =========================================================
+                // THOÁT LỊCH SỬ & CÁC NÚT ĐIỀU HƯỚNG
+                // =========================================================
+                else if (action.equals("ACTION:EXIT_HISTORY")) {
+                    refreshDashboardData(true);
+                }
                 else if (action.equals("ACTION:IMPORT")) {
                     if (callback != null) callback.moNhapHang();
                 } 
                 else if (action.equals("ACTION:AUDIT")) {
                     if (callback != null) callback.moKiemKe();
                 } 
-                else if (action.startsWith("VIEW_")) {
-                    String maSP = action.replace("VIEW_", "");
-                    JOptionPane.showMessageDialog(this, "Chi tiết mã hàng: " + maSP);
+                else if (action.startsWith("ACTION:VIEW_")) {
+                    String maSP = action.replace("ACTION:VIEW_", "").trim();
+                    
+                    if (cachedData != null) {
+                        // 1. Tìm sản phẩm trong bộ nhớ RAM
+                        Data.SanPham spTarget = null;
+                        for (Data.SanPham sp : cachedData.dsSanPham) {
+                            if (sp.getMaSP().trim().equalsIgnoreCase(maSP)) {
+                                spTarget = sp;
+                                break;
+                            }
+                        }
+                        
+                        // 2. Nếu tìm thấy, mở Popup
+                        if (spTarget != null) {
+                            int tonKhoHienTai = cachedData.mapTongTonKho.getOrDefault(maSP, 0);
+                            Data.SanPham finalSp = spTarget; // Đóng gói để dùng trong luồng Lambda
+                            
+                            // Chuyển về luồng Swing để vẽ UI
+                            SwingUtilities.invokeLater(() -> {
+                                GUI.HoTro.ChiTietSanPham.showModal(
+                                    KhoPanel.this, 
+                                    finalSp, 
+                                    tonKhoHienTai, 
+                                    () -> refreshDashboardData(true) // TỰ ĐỘNG TẢI LẠI TRANG KHI ĐÓNG POPUP
+                                );
+                            });
+                        } else {
+                            JOptionPane.showMessageDialog(KhoPanel.this, "Không tìm thấy dữ liệu cho mã hàng: " + maSP, "Lỗi", JOptionPane.ERROR_MESSAGE);
+                        }
+                    }
                 }
             });
 

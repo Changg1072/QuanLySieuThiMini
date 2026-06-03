@@ -10,47 +10,68 @@
 <body>
     <div class="container">
         <header class="header">
-            <!-- (Phần header giữ nguyên như cũ của bạn) -->
             <div class="title-area">
-                <h1>Warehouse Intelligence</h1>
+                <h1>Thống kê xuất nhập</h1>
                 <p>Hệ thống phân tích và quản lý kho hàng Real-time</p>
             </div>
+            
             <div class="action-bar">
-                <input type="text" id="search" placeholder="Tìm sản phẩm..." oninput="filterTable()">
                 
-                <div style="display: inline-block; position: relative; vertical-align: middle; margin-right: 12px; margin-left: 12px;">
-                    <div class="date-picker-group" id="calendarToggleBtn" onclick="toggleCalendarPanel()" style="margin-right: 0;">
-                        <i class="ti ti-calendar" style="color: #64748b; font-size: 16px; vertical-align: middle; margin-right: 6px;"></i>
-                        <span id="dateRangeDisplayLabel" style="font-size:13.5px; font-weight:500; color:#0f172a; vertical-align:middle;">Chọn khoảng thời gian...</span>
-                        <i class="ti ti-chevron-down" style="font-size:13px; color:#94a3b8; margin-left:6px; vertical-align:middle;"></i>
-                    </div>
-                    <div id="inlineCalendarPanel" class="inline-calendar-panel" style="display:none;">
-                        <div class="cal-header">
-                            <button class="cal-nav-btn" onclick="shiftCalendarMonth(-1)">&#8592;</button>
-                            <span id="calMonthYearLabel" class="cal-month-title"></span>
-                            <button class="cal-nav-btn" onclick="shiftCalendarMonth(1)">&#8594;</button>
-                        </div>
-                        <div class="cal-weekdays">
-                            <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
-                        </div>
-                        <div id="calDaysGrid" class="cal-days-grid"></div>
-                        <div class="cal-footer">
-                            <span id="calSelectionHint" style="font-size:12px;color:#64748b;">Chọn ngày bắt đầu</span>
-                            <button class="cal-confirm-btn" onclick="confirmDateRange()">Xác nhận</button>
-                        </div>
-                    </div>
-                </div>
-                <button class="btn btn-refresh" onclick="location.reload()">
-                    <i class="ti ti-refresh"></i> Làm mới
-                </button>
-                <button class="btn btn-primary" onclick="alert('ACTION:IMPORT')">
-                    <i class="ti ti-package"></i> Nhập hàng
-                </button>
-                <button class="btn btn-accent" onclick="alert('ACTION:AUDIT')">
-                    <i class=\"ti ti-clipboard-list\"></i> Kiểm kê
-                </button>
-            </div>
+                <div class="action-group">
+                    <button class="btn" onclick="alert('ACTION:IMPORT')" style="background: var(--success); color: white;">
+                        <i class="ti ti-truck-delivery"></i> Nhập Hàng
+                    </button>
+                    
+                    <button class="btn" onclick="alert('ACTION:AUDIT')" style="background: var(--warning); color: white;">
+                        <i class="ti ti-clipboard-list"></i> Kiểm Kê
+                    </button>
 
+                    <button class="btn btn-export" onclick="exportData()" style="background: var(--primary); color: white;">
+                        <i class="ti ti-download"></i> Xuất File
+                    </button>
+                    
+                    <select id="exportHistoryDropdown" class="btn" onchange="handleHistoryFileSelect(this.value)" 
+                        style="display:inline-block; max-width: 160px; padding: 8px 12px; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #334155;">
+                        <option value="">⏳ Lịch sử xuất...</option>
+                    </select>
+                </div>
+
+                <div class="action-group">
+                    <input type="text" id="search" placeholder="Tìm sản phẩm..." oninput="filterTable()">
+                    
+                    <div style="position: relative;">
+                        <div class="date-picker-group" id="calendarToggleBtn" onclick="toggleCalendarPanel()">
+                            <i class="ti ti-calendar" style="color: #64748b; font-size: 16px; vertical-align: middle; margin-right: 6px;"></i>
+                            <span id="dateRangeDisplayLabel" class="date-range-label">Chọn khoảng thời gian...</span>
+                            <i class="ti ti-chevron-down" style="color: #64748b; font-size: 14px; vertical-align: middle; margin-left: 6px;"></i>
+                        </div>
+                        
+                        <div class="inline-calendar-panel" id="inlineCalendarPanel" style="display: none;">
+                            <div style="position: absolute; top: -6px; right: 24px; width: 12px; height: 12px; background: white; transform: rotate(45deg); border-left: 1px solid #e2e8f0; border-top: 1px solid #e2e8f0;"></div>
+                            
+                            <div class="cal-header">
+                                <button class="cal-nav-btn" onclick="shiftCalendarMonth(-1)">&#8592;</button>
+                                <span class="cal-month-title" id="calMonthYearLabel">Tháng 6 - 2026</span>
+                                <button class="cal-nav-btn" onclick="shiftCalendarMonth(1)">&#8594;</button>
+                            </div>
+                            <div class="cal-weekdays">
+                                <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
+                            </div>
+                            
+                            <div class="cal-days-grid" id="calDaysGrid"></div>
+                            
+                            <div class="cal-footer">
+                                <span id="calSelectionHint" style="font-size:12px;color:#64748b;">Chọn ngày bắt đầu</span>
+                                <button class="cal-confirm-btn" onclick="confirmDateRange()">Áp dụng</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-refresh" onclick="location.reload()" title="Tải lại dữ liệu">
+                        <i class="ti ti-refresh"></i>
+                    </button>
+                </div>
+            </div>
         </header>
 
         <!-- 🔥 THAY THẾ TOÀN BỘ KHỐI <div class="kpi-grid"> CŨ BẰNG KHỐI NÀY -->

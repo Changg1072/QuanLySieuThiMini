@@ -7,6 +7,8 @@ let calSelStart  = null;
 let calSelEnd    = null; 
 let calPickStep  = 1;
 
+let lastRawData = null;
+
 function initCharts() {
     const options = {
         chart: { type: 'donut', height: 250 },
@@ -20,6 +22,7 @@ function initCharts() {
 }
 
 function updateDashboard(data) {
+    lastRawData = data;
     document.getElementById('totalStock').innerText = data.totalStock.toLocaleString();
     document.getElementById('warehouseValue').innerText = new Intl.NumberFormat('vi-VN').format(data.warehouseValue) + 'đ';
     
@@ -142,6 +145,8 @@ function updateDashboard(data) {
     fullData = data.inventoryTable;
     // Gọi ngay bộ lọc để vẽ bảng khi nạp xong dữ liệu
     filterTable(); 
+
+    alert("ACTION:LOAD_HISTORY_LIST");
 }
 function loaiBoDauTiengViet(str) {
     if (!str) return "";
@@ -169,7 +174,9 @@ function renderTable(items) {
                     ${item.stock > 10 ? 'Ổn định' : (item.stock === 0 ? 'Hết hàng' : 'Thấp')}
                 </span>
             </td>
-            <td><button onclick="alert('ACTION:VIEW_${item.id}')" style="border:1px solid #e2e8f0; border-radius:6px; padding:6px 12px; background:#fff; color:var(--primary); cursor:pointer; font-weight:500;">Chi tiết</button></td>
+            <td>
+                <button class="btn-detail" onclick="alert('ACTION:VIEW_${item.id}')">Chi tiết</button>
+            </td>
         </tr>
     `).join('');
 }
@@ -212,7 +219,7 @@ document.addEventListener('DOMContentLoaded', initCharts);
 
 document.addEventListener("DOMContentLoaded", function () {
     if (typeof initCharts === "function") initCharts();
-    initDatePickers();
+    if (typeof initDatePickers === "function") initDatePickers();
 });
 
 function initDatePickers() {
@@ -316,3 +323,108 @@ document.addEventListener("click", function(event) {
         }
     }
 });
+
+function exportData() {
+    if (!lastRawData) {
+        alert("Chưa có dữ liệu để xuất!");
+        return;
+    }
+    // Gửi lệnh kèm theo JSON Data sang Java
+    alert("ACTION:EXPORT_KHO|" + JSON.stringify(lastRawData));
+}
+
+// Java gọi hàm này để thả danh sách file vào thẻ Dropdown
+function populateHistoryDropdown(filesData) {
+    const dropdown = document.getElementById("exportHistoryDropdown");
+    dropdown.innerHTML = '<option value="">⏳ Lịch sử xuất...</option>';
+    
+    try {
+        // 🔥 GIẢI MÃ: Java giờ truyền xuống 1 Chuỗi an toàn. Ta phải ép nó lại thành Mảng (Array)
+        let files = typeof filesData === 'string' ? JSON.parse(filesData) : filesData;
+        
+        if (files && files.length > 0) {
+            dropdown.innerHTML += '<option value="EXIT">🌟 Về thực tại (Live)</option>';
+            files.forEach(f => {
+                dropdown.innerHTML += `<option value="${f.path}">${f.name}</option>`;
+            });
+        } else {
+            dropdown.innerHTML += '<option value="" disabled>(Chưa có bản lưu nào)</option>';
+        }
+    } catch (error) {
+        console.error("Lỗi parse danh sách file:", error);
+        dropdown.innerHTML += '<option value="" disabled>Lỗi đọc dữ liệu</option>';
+    }
+    
+    dropdown.style.display = "inline-block"; 
+}
+// Khi người dùng chọn 1 file từ Dropdown
+function handleHistoryFileSelect(val) {
+    if (!val) return; 
+    
+    if (val === "EXIT") {
+        alert("ACTION:EXIT_HISTORY");
+        
+        // 1. RESET LỊCH VỀ MẶC ĐỊNH
+        const today = new Date();
+        calSelStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        calSelEnd   = new Date(today);
+        calViewYear  = today.getFullYear();
+        calViewMonth = today.getMonth();
+        calPickStep  = 1;
+        updateDateRangeLabel(); 
+        
+        // 2. Trả tiêu đề về bình thường (Xóa chữ Đỏ)
+        const caption = document.querySelector(".title-area p");
+        if (caption) {
+            caption.innerHTML = "Hệ thống phân tích và quản lý kho hàng Real-time";
+        }
+        document.getElementById("exportHistoryDropdown").selectedIndex = 0;
+    } else {
+        alert("ACTION:LOAD_HISTORY_FILE|" + val);
+    }
+}
+// Java trả về mã Base64 của file JSON, tiến hành giải mã và vẽ lại Dashboard
+function applyHistoricalStateBase64(base64Data, fileName) {
+    try {
+        // 🔥 ĐỔI TEXT CẢNH BÁO NGAY LẬP TỨC: Giúp sếp thấy ngay trạng thái trước khi dữ liệu kịp vẽ xong
+        const caption = document.querySelector(".title-area p");
+        if (caption) {
+            // Lấy ngày từ tên file
+            const match = fileName.match(/ThongKe_(\d{2})-(\d{2})-(\d{4})_den_(\d{2})-(\d{2})-(\d{4})/);
+            let dateDisplay = fileName;
+            
+            if (match) {
+                dateDisplay = `${match[1]}/${match[2]}/${match[3]} → ${match[4]}/${match[5]}/${match[6]}`;
+                
+                calSelStart = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+                calSelEnd   = new Date(parseInt(match[6]), parseInt(match[5]) - 1, parseInt(match[4]));
+                calViewYear  = calSelStart.getFullYear();
+                calViewMonth = calSelStart.getMonth();
+                updateDateRangeLabel(); 
+            }
+            
+            // 🔥 ĐÃ SỬA LỖI ICON: Dùng icon <i class="ti ti-history"></i> của thư viện thay vì dùng Emoji
+            caption.innerHTML = `
+                <span style="color: #ef4444; background: #fee2e2; padding: 4px 10px; border-radius: 6px; font-weight: bold; margin-right: 8px; display: inline-flex; align-items: center; gap: 4px;">
+                    <i class="ti ti-history" style="font-size: 16px;"></i> CHẾ ĐỘ XEM LỊCH SỬ
+                </span> 
+                <span style="color: #991b1b; font-weight: 500; vertical-align: middle;">Đang xem dữ liệu: ${dateDisplay}</span>
+            `;
+        }
+
+        // Giải mã Base64 và Render dữ liệu bảng
+        const binaryString = window.atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        const decodedStr = new TextDecoder('utf-8').decode(bytes);
+        const data = JSON.parse(decodedStr);
+        
+        updateDashboard(data); // Vẽ lại Dashboard
+        
+    } catch (e) {
+        console.error("Lỗi parse dữ liệu lịch sử:", e);
+        alert("File dữ liệu bị hỏng hoặc không đúng định dạng!");
+    }
+}
