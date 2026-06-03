@@ -7,10 +7,143 @@ let shiftDonutChartInstance = null;
 let currentPagerPageIndex = 0;
 const tablePageSizeLimit = 5;
 
+let calViewYear  = new Date().getFullYear();
+let calViewMonth = new Date().getMonth(); 
+let calSelStart  = null; 
+let calSelEnd    = null; 
+let calPickStep  = 1;
+
 document.addEventListener("DOMContentLoaded", function () {
     initializeGraphicalShellStructures();
+    initDatePickers(); // <--- GỌI KHỞI TẠO LỊCH Ở ĐÂY
 });
+function initDatePickers() {
+    const today = new Date();
+    calViewYear  = today.getFullYear();
+    calViewMonth = today.getMonth();
+    // Mặc định: từ đầu tháng đến hôm nay
+    calSelStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    calSelEnd   = new Date(today);
+    calPickStep = 1;
+    updateDateRangeLabel();
+    renderCalendarGrid();
+}
 
+function toggleCalendarPanel() {
+    const panel = document.getElementById("inlineCalendarPanel");
+    panel.style.display = (panel.style.display === "none") ? "block" : "none";
+    if (panel.style.display === "block") renderCalendarGrid();
+}
+
+function shiftCalendarMonth(dir) {
+    calViewMonth += dir;
+    if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+    if (calViewMonth < 0)  { calViewMonth = 11; calViewYear--; }
+    renderCalendarGrid();
+}
+
+function renderCalendarGrid() {
+    const monthNames = ["Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"];
+    document.getElementById("calMonthYearLabel").innerText = monthNames[calViewMonth] + " " + calViewYear;
+
+    const grid = document.getElementById("calDaysGrid");
+    grid.innerHTML = "";
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const firstDayOfMonth = new Date(calViewYear, calViewMonth, 1);
+    let startOffset = firstDayOfMonth.getDay() - 1;
+    if (startOffset < 0) startOffset = 6;
+
+    const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+
+    for (let i = 0; i < startOffset; i++) {
+        const empty = document.createElement("div");
+        empty.className = "cal-day-cell empty";
+        grid.appendChild(empty);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const cellDate = new Date(calViewYear, calViewMonth, d);
+        cellDate.setHours(0,0,0,0);
+
+        const cell = document.createElement("div");
+        cell.className = "cal-day-cell";
+        cell.innerText = d;
+
+        if (cellDate > today) {
+            cell.classList.add("disabled");
+        } else {
+            if (calSelStart && calSelEnd) {
+                if (cellDate >= calSelStart && cellDate <= calSelEnd) cell.classList.add("in-range");
+            }
+            if (calSelStart && cellDate.getTime() === calSelStart.getTime()) cell.classList.add("sel-start");
+            if (calSelEnd   && cellDate.getTime() === calSelEnd.getTime())   cell.classList.add("sel-end");
+
+            cell.onclick = () => onCalDayClick(new Date(cellDate));
+        }
+        grid.appendChild(cell);
+    }
+
+    const hint = document.getElementById("calSelectionHint");
+    hint.innerText = (calPickStep === 1) ? "Chọn ngày bắt đầu" : "Chọn ngày kết thúc";
+}
+
+function onCalDayClick(date) {
+    if (calPickStep === 1) {
+        calSelStart = date;
+        calSelEnd   = null;
+        calPickStep = 2;
+    } else {
+        if (date < calSelStart) {
+            calSelEnd   = calSelStart;
+            calSelStart = date;
+        } else {
+            calSelEnd = date;
+        }
+        calPickStep = 1;
+    }
+    renderCalendarGrid();
+    updateDateRangeLabel();
+}
+
+function updateDateRangeLabel() {
+    const label = document.getElementById("dateRangeDisplayLabel");
+    if (calSelStart && calSelEnd) {
+        label.innerText = fmtDate(calSelStart) + "  →  " + fmtDate(calSelEnd);
+    } else if (calSelStart) {
+        label.innerText = fmtDate(calSelStart) + "  →  ...";
+    } else {
+        label.innerText = "Chọn khoảng thời gian...";
+    }
+}
+
+function fmtDate(d) {
+    return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+}
+
+function fmtDateISO(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function confirmDateRange() {
+    if (!calSelStart || !calSelEnd) {
+        document.getElementById("calSelectionHint").innerText = "Vui lòng chọn đủ 2 ngày!";
+        return;
+    }
+    document.getElementById("inlineCalendarPanel").style.display = "none";
+    
+    // Gửi tín hiệu báo cho Java biết ngày đã thay đổi
+    alert(`ACTION:DATE_SYNC|${fmtDateISO(calSelStart)}|${fmtDateISO(calSelEnd)}`);
+}
+document.addEventListener("click", function(event) {
+    const calendarPanel = document.getElementById("inlineCalendarPanel");
+    const toggleBtn = document.getElementById("calendarToggleBtn");
+    if (calendarPanel && calendarPanel.style.display === "block") {
+        if (!calendarPanel.contains(event.target) && !toggleBtn.contains(event.target)) {
+            calendarPanel.style.display = "none";
+        }
+    }
+});
 function initializeGraphicalShellStructures() {
     salesBarChartInstance = new ApexCharts(document.querySelector("#chartSalesByEmployee"), {
         series: [
@@ -258,27 +391,28 @@ function updateFilteredKPIsAndCharts() {
  * Gọi Java xuất file. Kiểm tra javaConnector bằng nhiều cách để đảm bảo ổn định.
  */
 function triggerSystemExport() {
-    // ✅ FIX: Kiểm tra connector tồn tại và có method cần dùng
     if (typeof window.javaConnector !== 'undefined' && window.javaConnector !== null) {
         try {
-            window.javaConnector.exportDashboardData();
+            // Lấy khoảng thời gian từ lịch để đặt tên file
+            let fileName = "Thong_Ke_Nhan_Vien";
+            if (typeof calSelStart !== 'undefined' && calSelStart && calSelEnd) {
+                const s = fmtDate(calSelStart).replace(/\//g, "_");
+                const e = fmtDate(calSelEnd).replace(/\//g, "_");
+                fileName = `Thong_Ke_Nhan_Vien_Tu_${s}_Den_${e}.json`;
+            } else {
+                fileName += "_" + new Date().getTime() + ".json";
+            }
+            
+            // Gửi đúng 1 tham số tên file sang Java
+            window.javaConnector.exportDashboardData(fileName);
+            
         } catch (err) {
-            alert("⚠️ LỖI KHI GỌI JAVA:\n" + err.message + 
-                  "\n\nGợi ý: Hãy đợi trang load hoàn toàn rồi thử lại.");
+            alert("⚠️ LỖI KHI GỌI JAVA:\n" + err.message);
         }
     } else {
-        // ✅ Thông báo lỗi rõ ràng, hướng dẫn debug
-        alert(
-            "⚠️ CHƯA KẾT NỐI VỚI JAVA BACKEND!\n\n" +
-            "Nguyên nhân có thể:\n" +
-            "1. Trang chưa load xong — đợi vài giây rồi thử lại\n" +
-            "2. jsBridgeInstance bị GC thu hồi — kiểm tra field 'jsBridgeInstance' trong NhanVienPanel.java\n" +
-            "3. webEngine.getLoadWorker() chưa kích hoạt setMember\n\n" +
-            "Debug: mở Console và gõ: typeof window.javaConnector"
-        );
+        alert("⚠️ CHƯA KẾT NỐI VỚI JAVA BACKEND! Hãy đợi trang load xong.");
     }
 }
-
 /**
  * Load danh sách file lịch sử vào dropdown.
  * Được gọi từ Java sau khi trang load và sau mỗi lần xuất file.
@@ -291,16 +425,14 @@ function loadExportHistory() {
         let files = JSON.parse(historyJson);
         
         let selector = document.getElementById("historySelector");
-        // ✅ FIX ENCODING: Dùng createElement + textContent hoàn toàn,
-        //    KHÔNG dùng innerHTML để tránh lỗi UTF-8 tiếng Việt trong JavaFX WebView
-        selector.options.length = 0; // Xóa sạch tất cả option cũ
+        selector.options.length = 0; // Xóa sạch danh sách cũ
 
         let defaultOpt = document.createElement("option");
         defaultOpt.value = "";
-        defaultOpt.textContent = "Lịch sử xuất file"; // ASCII thuần — tránh lỗi JavaFX
+        defaultOpt.textContent = "Lịch sử xuất file";
         selector.appendChild(defaultOpt);
 
-        // Thêm mục thoát lịch sử — chỉ hiện khi đang ở chế độ xem lịch sử
+        // Nút thoát chỉ hiện khi đang xem lịch sử
         var caption = document.querySelector(".header-sub-caption");
         if (caption && caption.dataset.isHistorical === "true") {
             let exitOpt = document.createElement("option");
@@ -311,10 +443,10 @@ function loadExportHistory() {
 
         files.forEach(function(f) {
             let displayName = f;
-            let match = f.match(/Thongke_(\d{2})_(\d{2})_(\d{4})\.json/);
+            // Trích xuất ngày từ tên file: Thong_Ke_Nhan_Vien_Tu_DD_MM_YYYY_Den_DD_MM_YYYY.json
+            let match = f.match(/Tu_(\d{2})_(\d{2})_(\d{4})_Den_(\d{2})_(\d{2})_(\d{4})/);
             if (match) {
-                // Dùng ASCII thuần, không dấu tiếng Việt trong option text
-                displayName = "[" + match[1] + "/" + match[2] + "/" + match[3] + "] Bao cao Nhan Vien";
+                displayName = `[${match[1]}/${match[2]}/${match[3]} - ${match[4]}/${match[5]}/${match[6]}] Báo Cáo Nhân Viên`;
             }
             let opt = document.createElement("option");
             opt.value = f;
@@ -326,34 +458,32 @@ function loadExportHistory() {
     }
 }
 
-/**
- * Khi chọn file từ dropdown lịch sử, yêu cầu Java đọc và trả về base64.
- */
 function loadHistoricalData(fileName) {
     if (!fileName || fileName === "") return;
 
-    // ✅ Xử lý thoát chế độ lịch sử
     if (fileName === "__EXIT_HISTORY__") {
         exitHistoryMode();
         return;
     }
 
-    if (typeof window.javaConnector === 'undefined' || window.javaConnector === null) {
-        alert("⚠️ Chưa kết nối với Java. Hãy đợi trang load xong.");
-        return;
-    }
+    if (typeof window.javaConnector === 'undefined' || window.javaConnector === null) return;
     try {
         window.javaConnector.readAndLoadExportFile(fileName);
     } catch(e) {
         alert("⚠️ Lỗi tải file lịch sử: " + e.message);
     }
 }
-
-/**
- * Thoát chế độ xem lịch sử, yêu cầu Java đồng bộ lại dữ liệu thực.
- */
 function exitHistoryMode() {
-    // Reset caption
+    // 🔥 1. RESET CALENDAR VỀ MẶC ĐỊNH (Đầu tháng -> Hôm nay)
+    const today = new Date();
+    calSelStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    calSelEnd   = new Date(today);
+    calViewYear  = today.getFullYear();
+    calViewMonth = today.getMonth();
+    calPickStep  = 1;
+    updateDateRangeLabel();
+
+    // 2. Trả lại tiêu đề mặc định
     var caption = document.querySelector(".header-sub-caption");
     if (caption) {
         delete caption.dataset.isHistorical;
@@ -362,60 +492,52 @@ function exitHistoryMode() {
         caption.style.fontWeight = "";
     }
 
-    // Reset dropdown về mục mặc định và ẩn nút thoát
+    // 3. Reset Dropdown
     var selector = document.getElementById("historySelector");
     if (selector) selector.value = "";
-    loadExportHistory(); // Rebuild dropdown (sẽ không có nút thoát nữa vì isHistorical đã xóa)
+    loadExportHistory(); 
 
-    // Kích hoạt đồng bộ dữ liệu thực từ Java
+    // 4. Đồng bộ lại dữ liệu Database
     alert("ACTION:SYNC");
 }
-
-/**
- * Được gọi từ Java sau khi đọc file xong.
- * Giải mã base64 → JSON → khôi phục toàn bộ giao diện.
- *
- * ✅ FIX UTF-8 TIẾNG VIỆT:
- *    Cách cũ:  decodeURIComponent(escape(atob(base64)))  — KHÔNG ĐÁNG TIN
- *    Cách mới: TextDecoder với Uint8Array — xử lý UTF-8 chuẩn xác 100%
- */
 function applyHistoricalStateBase64(base64Data, fileName) {
     try {
-        // Giải mã base64 sang chuỗi bytes thô
         let binaryStr = atob(base64Data);
-        
-        // Chuyển sang Uint8Array rồi dùng TextDecoder để decode UTF-8 đúng chuẩn
         let bytes = new Uint8Array(binaryStr.length);
-        for (let i = 0; i < binaryStr.length; i++) {
-            bytes[i] = binaryStr.charCodeAt(i);
-        }
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
         let decodedString = new TextDecoder('utf-8').decode(bytes);
         
-        // Parse JSON và bơm vào dashboard
+        // Bơm dữ liệu JSON lên Dashboard
         let historicalPayload = JSON.parse(decodedString);
         updateWorkforceDashboard(historicalPayload);
         
-        // Đánh dấu đang ở chế độ xem lịch sử
+        let dateDisplay = fileName;
+        let match = fileName.match(/Tu_(\d{2})_(\d{2})_(\d{4})_Den_(\d{2})_(\d{2})_(\d{4})/);
+
+        if (match) {
+            // 🔥 ÉP LỊCH TRÊN GIAO DIỆN NHẢY THEO NGÀY CỦA FILE LỊCH SỬ
+            calSelStart = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+            calSelEnd   = new Date(parseInt(match[6]), parseInt(match[5]) - 1, parseInt(match[4]));
+            calViewYear  = calSelStart.getFullYear();
+            calViewMonth = calSelStart.getMonth();
+            calPickStep  = 1;
+            updateDateRangeLabel();
+
+            dateDisplay = `${match[1]}/${match[2]}/${match[3]} → ${match[4]}/${match[5]}/${match[6]}`;
+        }
+
+        // Cập nhật tiêu đề cảnh báo
         var caption = document.querySelector(".header-sub-caption");
         if (caption) {
             caption.dataset.isHistorical = "true";
-            // Lấy ngày từ tên file để hiển thị
-            let dateDisplay = fileName;
-            let match = fileName.match(/Thongke_(\d{2})_(\d{2})_(\d{4})/);
-            if (match) dateDisplay = match[1] + "/" + match[2] + "/" + match[3];
-            
-            caption.textContent = "[CHE DO LICH SU] Bao cao ngay: " + dateDisplay +
-                                  " -- Chon 'Thoat' trong dropdown de quay ve du lieu thuc";
+            caption.textContent = "[CHẾ ĐỘ LỊCH SỬ] Báo cáo: " + dateDisplay + " -- Chọn 'Thoát' để về hiện tại";
             caption.style.color = "#ef4444";
             caption.style.fontWeight = "bold";
         }
 
-        // ✅ Rebuild dropdown để hiện nút "↩ Thoát"
         loadExportHistory();
 
     } catch(e) {
-        alert("❌ Lỗi giải mã file lịch sử: " + e.message + 
-              "\nFile có thể bị hỏng hoặc không đúng định dạng.");
-        console.error("applyHistoricalStateBase64 error:", e);
+        alert("❌ Lỗi giải mã file lịch sử: " + e.message);
     }
 }

@@ -184,3 +184,57 @@ body {
     vertical-align: -2px;
     margin-right: 5px;
 }
+
+/* ==========================================================
+   GIAO DIỆN BỘ LỌC THỜI GIAN (INLINE CALENDAR)
+   ========================================================== */
+.date-picker-group {
+    display: inline-block; vertical-align: middle; margin-right: 8px;
+    background: var(--card-surface-pure); border: 1px solid #e2e8f0;
+    border-radius: 12px; padding: 7px 12px; cursor: pointer;
+    transition: var(--transition-smooth); position: relative;
+}
+.date-picker-group:hover { border-color: var(--blue-premium-accent); }
+
+.inline-calendar-panel {
+    position: absolute; top: calc(100% + 8px); right: 0;
+    background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;
+    padding: 16px; width: 300px; box-shadow: 0 8px 30px rgba(15,23,42,0.15); 
+    z-index: 99999; transform: translateZ(0); white-space: normal; text-align: left;
+}
+
+.cal-header { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 12px; }
+.cal-nav-btn {
+    flex: 0 0 32px; height: 32px; background: #f1f5f9; border: none;
+    border-radius: 8px; font-size: 16px; cursor: pointer; text-align: center;
+    padding: 0; line-height: 32px; transition: var(--transition-smooth);
+}
+.cal-nav-btn:hover { background: #e2e8f0; }
+
+.cal-month-title { flex: 1; text-align: center; font-size: 14px; font-weight: 700; color: var(--text-slate-primary); }
+
+.cal-weekdays { display: table; width: 100%; table-layout: fixed; margin-bottom: 4px; }
+.cal-weekdays span { display: table-cell; text-align: center; font-size: 11px; font-weight: 600; color: #94a3b8; padding: 4px 0; }
+
+.cal-days-grid { display: block; width: 100%; font-size: 0; }
+.cal-day-cell {
+    display: inline-block; width: 14.2857%; text-align: center; padding: 6px 0;
+    font-size: 13px; border-radius: 8px; cursor: pointer; color: var(--text-slate-primary);
+    font-weight: 500; box-sizing: border-box;
+}
+.cal-day-cell:hover:not(.disabled):not(.empty) { background: #f0f9ff; color: var(--blue-premium-accent); }
+.cal-day-cell.empty { cursor: default; }
+.cal-day-cell.disabled { color: #cbd5e1; cursor: not-allowed; }
+.cal-day-cell.in-range { background: #e0f2fe; color: #0284c7; }
+.cal-day-cell.sel-start, .cal-day-cell.sel-end {
+    background: var(--blue-premium-accent) !important; color: white !important; font-weight: 700;
+}
+
+.cal-footer { display: table; width: 100%; table-layout: fixed; margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 10px; }
+.cal-footer span { display: table-cell; vertical-align: middle; }
+.cal-confirm-btn {
+    display: table-cell; width: 80px; background: var(--blue-premium-accent);
+    color: white; border: none; border-radius: 8px; padding: 7px 0;
+    font-size: 13px; font-weight: 600; cursor: pointer; text-align: center; font-family: inherit;
+}
+.cal-confirm-btn:hover { opacity: 0.9; }

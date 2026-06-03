@@ -1,13 +1,9 @@
 package GUI.ThongKe;
 
-import Dao.CauHinhLuongDAO;
-import Dao.ChiaCaDAO;
 import Dao.TruyVanSieuTocDAO;
-import Data.CauHinhLuong;
+import Dao.ChiaCaDAO;
 import Data.ChiaCa;
 import Data.NhanVien;
-// ✅ ĐÃ XÓA: import GUI.ThongKe.SanPhamPanel.JsBridge; <- DÒNG NÀY GÂY XUNG ĐỘT TÊN CLASS
-import Logic.BangLuongLogic;
 import Logic.NhanVienLogic;
 
 import com.google.gson.Gson;
@@ -22,7 +18,9 @@ import java.net.URL;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import javafx.application.Platform;
@@ -42,17 +40,17 @@ import java.io.Writer;
 import java.io.OutputStreamWriter;
 import java.io.FileOutputStream;
 
-
 public class NhanVienPanel extends JPanel {
 
     private JFXPanel jfxPanel;
     private WebEngine webEngine;
     private final Gson gson = new Gson();
     private String lastCachedDashboardJson = null;
-
-    // ✅ FIX QUAN TRỌNG: Giữ strong reference để tránh Garbage Collector thu hồi JsBridge
-    // JavaFX WebEngine chỉ giữ WeakReference đến object được setMember,
-    // nếu không có strong reference ở đây, object sẽ bị GC sau vài giây.
+    
+    // Mặc định khoảng thời gian lọc: Đầu tháng đến hôm nay
+    private LocalDate filterStartDate = LocalDate.now().withDayOfMonth(1);
+    private LocalDate filterEndDate = LocalDate.now();
+    
     private JsBridge jsBridgeInstance;
     
     public interface NhanVienPanelCallback {
@@ -96,13 +94,10 @@ public class NhanVienPanel extends JPanel {
             webEngine.getLoadWorker().stateProperty().addListener((observable, oldValue, newValue) -> {
                 if (newValue == Worker.State.SUCCEEDED) {
                     try {
-                        // ✅ FIX: Tạo instance và lưu vào field để tránh GC thu hồi
                         jsBridgeInstance = new JsBridge();
-                        
                         JSObject window = (JSObject) webEngine.executeScript("window");
                         window.setMember("javaConnector", jsBridgeInstance);
 
-                        // ✅ FIX: Dùng setTimeout nhỏ để đảm bảo JS đã parse xong trước khi gọi
                         webEngine.executeScript(
                             "setTimeout(function(){ " +
                             "  if(typeof loadExportHistory === 'function') loadExportHistory(); " +
@@ -143,18 +138,52 @@ public class NhanVienPanel extends JPanel {
             try {
                 JsonObject mainContainer = new JsonObject();
                 
-                BangLuongLogic bangLuongLogic = new BangLuongLogic();
+                // =========================================================================
+                // 🔥 BƯỚC 1: LOAD TOÀN BỘ DỮ LIỆU LÊN RAM CHỈ VỚI VÀI CÂU QUERY (TỐI ƯU O(1))
+                // Thay vì Query vào DB liên tục cho từng Nhân Viên, ta gom chung 1 lần!
+                // =========================================================================
                 NhanVienLogic nhanVienLogic = new NhanVienLogic();
-                CauHinhLuongDAO cauHinhLuongDAO = CauHinhLuongDAO.getInstance();
-                ChiaCaDAO chiaCaDAO = ChiaCaDAO.getInstance();
-                TruyVanSieuTocDAO.DuLieuDonHangDTO ordersDTO = TruyVanSieuTocDAO.getInstance().loadToanBoDuLieuDonHang();
+                List<NhanVien> dsNhanVien = nhanVienLogic.layDanhSachNhanVien();
                 
                 Logic.LoaiCaLogic loaiCaLogic = new Logic.LoaiCaLogic();
                 List<Data.LoaiCa> dsLoaiCa = loaiCaLogic.layDanhSachLoaiCa();
                 
-                List<NhanVien> dsNhanVien = nhanVienLogic.layDanhSachNhanVien();
-                int targetMonth = LocalDate.now().getMonthValue();
-                int targetYear = LocalDate.now().getYear();
+                TruyVanSieuTocDAO.DuLieuDonHangDTO ordersDTO = TruyVanSieuTocDAO.getInstance().loadToanBoDuLieuDonHang();
+                
+                // Lấy TOÀN BỘ ca làm trên hệ thống (Chỉ mất vài mili-giây)
+                List<ChiaCa> toanBoCaLam = ChiaCaDAO.getInstance().layDanhSachChiaCa();
+                
+                // Gom Lương Cấu Hình vào Map (Lấy từ bảng CauHinhLuong)
+                Map<String, BigDecimal> mapLuongGio = new HashMap<>();
+                try (java.sql.Connection con = Dao.ConnectDB.getInstance().getConnection();
+                     java.sql.PreparedStatement ps = con.prepareStatement("SELECT MaNV, LuongTheoGio FROM CauHinhLuong WHERE TrangThai = N'Đang áp dụng'");
+                     java.sql.ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        mapLuongGio.put(rs.getString("MaNV"), rs.getBigDecimal("LuongTheoGio"));
+                    }
+                } catch (Exception ignored) {}
+
+                // Gom Nhóm Hóa Đơn vào Map theo Mã NV (Lọc trước theo thời gian)
+                Map<String, List<Data.HoaDon>> mapHoaDonTheoNV = new HashMap<>();
+                if (ordersDTO != null && ordersDTO.dsHoaDon != null) {
+                    for (Data.HoaDon hd : ordersDTO.dsHoaDon) {
+                        LocalDate ngayTao = hd.getNgayTao() != null ? hd.getNgayTao().toLocalDate() : null;
+                        if (ngayTao == null || ngayTao.isBefore(filterStartDate) || ngayTao.isAfter(filterEndDate)) continue;
+                        mapHoaDonTheoNV.computeIfAbsent(hd.getMaNV(), k -> new ArrayList<>()).add(hd);
+                    }
+                }
+
+                // Gom Nhóm Ca Làm vào Map theo Mã NV (Lọc trước theo thời gian)
+                Map<String, List<ChiaCa>> mapCaLamTheoNV = new HashMap<>();
+                if (toanBoCaLam != null) {
+                    for (ChiaCa cc : toanBoCaLam) {
+                        if ("Đã hủy".equalsIgnoreCase(cc.getTinhTrang())) continue;
+                        LocalDate ngayLam = cc.getNgayLam();
+                        if (ngayLam == null || ngayLam.isBefore(filterStartDate) || ngayLam.isAfter(filterEndDate)) continue;
+                        mapCaLamTheoNV.computeIfAbsent(cc.getMaNV(), k -> new ArrayList<>()).add(cc);
+                    }
+                }
+
                 LocalDate homNay = LocalDate.now();
 
                 int totalEmployeesCount = dsNhanVien.size();
@@ -170,69 +199,93 @@ public class NhanVienPanel extends JPanel {
                 List<ChiaCa> tatCaCaThangNay = new ArrayList<>();
                 List<JsonObject> allEmployeeStats = new ArrayList<>();
 
+                // =========================================================================
+                // 🔥 BƯỚC 2: TÍNH TOÁN HOÀN TOÀN TRÊN RAM BẰNG THUẬT TOÁN HASHMAP
+                // Quá trình này không có bất kỳ lệnh Database nào -> Tốc độ ánh sáng!
+                // =========================================================================
                 for (NhanVien nv : dsNhanVien) {
                     activeStaffCount++;
                     String empId = nv.getMaNV();
 
+                    // --- Tính Doanh Số (Lấy từ RAM) ---
                     BigDecimal staffRevenue = BigDecimal.ZERO;
                     int invoiceCount = 0;
-                    if (ordersDTO != null && ordersDTO.dsHoaDon != null) {
-                        for (var hd : ordersDTO.dsHoaDon) {
-                            if (empId.equals(hd.getMaNV()) && hd.getThanhTien() != null) {
-                                staffRevenue = staffRevenue.add(hd.getThanhTien());
-                                invoiceCount++;
-                            }
+                    List<Data.HoaDon> listHD = mapHoaDonTheoNV.getOrDefault(empId, new ArrayList<>());
+                    for (Data.HoaDon hd : listHD) {
+                        if (hd.getThanhTien() != null) {
+                            staffRevenue = staffRevenue.add(hd.getThanhTien());
+                            invoiceCount++;
                         }
                     }
                     globalWorkforceRevenueSum = globalWorkforceRevenueSum.add(staffRevenue);
 
-                    List<ChiaCa> dsCaCuaNV = chiaCaDAO.layDanhSachChiaCaTheoThang(empId, targetMonth, targetYear);
-                    if (dsCaCuaNV != null) {
-                        for (ChiaCa shift : dsCaCuaNV) {
-                            if ("Đã hủy".equalsIgnoreCase(shift.getTinhTrang())) continue;
-                            
-                            tatCaCaThangNay.add(shift);
+                    // --- Tính Giờ Làm, Số lần Trễ, Tiền Phạt (Lấy từ RAM) ---
+                    List<ChiaCa> dsCaCuaNV = mapCaLamTheoNV.getOrDefault(empId, new ArrayList<>());
+                    
+                    double staffFilteredHours = 0.0;
+                    int staffFilteredLateCount = 0;
+                    BigDecimal staffTotalPenalty = BigDecimal.ZERO;
 
-                            boolean daPhanLoai = false;
-                            String maCaCuaShift = (shift.getMaLoaiCa() != null) ? shift.getMaLoaiCa().trim() : "";
+                    for (ChiaCa shift : dsCaCuaNV) {
+                        tatCaCaThangNay.add(shift);
 
-                            if (dsLoaiCa != null && !maCaCuaShift.isEmpty()) {
-                                for (Data.LoaiCa lc : dsLoaiCa) {
-                                    String maLoaiCaTruyXuat = (lc.getMaLoaiCa() != null) ? lc.getMaLoaiCa().trim() : "";
-                                    if (maLoaiCaTruyXuat.equalsIgnoreCase(maCaCuaShift)) {
-                                        if (lc.getGioBatDau() != null) {
-                                            int gioBatDau = lc.getGioBatDau().getHour();
-                                            if (gioBatDau >= 4 && gioBatDau < 12) {
-                                                shiftMorningCount++;
-                                            } else if (gioBatDau >= 12 && gioBatDau < 18) {
-                                                shiftAfternoonCount++;
-                                            } else {
-                                                shiftNightCount++;
-                                            }
-                                            daPhanLoai = true;
-                                        }
-                                        break;
+                        // Phân loại ca Sáng/Chiều/Tối
+                        boolean daPhanLoai = false;
+                        Data.LoaiCa loaiCaHienTai = null;
+                        String maCaCuaShift = (shift.getMaLoaiCa() != null) ? shift.getMaLoaiCa().trim() : "";
+
+                        if (dsLoaiCa != null && !maCaCuaShift.isEmpty()) {
+                            for (Data.LoaiCa lc : dsLoaiCa) {
+                                if (lc.getMaLoaiCa() != null && lc.getMaLoaiCa().trim().equalsIgnoreCase(maCaCuaShift)) {
+                                    loaiCaHienTai = lc;
+                                    if (lc.getGioBatDau() != null) {
+                                        int gioBatDau = lc.getGioBatDau().getHour();
+                                        if (gioBatDau >= 4 && gioBatDau < 12) shiftMorningCount++;
+                                        else if (gioBatDau >= 12 && gioBatDau < 18) shiftAfternoonCount++;
+                                        else shiftNightCount++;
+                                        daPhanLoai = true;
                                     }
+                                    break;
                                 }
                             }
-                            if (!daPhanLoai) shiftNightCount++;
+                        }
+                        if (!daPhanLoai) shiftNightCount++;
 
-                            if (shift.getNgayLam() != null && !shift.getNgayLam().isAfter(homNay)) {
-                                pastOrActiveShiftsCount++;
+                        if (shift.getNgayLam() != null && !shift.getNgayLam().isAfter(homNay)) {
+                            pastOrActiveShiftsCount++;
+                        }
+
+                        // Tính giờ làm thực tế
+                        if (shift.getThoiGianCheckIn() != null && shift.getThoiGianCheckOut() != null) {
+                            long minutes = java.time.Duration.between(shift.getThoiGianCheckIn(), shift.getThoiGianCheckOut()).toMinutes();
+                            if (minutes > 0) staffFilteredHours += (minutes / 60.0);
+                        }
+
+                        // Tính Đi Trễ & Phạt (Thuật toán phạt bậc thang)
+                        if (shift.getThoiGianCheckIn() != null && loaiCaHienTai != null && loaiCaHienTai.getGioBatDau() != null) {
+                            if (shift.getThoiGianCheckIn().toLocalTime().isAfter(loaiCaHienTai.getGioBatDau())) {
+                                long phutDiMuon = java.time.Duration.between(loaiCaHienTai.getGioBatDau(), shift.getThoiGianCheckIn().toLocalTime()).toMinutes();
+                                if (phutDiMuon > 5) { // Cho phép du di 5 phút
+                                    staffFilteredLateCount++;
+                                    if (phutDiMuon <= 15) {
+                                        staffTotalPenalty = staffTotalPenalty.add(new BigDecimal("20000")); // 20k
+                                    } else if (phutDiMuon <= 30) {
+                                        staffTotalPenalty = staffTotalPenalty.add(new BigDecimal("50000")); // 50k
+                                    } else {
+                                        staffTotalPenalty = staffTotalPenalty.add(new BigDecimal("100000")); // 100k
+                                    }
+                                }
                             }
                         }
                     }
 
-                    BigDecimal hoursWorked = bangLuongLogic.tinhTongGioLamTrongThang(empId, targetMonth, targetYear);
-                    aggregatedWorkHours += hoursWorked.doubleValue();
+                    aggregatedWorkHours += staffFilteredHours;
+                    totalLateOccurrences += staffFilteredLateCount;
 
-                    BangLuongLogic.ChiTietKhauTru chiTietKhauTru = bangLuongLogic.tinhChiTietKhauTru(empId, targetMonth, targetYear);
-                    totalLateOccurrences += chiTietKhauTru.soLanTre;
-
-                    CauHinhLuong cauHinh = cauHinhLuongDAO.layCauHinhHienTaiTheoMaNV(empId);
-                    BigDecimal hourlyWage = (cauHinh != null && cauHinh.getLuongTheoGio() != null) ? cauHinh.getLuongTheoGio() : BigDecimal.ZERO;
+                    // --- Tính Tiền Lương ---
+                    BigDecimal hourlyWage = mapLuongGio.getOrDefault(empId, BigDecimal.ZERO);
+                    BigDecimal estimatedSalary = hourlyWage.multiply(BigDecimal.valueOf(staffFilteredHours)).setScale(0, RoundingMode.HALF_UP);
                     
-                    BigDecimal estimatedSalary = hourlyWage.multiply(hoursWorked).setScale(0, RoundingMode.HALF_UP);
                     totalPayrollPool = totalPayrollPool.add(estimatedSalary);
 
                     JsonObject stats = new JsonObject();
@@ -241,11 +294,11 @@ public class NhanVienPanel extends JPanel {
                     stats.addProperty("role", nv.getChucVu());
                     stats.addProperty("status", nv.getTrangThai());
                     stats.addProperty("phone", nv.getSDT() != null ? nv.getSDT() : "---");
-                    stats.addProperty("workHours", hoursWorked);
+                    stats.addProperty("workHours", Math.round(staffFilteredHours * 10.0) / 10.0);
                     stats.addProperty("revenue", staffRevenue);
                     stats.addProperty("salary", estimatedSalary);
-                    stats.addProperty("lateCount", chiTietKhauTru.soLanTre);
-                    stats.addProperty("penalty", chiTietKhauTru.tongTienPhat);
+                    stats.addProperty("lateCount", staffFilteredLateCount);
+                    stats.addProperty("penalty", staffTotalPenalty);
                     stats.addProperty("invoicesCount", invoiceCount);
                     allEmployeeStats.add(stats);
                 }
@@ -369,7 +422,6 @@ public class NhanVienPanel extends JPanel {
                         });
                 mainContainer.add("shiftTimeline", timelineArray);
 
-                // ✅ FIX: Lưu JSON cuối cùng vào cache
                 lastCachedDashboardJson = gson.toJson(mainContainer);
                 return lastCachedDashboardJson;
                 
@@ -399,6 +451,15 @@ public class NhanVienPanel extends JPanel {
         SwingUtilities.invokeLater(() -> {
             if ("SYNC".equalsIgnoreCase(actionToken)) {
                 pushLiveWorkforceAnalytics(true);
+            } else if (actionToken.startsWith("DATE_SYNC|")) {
+                try {
+                    String[] parts = actionToken.split("\\|");
+                    filterStartDate = LocalDate.parse(parts[1]); 
+                    filterEndDate = LocalDate.parse(parts[2]);
+                    pushLiveWorkforceAnalytics(true); 
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             } else if ("ADD_STAFF".equalsIgnoreCase(actionToken)) {
                 if (actionCallback != null) actionCallback.moThemNhanVien();
             } else if ("ASSIGN_SHIFT".equalsIgnoreCase(actionToken)) {
@@ -410,36 +471,33 @@ public class NhanVienPanel extends JPanel {
         });
     }
 
-    // =========================================================================
-    // 🔥 CẦU NỐI JSBRIDGE — PHẢI LÀ PUBLIC STATIC ĐỂ JAVAFX GỌI ĐƯỢC ỔN ĐỊNH
-    // =========================================================================
     public class JsBridge {
 
-        // ✅ FIX XUẤT FILE: Tạo thư mục nếu chưa có, ghi UTF-8 BOM-free, thông báo chi tiết
-        public void exportDashboardData() {
+        // 🔥 THÊM THAM SỐ fileName ĐỂ NHẬN TÊN FILE TỪ JS
+        public void exportDashboardData(String customFileName) {
             SwingUtilities.invokeLater(() -> {
                 try {
                     String folderPath = "D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\NhanVien";
                     File folder = new File(folderPath);
                     
-                    // Tạo thư mục nếu chưa tồn tại (bao gồm cả thư mục cha)
                     if (!folder.exists()) {
                         boolean created = folder.mkdirs();
                         if (!created) {
                             JOptionPane.showMessageDialog(NhanVienPanel.this,
-                                "Không thể tạo thư mục:\n" + folderPath + 
-                                "\nKiểm tra lại quyền ghi hoặc đường dẫn!",
+                                "Không thể tạo thư mục:\n" + folderPath,
                                 "Lỗi Tạo Thư Mục", JOptionPane.ERROR_MESSAGE);
                             return;
                         }
                     }
 
-                    // ✅ Tên file: Thongke_dd_MM_yyyy.json
-                    String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("dd_MM_yyyy"));
-                    String fileName = "Thongke_" + dateStr + ".json";
-                    File fileExport = new File(folder, fileName);
+                    // 🔥 KHẮC PHỤC LỖI GẠCH CHÂN ĐỎ (Tạo biến trung gian finalFileName)
+                    String finalFileName = customFileName; 
+                    if (finalFileName == null || finalFileName.trim().isEmpty()) {
+                        finalFileName = "Thong_Ke_Nhan_Vien_" + System.currentTimeMillis() + ".json";
+                    }
 
-                    // Kiểm tra dữ liệu cache
+                    File fileExport = new File(folder, finalFileName);
+
                     if (lastCachedDashboardJson == null || lastCachedDashboardJson.trim().isEmpty()) {
                         JOptionPane.showMessageDialog(NhanVienPanel.this,
                             "Dữ liệu chưa được tải! Hãy đợi dashboard load xong hoặc nhấn Đồng bộ trước.",
@@ -447,7 +505,6 @@ public class NhanVienPanel extends JPanel {
                         return;
                     }
 
-                    // Ghi file UTF-8 không có BOM
                     try (Writer writer = new OutputStreamWriter(
                             new FileOutputStream(fileExport), StandardCharsets.UTF_8)) {
                         writer.write(lastCachedDashboardJson);
@@ -456,18 +513,15 @@ public class NhanVienPanel extends JPanel {
                     JOptionPane.showMessageDialog(NhanVienPanel.this,
                         "✅ Xuất file thành công!\n\n" +
                         "📁 Thư mục: " + folderPath + "\n" +
-                        "📄 File: " + fileName + "\n\n" +
-                        "File này chứa toàn bộ trạng thái dashboard và\n" +
-                        "có thể khôi phục lại giao diện qua mục Lịch sử.",
+                        "📄 File: " + finalFileName + "\n\n" + // Dùng finalFileName ở đây
+                        "Bạn có thể xem lại file vừa xuất qua Dropdown Lịch Sử.",
                         "Xuất File Hoàn Tất", JOptionPane.INFORMATION_MESSAGE);
                     
-                    // Refresh lại danh sách lịch sử trong dropdown
                     executeJavaScript("loadExportHistory()");
 
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(NhanVienPanel.this,
-                        "❌ Lỗi ghi file:\n" + ex.getMessage() +
-                        "\n\nKiểm tra lại đường dẫn: D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\NhanVien",
+                        "❌ Lỗi ghi file:\n" + ex.getMessage(),
                         "Lỗi Hệ Thống", JOptionPane.ERROR_MESSAGE);
                     ex.printStackTrace();
                 }
@@ -479,11 +533,12 @@ public class NhanVienPanel extends JPanel {
                 File folder = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\NhanVien");
                 if (!folder.exists() || !folder.isDirectory()) return "[]";
 
-                File[] files = folder.listFiles((dir, name) -> name.startsWith("Thongke_") && name.endsWith(".json"));
+                // 🔥 Lọc đúng định dạng tên file mới và bỏ file không hợp lệ
+                File[] files = folder.listFiles((dir, name) -> name.startsWith("Thong_Ke_Nhan_Vien_") && name.endsWith(".json"));
                 if (files == null || files.length == 0) return "[]";
 
-                // Sắp xếp mới nhất lên đầu
-                Arrays.sort(files, (a, b) -> b.getName().compareTo(a.getName()));
+                // 🔥 Sắp xếp file MỚI NHẤT lên đầu tiên
+                Arrays.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
 
                 JsonArray arr = new JsonArray();
                 for (File f : files) arr.add(f.getName());
@@ -495,10 +550,8 @@ public class NhanVienPanel extends JPanel {
         }
 
         public void readAndLoadExportFile(String fileName) {
-            // Chạy đọc file trên background thread, tránh block UI
             CompletableFuture.runAsync(() -> {
                 try {
-                    // Làm sạch tên file để tránh path traversal
                     String safeFileName = new File(fileName).getName();
                     File file = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\NhanVien", safeFileName);
                     
@@ -513,7 +566,6 @@ public class NhanVienPanel extends JPanel {
                     byte[] fileBytes = Files.readAllBytes(file.toPath());
                     if (fileBytes.length == 0) return;
 
-                    // ✅ Encode base64 rồi truyền sang JS để tránh lỗi ký tự đặc biệt UTF-8 tiếng Việt
                     String base64Data = Base64.getEncoder().encodeToString(fileBytes);
                     
                     Platform.runLater(() -> {
@@ -536,9 +588,6 @@ public class NhanVienPanel extends JPanel {
         }
     }
 
-    // =========================================================================
-    // HÀM MAIN CHẠY TEST ĐỘC LẬP
-    // =========================================================================
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             JFrame devFrame = new JFrame("Workforce Intelligence - Standalone Test");

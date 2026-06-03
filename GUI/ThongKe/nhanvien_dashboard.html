@@ -20,6 +20,33 @@
                 <div class="search-input-wrapper">
                     <input type="text" id="hrmSearchField" placeholder="Tìm tên, mã nhân viên..." oninput="dispatchRealtimeFilterCoordinates()">
                 </div>
+                
+                <!-- THÊM MỚI TẠI ĐÂY: Giao diện Chọn ngày tháng -->
+                <div style="display: inline-block; position: relative; vertical-align: middle; margin-right: 8px;">
+                    <div class="date-picker-group" id="calendarToggleBtn" onclick="toggleCalendarPanel()" style="margin-right: 0;">
+                        <i class="ti ti-calendar" style="color: var(--text-slate-muted); font-size: 16px; vertical-align: middle; margin-right: 6px;"></i>
+                        <span id="dateRangeDisplayLabel" style="font-size:13.5px; font-weight:500; color:var(--text-slate-primary); vertical-align:middle;">Chọn khoảng thời gian...</span>
+                        <i class="ti ti-chevron-down" style="font-size:13px; color:#94a3b8; margin-left:6px; vertical-align:middle;"></i>
+                    </div>
+
+                    <div id="inlineCalendarPanel" class="inline-calendar-panel" style="display:none;">
+                        <div class="cal-header">
+                            <button class="cal-nav-btn" onclick="shiftCalendarMonth(-1)">&#8592;</button>
+                            <span id="calMonthYearLabel" class="cal-month-title"></span>
+                            <button class="cal-nav-btn" onclick="shiftCalendarMonth(1)">&#8594;</button>
+                        </div>
+                        <div class="cal-weekdays">
+                            <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
+                        </div>
+                        <div id="calDaysGrid" class="cal-days-grid"></div>
+                        <div class="cal-footer">
+                            <span id="calSelectionHint" style="font-size:12px;color:#64748b;">Chọn ngày bắt đầu</span>
+                            <button class="cal-confirm-btn" onclick="confirmDateRange()">Xác nhận</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- KẾT THÚC PHẦN THÊM MỚI -->
+
                 <select id="roleFilterBox" class="premium-select-dropdown" onchange="dispatchRealtimeFilterCoordinates()">
                     <option value="ALL">Mọi Nhân Sự</option>
                     <option value="ADMIN">💼&nbsp;&nbsp;&nbsp;ADMIN</option>
@@ -27,7 +54,7 @@
                     <option value="Đã Nghỉ">❌&nbsp;&nbsp;&nbsp;Đã Nghỉ</option>
                 </select>
                 
-                <!-- THÊM MỚI: Dropdown Lịch Sử và Nút Xuất File -->
+                <!-- Dropdown Lịch Sử và Nút Xuất File -->
                 <select id="historySelector" class="premium-select-dropdown" style="max-width: 170px; background-color: #f1f5f9; border-color: #cbd5e1;" onchange="loadHistoricalData(this.value)">
                     <option value="">Lịch sử xuất file</option>
                 </select>
