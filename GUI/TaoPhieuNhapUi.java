@@ -12,13 +12,13 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.Point;
 import java.awt.RenderingHints;
 import java.awt.Window;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.Point;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -33,6 +33,7 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
@@ -87,6 +88,7 @@ public class TaoPhieuNhapUi extends JPanel {
     }
     private ComboGroup cbNhaCungCap, cbSanPham;
     private FormGroup txtGiaNhap, txtSoLuong, txtNSX, txtHSD;
+    private FormGroup txtGiaBan;
 
     // --- Light Theme Colors ---
     private Color bgMain = new Color(245, 247, 250);
@@ -192,12 +194,21 @@ public class TaoPhieuNhapUi extends JPanel {
                 }
             }
         });
-        txtSoLuong = new FormGroup("Số lượng", true, null); txtGiaNhap = new FormGroup("Giá nhập", true, null);
-        txtNSX = new FormGroup("NSX", true, "📅"); txtHSD = new FormGroup("HSD", true, "📅");
+        txtGiaBan = new FormGroup("Giá bán hiện tại", false, null);
+        txtGiaBan.getField().setFocusable(false);
 
-        gbc.gridx=0; gbc.gridy=0; gbc.gridwidth=2; gbc.weightx=0.4; pnlDetail.add(cbSanPham, gbc);
-        gbc.gridx=2; gbc.gridy=0; gbc.gridwidth=1; gbc.weightx=0.2; pnlDetail.add(txtGiaNhap, gbc);
+        txtSoLuong = new FormGroup("Số lượng", true, null); 
+        txtGiaNhap = new FormGroup("Giá nhập", true, null);
+        txtNSX = new FormGroup("NSX", true, "📅"); 
+        txtHSD = new FormGroup("HSD", true, "📅");
+
+        // HÀNG 1: SP (30%), Giá Bán (15%), Giá Nhập (15%), SL (10%)
+        gbc.gridx=0; gbc.gridy=0; gbc.gridwidth=1; gbc.weightx=0.3; pnlDetail.add(cbSanPham, gbc);
+        gbc.gridx=1; gbc.gridy=0; gbc.gridwidth=1; gbc.weightx=0.15; pnlDetail.add(txtGiaBan, gbc);
+        gbc.gridx=2; gbc.gridy=0; gbc.gridwidth=1; gbc.weightx=0.15; pnlDetail.add(txtGiaNhap, gbc);
         gbc.gridx=3; gbc.gridy=0; gbc.gridwidth=1; gbc.weightx=0.1; pnlDetail.add(txtSoLuong, gbc);
+        
+        // HÀNG 2: NSX (20%), HSD (20%), Nút Thêm (30%)
         gbc.gridx=0; gbc.gridy=1; gbc.gridwidth=1; gbc.weightx=0.2; pnlDetail.add(txtNSX, gbc);
         gbc.gridx=1; gbc.gridy=1; gbc.gridwidth=1; gbc.weightx=0.2; pnlDetail.add(txtHSD, gbc);
         
@@ -205,6 +216,22 @@ public class TaoPhieuNhapUi extends JPanel {
         btnThemVaoPhieu.setPreferredSize(new Dimension(150, 42));
         btnThemVaoPhieu.addActionListener(e -> handleThemChiTiet());
         gbc.gridx=2; gbc.gridy=1; gbc.gridwidth=2; gbc.weightx=0.3; pnlDetail.add(btnThemVaoPhieu, gbc);
+        cbSanPham.getField().getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { fillGiaBan(); }
+            public void removeUpdate(DocumentEvent e) { fillGiaBan(); }
+            public void changedUpdate(DocumentEvent e) { fillGiaBan(); }
+            private void fillGiaBan() {
+                ComboItem item = cbSanPham.getSelectedItem();
+                if (item != null && !item.id.isEmpty()) {
+                    try {
+                        SanPham sp = spLogic.timSanPhamTheoMa(item.id);
+                        if (sp != null) txtGiaBan.setText(DinhDangUtil.dinhDangTien(sp.getGiaBan()));
+                    } catch (Exception ex) {}
+                } else {
+                    txtGiaBan.setText("");
+                }
+            }
+        });
 
         JPanel pnlTopWrapper = new JPanel(new BorderLayout()); pnlTopWrapper.setOpaque(false);
         pnlTopWrapper.add(pnlMaster, BorderLayout.NORTH); pnlTopWrapper.add(pnlDetail, BorderLayout.CENTER);
@@ -446,8 +473,9 @@ public class TaoPhieuNhapUi extends JPanel {
     // 🔥 FORM GROUP MỚI (CHUẨN MÀU XÁM)
     // ==========================================
     private class FormGroup extends JPanel {
+    	public JButton btnQuickMenu;
         private JTextField txt; private JLabel lblError; private boolean isFocus = false;
-        private MiniDatePicker datePicker;
+        public MiniDatePicker datePicker;
         private long lastCloseTime = 0; 
         public JButton btnAction;
         private boolean isEditable; // 🔥 Thêm biến quản lý trạng thái
@@ -502,7 +530,28 @@ public class TaoPhieuNhapUi extends JPanel {
                     txt.requestFocusInWindow(); datePicker.updateDateFromText(); 
                     datePicker.show(btnAction, btnAction.getWidth() - datePicker.getPreferredSize().width, btnAction.getHeight() + 4);
                 });
-                pnlWrap.add(btnAction, BorderLayout.EAST);
+             // Chỉ gắn thêm menu chọn nhanh nếu Ô này là ô HSD
+             // Chỉ gắn thêm menu chọn nhanh nếu Ô này là ô HSD
+                if (title.equals("HSD")) {
+                    btnQuickMenu = new JButton("▼");
+                    btnQuickMenu.setFont(new Font("Arial", Font.PLAIN, 12)); // Size 12 giống y hệt ComboGroup
+                    btnQuickMenu.setForeground(textSecondary);
+                    btnQuickMenu.setContentAreaFilled(false); 
+                    btnQuickMenu.setBorderPainted(false);
+                    btnQuickMenu.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                    
+                    // 🔥 QUAN TRỌNG: Tắt lề mặc định để Java Swing không tự cắt chữ thành dấu 3 chấm
+                    btnQuickMenu.setMargin(new Insets(0, 0, 0, 0)); 
+                    btnQuickMenu.setPreferredSize(new Dimension(30, 42)); // Nới rộng ra 30px cho thoải mái
+
+                    JPanel pnlActionGroup = new JPanel(new BorderLayout());
+                    pnlActionGroup.setOpaque(false);
+                    pnlActionGroup.add(btnAction, BorderLayout.CENTER);
+                    pnlActionGroup.add(btnQuickMenu, BorderLayout.EAST);
+                    pnlWrap.add(pnlActionGroup, BorderLayout.EAST);
+                } else {
+                    pnlWrap.add(btnAction, BorderLayout.EAST);
+                }
             }
             lblError = new JLabel(" "); lblError.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(12f)); lblError.setForeground(Color.RED); 
             lblError.setPreferredSize(new Dimension(10, 18)); lblError.setMinimumSize(new Dimension(10, 18));
@@ -531,6 +580,7 @@ public class TaoPhieuNhapUi extends JPanel {
     private class ComboGroup extends JPanel {
         private JTextField txt; 
         public JButton btnAction;
+        public JTextField getField() { return txt; }
         private JButton btnArrow;
         private ComboItem[] allItems;
         private ComboItem selectedItem = new ComboItem("", "");
@@ -803,6 +853,44 @@ public class TaoPhieuNhapUi extends JPanel {
         
         txtNSX.getField().getDocument().addDocumentListener(dateListener);
         txtHSD.getField().getDocument().addDocumentListener(dateListener);
+     // 3. ĐỒNG BỘ NSX SANG LỊCH HSD VÀ MENU CHỌN NHANH
+        txtNSX.getField().getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { updateMin(); }
+            public void removeUpdate(DocumentEvent e) { updateMin(); }
+            public void changedUpdate(DocumentEvent e) { updateMin(); }
+            private void updateMin() {
+                try {
+                    LocalDate nsx = LocalDate.parse(txtNSX.getText(), fmt);
+                    txtHSD.datePicker.setMinDate(nsx); // Ép lịch HSD không được chọn trước NSX
+                } catch (Exception ex) { txtHSD.datePicker.setMinDate(null); }
+            }
+        });
+
+        JPopupMenu quickMenu = new JPopupMenu();
+        quickMenu.setBackground(Color.WHITE);
+        String[] options = {"7 ngày từ NSX", "15 ngày từ NSX", "1 tháng", "3 tháng", "6 tháng", "1 năm"};
+        int[] addMonths = {0, 0, 1, 3, 6, 12};
+        int[] addDays = {7, 15, 0, 0, 0, 0};
+        
+        for (int i = 0; i < options.length; i++) {
+            final int idx = i;
+            JMenuItem item = new JMenuItem(options[i]);
+            item.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(13f));
+            item.setBackground(Color.WHITE);
+            item.addActionListener(e -> {
+                try {
+                    LocalDate nsx = LocalDate.parse(txtNSX.getText(), fmt);
+                    LocalDate hsd = nsx.plusMonths(addMonths[idx]).plusDays(addDays[idx]);
+                    txtHSD.setText(hsd.format(fmt));
+                } catch (Exception ex) {
+                    GUI.HoTro.TienIchGiaoDien.hienThiThongBao(TaoPhieuNhapUi.this, "Vui lòng nhập/chọn NSX hợp lệ trước khi tính HSD!", "WARNING");
+                }
+            });
+            quickMenu.add(item);
+        }
+        if (txtHSD.btnQuickMenu != null) {
+            txtHSD.btnQuickMenu.addActionListener(e -> quickMenu.show(txtHSD.btnQuickMenu, 0, txtHSD.btnQuickMenu.getHeight()));
+        }
     }
 
     private ComboItem[] getDanhSachNccCombo() {
@@ -940,7 +1028,8 @@ public class TaoPhieuNhapUi extends JPanel {
     private class MiniDatePicker extends JPopupMenu {
         private YearMonth currentMonth;
         private JTextField targetField;
-
+        private LocalDate minDate = null;
+        public void setMinDate(LocalDate date) { this.minDate = date; updateDateFromText(); }
         public MiniDatePicker(JTextField targetField) {
             this.targetField = targetField;
             currentMonth = YearMonth.now();
@@ -979,8 +1068,17 @@ public class TaoPhieuNhapUi extends JPanel {
                 b.setBackground(Color.WHITE); b.setForeground(textPrimary); b.setFocusPainted(false); b.setBorder(BorderFactory.createLineBorder(borderNormal));
                 b.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(14f));
                 b.setPreferredSize(new Dimension(35, 35)); b.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                if (LocalDate.now().equals(currentMonth.atDay(day))) { b.setBackground(new Color(219, 234, 254)); b.setBorder(BorderFactory.createLineBorder(borderFocus)); }
-                b.addActionListener(e -> { targetField.setText(currentMonth.atDay(day).format(fmt)); setVisible(false); });
+                
+                LocalDate thisDay = currentMonth.atDay(day);
+                // CHẶN NGÀY QUÁ KHỨ (NẾU CÓ MINDATE)
+                if (minDate != null && thisDay.isBefore(minDate)) {
+                    b.setEnabled(false);
+                    b.setForeground(new Color(203, 213, 225));
+                    b.setBackground(new Color(241, 245, 249));
+                } else {
+                    if (LocalDate.now().equals(thisDay)) { b.setBackground(new Color(219, 234, 254)); b.setBorder(BorderFactory.createLineBorder(borderFocus)); }
+                    b.addActionListener(e -> { targetField.setText(thisDay.format(fmt)); setVisible(false); });
+                }
                 pnlDays.add(b);
             }
             add(pnlDays, BorderLayout.CENTER);

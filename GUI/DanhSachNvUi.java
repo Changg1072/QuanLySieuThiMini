@@ -49,7 +49,7 @@ public class DanhSachNvUi extends JPanel {
     private boolean isLoading = false;
 
     // ================= UI COMPONENTS =================
-    private ONhapLieuHienDai txtTimKiem;
+    private GUI.HoTro.TheBongDo.RoundedTextField txtTimKiem;
     private PillMenu tabChucVu;
     private JPanel pnlRowListContainer;
     private JLabel lblTongNV, lblAdmin, lblThuNgan, lblNghiViec;
@@ -90,10 +90,13 @@ public class DanhSachNvUi extends JPanel {
         JPanel pnlNorth = new JPanel(new BorderLayout(20, 0));
         pnlNorth.setOpaque(false);
 
-        txtTimKiem = new ONhapLieuHienDai("", true, false);
-        txtTimKiem.setPlaceholder("🔍 Tìm mã NV, tên, SĐT...");
-        txtTimKiem.setPreferredSize(new Dimension(400, 65));
-        pnlNorth.add(txtTimKiem, BorderLayout.WEST);
+        txtTimKiem = new GUI.HoTro.TheBongDo.RoundedTextField("🔍 Tìm mã NV, tên, SĐT...", 0);
+        txtTimKiem.setPreferredSize(new Dimension(400, 45)); // 🔥 TRẢ LẠI DÒNG NÀY SẾP NHÉ
+        txtTimKiem.setFont(GUI.HoTro.TienIchGiaoDien.FONT_DAM.deriveFont(16f));
+        JPanel pnlSearchWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        pnlSearchWrap.setOpaque(false);
+        pnlSearchWrap.add(txtTimKiem);
+        pnlNorth.add(pnlSearchWrap, BorderLayout.WEST);
 
         tabChucVu = new PillMenu(List.of("Tất cả", "ADMIN", "Thu Ngân"), tab -> {
             currentRoleFilter = tab;
@@ -525,7 +528,7 @@ public class DanhSachNvUi extends JPanel {
     // 7. HANDLERS & UX LOGIC
     // =========================================================
     private void setupListeners() {
-        txtTimKiem.getField().getDocument().addDocumentListener(new DocumentListener() {
+    	txtTimKiem.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { filterData(); }
             public void removeUpdate(DocumentEvent e) { filterData(); }
             public void changedUpdate(DocumentEvent e) { filterData(); }
@@ -569,7 +572,7 @@ public class DanhSachNvUi extends JPanel {
     }
 
     private void handleReload() {
-        txtTimKiem.clear();
+    	txtTimKiem.setText("");
         tabChucVu.setActiveTab("Tất cả");
         currentRoleFilter = "Tất cả";
         loadDataSieuToc();

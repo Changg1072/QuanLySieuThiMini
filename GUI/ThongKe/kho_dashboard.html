@@ -4,52 +4,125 @@
     <meta charset="UTF-8">
     <link rel="stylesheet" href="kho_dashboard.css">
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- 🔥 THÊM THƯ VIỆN ICON TABLER VÀO ĐÂY -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 </head>
 <body>
     <div class="container">
         <header class="header">
+            <!-- (Phần header giữ nguyên như cũ của bạn) -->
             <div class="title-area">
                 <h1>Warehouse Intelligence</h1>
                 <p>Hệ thống phân tích và quản lý kho hàng Real-time</p>
             </div>
             <div class="action-bar">
                 <input type="text" id="search" placeholder="Tìm sản phẩm..." oninput="filterTable()">
-                <button class="btn btn-refresh" onclick="location.reload()">🔄 Làm mới</button>
-                <button class="btn btn-primary" onclick="alert('ACTION:IMPORT')">📦 Nhập hàng</button>
-                <button class="btn btn-accent" onclick="alert('ACTION:AUDIT')">📋 Kiểm kê</button>
+                
+                <div style="display: inline-block; position: relative; vertical-align: middle; margin-right: 12px; margin-left: 12px;">
+                    <div class="date-picker-group" id="calendarToggleBtn" onclick="toggleCalendarPanel()" style="margin-right: 0;">
+                        <i class="ti ti-calendar" style="color: #64748b; font-size: 16px; vertical-align: middle; margin-right: 6px;"></i>
+                        <span id="dateRangeDisplayLabel" style="font-size:13.5px; font-weight:500; color:#0f172a; vertical-align:middle;">Chọn khoảng thời gian...</span>
+                        <i class="ti ti-chevron-down" style="font-size:13px; color:#94a3b8; margin-left:6px; vertical-align:middle;"></i>
+                    </div>
+                    <div id="inlineCalendarPanel" class="inline-calendar-panel" style="display:none;">
+                        <div class="cal-header">
+                            <button class="cal-nav-btn" onclick="shiftCalendarMonth(-1)">&#8592;</button>
+                            <span id="calMonthYearLabel" class="cal-month-title"></span>
+                            <button class="cal-nav-btn" onclick="shiftCalendarMonth(1)">&#8594;</button>
+                        </div>
+                        <div class="cal-weekdays">
+                            <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
+                        </div>
+                        <div id="calDaysGrid" class="cal-days-grid"></div>
+                        <div class="cal-footer">
+                            <span id="calSelectionHint" style="font-size:12px;color:#64748b;">Chọn ngày bắt đầu</span>
+                            <button class="cal-confirm-btn" onclick="confirmDateRange()">Xác nhận</button>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-refresh" onclick="location.reload()">
+                    <i class="ti ti-refresh"></i> Làm mới
+                </button>
+                <button class="btn btn-primary" onclick="alert('ACTION:IMPORT')">
+                    <i class="ti ti-package"></i> Nhập hàng
+                </button>
+                <button class="btn btn-accent" onclick="alert('ACTION:AUDIT')">
+                    <i class=\"ti ti-clipboard-list\"></i> Kiểm kê
+                </button>
             </div>
+
         </header>
 
-        <div class="kpi-grid">
-            <div class="card kpi-card">
-                <div class="icon-box blue">📦</div>
-                <div>
-                    <span class="label">Tổng tồn kho</span>
-                    <h2 id="totalStock">0</h2>
+        <!-- 🔥 THAY THẾ TOÀN BỘ KHỐI <div class="kpi-grid"> CŨ BẰNG KHỐI NÀY -->
+        <section class="kpi-summary-row-wrapper">
+            <!-- Thẻ 1: Tổng tồn kho -->
+            <div class="kpi-column-cell-quarter">
+                <div class="kpi-surface-card">
+                    <div class="card-glow-shimmer"></div>
+                    <div class="kpi-structural-table">
+                        <div class="kpi-table-cell avatar-frame blue-tint"><i class="ti ti-box"></i></div>
+                        <div class="kpi-table-cell content-frame">
+                            <span class="kpi-meta-lbl">Tồn Kho (Cuối kỳ)</span>
+                            <h2 class="kpi-counter-display" id="totalStock">0</h2>
+                            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                                <span id="stockTrend"></span>
+                                <span class="kpi-bottom-caption-txt" style="margin:0;">so với đầu kỳ</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="card kpi-card">
-                <div class="icon-box green">💸</div>
-                <div>
-                    <span class="label">Giá trị kho</span>
-                    <h2 id="warehouseValue">0đ</h2>
+
+            <div class="kpi-column-cell-quarter">
+                <div class="kpi-surface-card">
+                    <div class="card-glow-shimmer"></div>
+                    <div class="kpi-structural-table">
+                        <div class="kpi-table-cell avatar-frame green-tint"><i class="ti ti-cash"></i></div>
+                        <div class="kpi-table-cell content-frame">
+                            <span class="kpi-meta-lbl">Giá Trị Kho (Cuối kỳ)</span>
+                            <h2 class="kpi-counter-display text-emerald" id="warehouseValue">0đ</h2>
+                            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                                <span id="valTrend"></span>
+                                <span class="kpi-bottom-caption-txt text-emerald" style="margin:0;">so với đầu kỳ</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="card kpi-card">
-                <div class="icon-box orange">⚠</div>
-                <div>
-                    <span class="label">Sắp hết hàng</span>
-                    <h2 id="lowStockCount">0</h2>
+
+            <!-- Thẻ 3: Sắp hết hàng -->
+            <div class="kpi-column-cell-quarter">
+                <div class="kpi-surface-card">
+                    <div class="card-glow-shimmer"></div>
+                    <div class="kpi-structural-table">
+                        <div class="kpi-table-cell avatar-frame amber-tint"><i class="ti ti-alert-triangle"></i></div>
+                        <div class="kpi-table-cell content-frame">
+                            <span class="kpi-meta-lbl">Sắp Hết Hàng</span>
+                            <h2 class="kpi-counter-display text-amber" id="lowStockCount">0</h2>
+                            <p class="kpi-bottom-caption-txt">Mặt hàng cần nhập gấp</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="card kpi-card">
-                <div class="icon-box red">🚨</div>
-                <div>
-                    <span class="label">Thất thoát tháng</span>
-                    <h2 id="totalLoss">0đ</h2>
+
+            <!-- Thẻ 4: Thất thoát tháng -->
+            <div class="kpi-column-cell-quarter">
+                <div class="kpi-surface-card">
+                    <div class="card-glow-shimmer"></div>
+                    <div class="kpi-structural-table">
+                        <div class="kpi-table-cell avatar-frame rose-tint">
+                            <i class="ti ti-trash"></i>
+                        </div>
+                        <div class="kpi-table-cell content-frame">
+                            <span class="kpi-meta-lbl">Chi Phí Tiêu Hủy</span>
+                            <h2 class="kpi-counter-display text-rose" id="destructionCost">0đ</h2>
+                            <p class="kpi-bottom-caption-txt text-rose" id="destructionQty">0 sản phẩm</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
+            <div class="clear-layout-fix"></div>
+        </section>
 
         <div class="main-grid">
             <div class="card chart-container">

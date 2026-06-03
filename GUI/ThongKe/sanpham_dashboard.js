@@ -6,8 +6,120 @@ let categoryDonutChartInstance = null;
 let currentTablePageOffset = 0;
 const tablePageSizeLimit = 5;
 
+let calViewYear  = new Date().getFullYear();
+let calViewMonth = new Date().getMonth(); 
+let calSelStart  = null; 
+let calSelEnd    = null; 
+let calPickStep  = 1;
+
 document.addEventListener("DOMContentLoaded", function () {
     initializeSkeletonViewport();
+    initDatePickers();
+});
+
+function initDatePickers() {
+    const today = new Date();
+    calViewYear  = today.getFullYear();
+    calViewMonth = today.getMonth();
+    calSelStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    calSelEnd   = new Date(today);
+    calPickStep = 1;
+    updateDateRangeLabel();
+    renderCalendarGrid();
+}
+
+function toggleCalendarPanel() {
+    const panel = document.getElementById("inlineCalendarPanel");
+    panel.style.display = (panel.style.display === "none") ? "block" : "none";
+    if (panel.style.display === "block") renderCalendarGrid();
+}
+
+function shiftCalendarMonth(dir) {
+    calViewMonth += dir;
+    if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+    if (calViewMonth < 0)  { calViewMonth = 11; calViewYear--; }
+    renderCalendarGrid();
+}
+
+function renderCalendarGrid() {
+    const monthNames = ["Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"];
+    document.getElementById("calMonthYearLabel").innerText = monthNames[calViewMonth] + " " + calViewYear;
+
+    const grid = document.getElementById("calDaysGrid");
+    grid.innerHTML = "";
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const firstDayOfMonth = new Date(calViewYear, calViewMonth, 1);
+    let startOffset = firstDayOfMonth.getDay() - 1;
+    if (startOffset < 0) startOffset = 6;
+
+    const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+
+    for (let i = 0; i < startOffset; i++) {
+        const empty = document.createElement("div");
+        empty.className = "cal-day-cell empty";
+        grid.appendChild(empty);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const cellDate = new Date(calViewYear, calViewMonth, d);
+        cellDate.setHours(0,0,0,0);
+
+        const cell = document.createElement("div");
+        cell.className = "cal-day-cell";
+        cell.innerText = d;
+
+        if (cellDate > today) {
+            cell.classList.add("disabled");
+        } else {
+            if (calSelStart && calSelEnd) {
+                if (cellDate >= calSelStart && cellDate <= calSelEnd) cell.classList.add("in-range");
+            }
+            if (calSelStart && cellDate.getTime() === calSelStart.getTime()) cell.classList.add("sel-start");
+            if (calSelEnd   && cellDate.getTime() === calSelEnd.getTime())   cell.classList.add("sel-end");
+            cell.onclick = () => onCalDayClick(new Date(cellDate));
+        }
+        grid.appendChild(cell);
+    }
+    document.getElementById("calSelectionHint").innerText = (calPickStep === 1) ? "Chọn ngày bắt đầu" : "Chọn ngày kết thúc";
+}
+
+function onCalDayClick(date) {
+    if (calPickStep === 1) {
+        calSelStart = date; calSelEnd = null; calPickStep = 2;
+    } else {
+        if (date < calSelStart) { calSelEnd = calSelStart; calSelStart = date; } 
+        else { calSelEnd = date; }
+        calPickStep = 1;
+    }
+    renderCalendarGrid(); updateDateRangeLabel();
+}
+
+function updateDateRangeLabel() {
+    const label = document.getElementById("dateRangeDisplayLabel");
+    if (calSelStart && calSelEnd) {
+        label.innerText = fmtDate(calSelStart) + "  →  " + fmtDate(calSelEnd);
+    } else if (calSelStart) { label.innerText = fmtDate(calSelStart) + "  →  ..."; } 
+    else { label.innerText = "Chọn khoảng thời gian..."; }
+}
+
+function fmtDate(d) { return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear(); }
+function fmtDateISO(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+
+function confirmDateRange() {
+    if (!calSelStart || !calSelEnd) { alert("Vui lòng chọn đủ 2 ngày!"); return; }
+    document.getElementById("inlineCalendarPanel").style.display = "none";
+    alert(`ACTION:DATE_SYNC|${fmtDateISO(calSelStart)}|${fmtDateISO(calSelEnd)}`);
+}
+
+document.addEventListener("click", function(event) {
+    const calendarPanel = document.getElementById("inlineCalendarPanel");
+    const toggleBtn = document.getElementById("calendarToggleBtn");
+    if (calendarPanel && calendarPanel.style.display === "block") {
+        if (!calendarPanel.contains(event.target) && !toggleBtn.contains(event.target)) {
+            calendarPanel.style.display = "none";
+        }
+    }
 });
 
 function initializeSkeletonViewport() {
@@ -364,144 +476,108 @@ function updateFilteredCharts(selectedCategory, selectedStatus) {
 function triggerSystemExport() {
     if (typeof window.javaConnector !== 'undefined' && window.javaConnector !== null) {
         try {
-            window.javaConnector.exportDashboardData();
-        } catch (err) {
-            alert("⚠️ Lỗi khi gọi Java:\n" + err.message);
-        }
-    } else {
-        alert("⚠️ Chưa kết nối với Java backend!\nHãy đợi trang load xong rồi thử lại.");
-    }
+            let fileName = "Thong_Ke_San_Pham";
+            if (calSelStart && calSelEnd) {
+                const s = fmtDate(calSelStart).replace(/\//g, "_");
+                const e = fmtDate(calSelEnd).replace(/\//g, "_");
+                fileName = `Thong_Ke_San_Pham_Tu_${s}_Den_${e}.json`;
+            } else {
+                fileName += "_" + new Date().getTime() + ".json";
+            }
+            window.javaConnector.exportDashboardData(fileName);
+        } catch (err) { alert("⚠️ LỖI KHI GỌI JAVA:\n" + err.message); }
+    } else { alert("⚠️ CHƯA KẾT NỐI VỚI JAVA BACKEND!"); }
 }
-
-/**
- * Load danh sách file lịch sử vào dropdown.
- * Được Java gọi sau khi trang load và sau mỗi lần xuất file.
- */
 function loadExportHistory() {
     if (typeof window.javaConnector === 'undefined' || window.javaConnector === null) return;
-
     try {
         let historyJson = window.javaConnector.getExportHistoryList();
         let files = JSON.parse(historyJson);
-
         let selector = document.getElementById("historySelector");
-        // ✅ FIX ENCODING: Dùng createElement + textContent hoàn toàn,
-        //    KHÔNG dùng innerHTML để tránh lỗi UTF-8 tiếng Việt trong JavaFX WebView
-        selector.options.length = 0; // Xóa sạch tất cả option cũ
+        selector.options.length = 0;
 
         let defaultOpt = document.createElement("option");
-        defaultOpt.value = "";
-        defaultOpt.textContent = "Lịch sử xuất file"; // ASCII thuần — tránh lỗi JavaFX
+        defaultOpt.value = ""; defaultOpt.textContent = "Lịch sử xuất file";
         selector.appendChild(defaultOpt);
 
-        // Thêm nút thoát lịch sử — chỉ hiện khi đang ở chế độ xem lịch sử
         var caption = document.querySelector(".header-sub-caption");
         if (caption && caption.dataset.isHistorical === "true") {
             let exitOpt = document.createElement("option");
-            exitOpt.value = "__EXIT_HISTORY__";
-            exitOpt.textContent = "Thoát - Quay về dữ liệu thực";
+            exitOpt.value = "__EXIT_HISTORY__"; exitOpt.textContent = "Thoát - Quay về hiện tại";
             selector.appendChild(exitOpt);
         }
 
         files.forEach(function(f) {
             let displayName = f;
-            let match = f.match(/Thongke_(\d{2})_(\d{2})_(\d{4})\.json/);
-            if (match) {
-                // ASCII thuần, không dấu tiếng Việt
-                displayName = "[" + match[1] + "/" + match[2] + "/" + match[3] + "] Bao cao Kho";
-            }
+            let match = f.match(/Tu_(\d{2})_(\d{2})_(\d{4})_Den_(\d{2})_(\d{2})_(\d{4})/);
+            if (match) displayName = `[${match[1]}/${match[2]}/${match[3]} - ${match[4]}/${match[5]}/${match[6]}] Báo Cáo Sản Phẩm`;
             let opt = document.createElement("option");
-            opt.value = f;
-            opt.textContent = displayName;
+            opt.value = f; opt.textContent = displayName;
             selector.appendChild(opt);
         });
-    } catch(e) {
-        console.error("loadExportHistory lỗi:", e);
-    }
+    } catch(e) { console.error(e); }
 }
-
-/**
- * Khi chọn file từ dropdown — xử lý cả lệnh thoát lịch sử.
- */
 function loadHistoricalData(fileName) {
     if (!fileName || fileName === "") return;
-
-    // ✅ Xử lý thoát chế độ lịch sử
-    if (fileName === "__EXIT_HISTORY__") {
-        exitHistoryMode();
-        return;
-    }
-
-    if (typeof window.javaConnector === 'undefined' || window.javaConnector === null) {
-        alert("⚠️ Chưa kết nối với Java. Hãy đợi trang load xong.");
-        return;
-    }
-    try {
-        window.javaConnector.readAndLoadExportFile(fileName);
-    } catch(e) {
-        alert("⚠️ Lỗi tải file lịch sử: " + e.message);
-    }
+    if (fileName === "__EXIT_HISTORY__") { exitHistoryMode(); return; }
+    if (window.javaConnector) window.javaConnector.readAndLoadExportFile(fileName);
 }
-
-/**
- * Thoát chế độ xem lịch sử, yêu cầu Java đồng bộ lại dữ liệu thực.
- */
 function exitHistoryMode() {
-    // 1. Xóa flag lịch sử và reset caption
+    // 1. Reset lịch trên giao diện về mặc định (Đầu tháng -> Hôm nay)
+    const today = new Date();
+    calSelStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    calSelEnd   = new Date(today);
+    calViewYear = today.getFullYear(); 
+    calViewMonth = today.getMonth(); 
+    calPickStep = 1;
+    updateDateRangeLabel();
+
+    // 2. Khôi phục lại tiêu đề mặc định
     var caption = document.querySelector(".header-sub-caption");
     if (caption) {
         delete caption.dataset.isHistorical;
-        caption.textContent = "He thong phan tich ton kho, doanh so va dinh gia tai san thoi gian thuc";
-        caption.style.color = "";
+        caption.innerText = "Quản lý nâng cao và phân tích trí tuệ hiệu suất sản phẩm hàng hóa";
+        caption.style.color = ""; 
         caption.style.fontWeight = "";
     }
-
-    // 2. Reset dropdown về mặc định, rebuild (nút thoát tự biến mất)
-    var selector = document.getElementById("historySelector");
+    
+    // 3. Reset Dropdown
+    let selector = document.getElementById("historySelector");
     if (selector) selector.value = "";
     loadExportHistory();
 
-    // 3. Kích hoạt đồng bộ dữ liệu thực từ Java
-    alert("ACTION:SYNC");
+    // 🔥 4. SỬA TẠI ĐÂY: Gửi ngày mặc định xuống Java để ép lọc lại dữ liệu
+    let startStr = fmtDateISO(calSelStart);
+    let endStr = fmtDateISO(calSelEnd);
+    alert(`ACTION:DATE_SYNC|${startStr}|${endStr}`);
 }
 
-/**
- * Java gọi hàm này sau khi đọc file xong, truyền nội dung dạng base64.
- * Dùng TextDecoder để giải mã UTF-8 tiếng Việt chuẩn xác.
- */
 function applyHistoricalStateBase64(base64Data, fileName) {
     try {
-        // ✅ Giải mã UTF-8 đúng chuẩn — hỗ trợ đầy đủ tiếng Việt
         let binaryStr = atob(base64Data);
         let bytes = new Uint8Array(binaryStr.length);
-        for (let i = 0; i < binaryStr.length; i++) {
-            bytes[i] = binaryStr.charCodeAt(i);
-        }
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
         let decodedString = new TextDecoder('utf-8').decode(bytes);
+        
         let historicalPayload = JSON.parse(decodedString);
-
-        // Vẽ lại toàn bộ dashboard bằng dữ liệu quá khứ
         updateProductDashboard(historicalPayload);
+        
+        let dateDisplay = fileName;
+        let match = fileName.match(/Tu_(\d{2})_(\d{2})_(\d{4})_Den_(\d{2})_(\d{2})_(\d{4})/);
+        if (match) {
+            calSelStart = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+            calSelEnd   = new Date(parseInt(match[6]), parseInt(match[5]) - 1, parseInt(match[4]));
+            calViewYear = calSelStart.getFullYear(); calViewMonth = calSelStart.getMonth(); calPickStep = 1;
+            updateDateRangeLabel();
+            dateDisplay = `${match[1]}/${match[2]}/${match[3]} → ${match[4]}/${match[5]}/${match[6]}`;
+        }
 
-        // ✅ Đánh dấu đang ở chế độ lịch sử
         var caption = document.querySelector(".header-sub-caption");
         if (caption) {
             caption.dataset.isHistorical = "true";
-            let dateDisplay = fileName;
-            let match = fileName.match(/Thongke_(\d{2})_(\d{2})_(\d{4})/);
-            if (match) dateDisplay = match[1] + "/" + match[2] + "/" + match[3];
-
-        caption.textContent = "[CHE DO LICH SU] Bao cao ngay: " + dateDisplay +
-                              " -- Chon 'Thoat' trong dropdown de quay ve du lieu thuc";
-            caption.style.color = "#ef4444";
-            caption.style.fontWeight = "bold";
+            caption.textContent = "[CHẾ ĐỘ LỊCH SỬ] Báo cáo: " + dateDisplay + " -- Chọn 'Thoát' để về hiện tại";
+            caption.style.color = "#ef4444"; caption.style.fontWeight = "bold";
         }
-
-        // ✅ Rebuild dropdown để hiện nút "↩ Thoát"
         loadExportHistory();
-
-    } catch(e) {
-        alert("❌ Lỗi giải mã file lịch sử: " + e.message);
-        console.error("applyHistoricalStateBase64 error:", e);
-    }
+    } catch(e) { alert("❌ Lỗi giải mã file lịch sử!"); }
 }

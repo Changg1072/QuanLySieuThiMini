@@ -66,7 +66,7 @@ public class DanhSachNhapHangUi extends JPanel {
     private List<LoHangViewModel> selectedPhieu = new ArrayList<>();
 
     // ================= UI COMPONENTS =================
-    private ONhapLieuHienDai txtTimKiem;
+    private GUI.HoTro.TheBongDo.RoundedTextField txtTimKiem;
     private JComboBox<String> cbSapXep;
     private JPanel pnlRowListContainer;
     private JLabel lblTongDon, lblTongSoLuong, lblTongTien; // Thêm label đếm Số lượng
@@ -102,11 +102,9 @@ public class DanhSachNhapHangUi extends JPanel {
         JPanel pnlLeftSearch = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         pnlLeftSearch.setOpaque(false);
 
-        // 1. Ô Tìm kiếm (Kích thước chuẩn 65px chiều cao)
-        txtTimKiem = new ONhapLieuHienDai("", true, false);
-        txtTimKiem.setPlaceholder("🔍 Tìm mã lô, tên nhà cung cấp...");
-        txtTimKiem.setPreferredSize(new Dimension(450, 65)); 
-        
+        txtTimKiem = new GUI.HoTro.TheBongDo.RoundedTextField("🔍 Tìm mã lô, tên nhà cung cấp...", 0);
+        txtTimKiem.setPreferredSize(new Dimension(400, 45));
+        txtTimKiem.setFont(GUI.HoTro.TienIchGiaoDien.FONT_DAM.deriveFont(16f));
         // 2. Menu Sắp xếp
         JPanel pnlSortWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 12)); 
         pnlSortWrap.setOpaque(false);
@@ -472,7 +470,7 @@ public class DanhSachNhapHangUi extends JPanel {
 
     private void setupListeners() {
         // Lắng nghe ô tìm kiếm
-        txtTimKiem.getField().getDocument().addDocumentListener(new DocumentListener() {
+    	txtTimKiem.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { filterData(); }
             public void removeUpdate(DocumentEvent e) { filterData(); }
             public void changedUpdate(DocumentEvent e) { filterData(); }
@@ -515,7 +513,7 @@ public class DanhSachNhapHangUi extends JPanel {
         });
     }
     private void handleReload() {
-        txtTimKiem.clear(); // Xóa trắng ô tìm kiếm
+    	txtTimKiem.setText(""); // Xóa trắng ô tìm kiếm
         loadDataSieuToc();  // Tải lại dữ liệu từ DB
     }
  // =========================================================

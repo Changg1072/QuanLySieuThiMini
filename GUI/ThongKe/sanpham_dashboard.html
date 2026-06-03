@@ -19,28 +19,49 @@
             </div>
             <div class="header-controls-group">
                 <div class="search-input-wrapper">
-                    <input type="text" id="internalSearchBox" class="premium-search-field" placeholder="Tìm kiếm sản phẩm siêu tốc..." oninput="dispatchFilterCoordinates()">
+                    <input type="text" id="internalSearchBox" class="premium-search-field" placeholder="Tìm kiếm sản phẩm..." oninput="dispatchFilterCoordinates()">
                 </div>
+
+                <div style="display: inline-block; position: relative; vertical-align: middle; margin-right: 8px;">
+                    <div class="date-picker-group" id="calendarToggleBtn" onclick="toggleCalendarPanel()" style="margin-right: 0;">
+                        <i class="ti ti-calendar" style="color: var(--text-slate-muted); font-size: 16px; vertical-align: middle; margin-right: 6px;"></i>
+                        <span id="dateRangeDisplayLabel" style="font-size:13.5px; font-weight:500; color:var(--text-slate-primary); vertical-align:middle;">Chọn khoảng thời gian...</span>
+                        <i class="ti ti-chevron-down" style="font-size:13px; color:#94a3b8; margin-left:6px; vertical-align:middle;"></i>
+                    </div>
+                    <div id="inlineCalendarPanel" class="inline-calendar-panel" style="display:none;">
+                        <div class="cal-header">
+                            <button class="cal-nav-btn" onclick="shiftCalendarMonth(-1)">&#8592;</button>
+                            <span id="calMonthYearLabel" class="cal-month-title"></span>
+                            <button class="cal-nav-btn" onclick="shiftCalendarMonth(1)">&#8594;</button>
+                        </div>
+                        <div class="cal-weekdays">
+                            <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
+                        </div>
+                        <div id="calDaysGrid" class="cal-days-grid"></div>
+                        <div class="cal-footer">
+                            <span id="calSelectionHint" style="font-size:12px;color:#64748b;">Chọn ngày bắt đầu</span>
+                            <button class="cal-confirm-btn" onclick="confirmDateRange()">Xác nhận</button>
+                        </div>
+                    </div>
+                </div>
+
                 <select id="categorySelector" class="premium-dropdown-control" onchange="dispatchFilterCoordinates()">
                     <option value="ALL">Tất Cả Danh Mục</option>
                 </select>
+                
                 <select id="statusFilterSelector" class="premium-dropdown-control" onchange="dispatchFilterCoordinates()">
                     <option value="ALL">Mọi Trạng Thái</option>
-                    <option value="BEST_SELLER">🔥 Bán Chạy</option>
-                    <option value="LOW_STOCK">⚠ Tồn Kho Thấp</option>
-                    <option value="SLOW_MOVING">🐢 Bán Chậm</option>
+                    <option value="LOW_STOCK">Sắp Hết Hàng</option>
+                    <option value="BEST_SELLER">Bán Chạy</option>
+                    <option value="SLOW_MOVING">Chậm Luân Chuyển</option>
                 </select>
 
                 <select id="historySelector" class="premium-dropdown-control" style="max-width: 170px; background-color: #f1f5f9; border-color: #cbd5e1;" onchange="loadHistoricalData(this.value)">
-                    <option value="">Lich su xuat file</option>
+                    <option value="">Lịch sử xuất file</option>
                 </select>
-
-                <button class="action-btn btn-secondary" onclick="triggerCoreDataSync()">
-                    <span class="btn-icon"></span> Đồng bộ
-                </button>
-                <button class="action-btn btn-primary" onclick="triggerSystemExport()">
-                    <span class="btn-icon"></span> Xuất File
-                </button>
+                
+                <button class="action-btn-node btn-excel" onclick="triggerSystemExport()" style="margin-left: 8px;"><i class="ti ti-download"></i> Xuất File</button>
+                <button class="action-btn-node btn-secondary" onclick="alert('ACTION:SYNC')" style="margin-left: 8px;"><i class="ti ti-refresh"></i> Đồng bộ</button>
             </div>
         </header>
 

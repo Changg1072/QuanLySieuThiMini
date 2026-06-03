@@ -202,7 +202,7 @@ public class CanhBaoKhoPanel extends JPanel {
                 }
 
                 // 2. ĐỘNG CƠ QUÉT LỆCH KHO TỪ BẢNG KiemKeKho
-                String sqlLechKho = "SELECT k.MaSP, s.TenSP, s.LinkHinhAnh, k.MaLoHang, k.SoLuongHeThong, k.SoLuongThucTe, k.LyDo " +
+               String sqlLechKho = "SELECT k.MaKiemKe, k.MaSP, s.TenSP, s.LinkHinhAnh, k.MaLoHang, k.SoLuongHeThong, k.SoLuongThucTe, k.LyDo " +
                                     "FROM KiemKeKho k JOIN SanPham s ON k.MaSP = s.MaSP " +
                                     "WHERE k.SoLuongHeThong <> k.SoLuongThucTe";
 
@@ -211,6 +211,9 @@ public class CanhBaoKhoPanel extends JPanel {
                      java.sql.ResultSet rs = st.executeQuery(sqlLechKho)) {
 
                     while (rs.next()) {
+                        // 🛠 THAY ĐỔI 2: Lấy thêm biến MaKiemKe từ Database
+                        String maKiemKe = rs.getString("MaKiemKe"); 
+                        
                         String tenSP = rs.getString("TenSP");
                         String maLo  = rs.getString("MaLoHang");
                         int slHT     = rs.getInt("SoLuongHeThong");
@@ -222,8 +225,8 @@ public class CanhBaoKhoPanel extends JPanel {
                         if (lyDo != null && lyDo.contains("Huề kho")) continue;
 
                         // 🆕 CHẶN: Lô đã được kiểm tra hoàn tất → bỏ qua
-                        // Nhận dạng qua LyDo = "Đã kiểm tra [MaLoHang]"
-                        if (lyDo != null && lyDo.startsWith("Đã kiểm tra " + maLo)) continue;
+                        // 🛠 THAY ĐỔI 3: Nhận dạng qua LyDo = "Đã kiểm tra " + Mã Kiểm Kê (thay vì mã lô)
+                        if (lyDo != null && lyDo.startsWith("Đã kiểm tra " + maKiemKe)) continue;
 
                         // Dự phòng thêm: nếu mã lô nằm trong Set đã thu thập ở Bước 0 → bỏ qua
                         if (dsLoaDaKiemTra.contains(maLo)) continue;
@@ -238,7 +241,7 @@ public class CanhBaoKhoPanel extends JPanel {
                             tenSP, textCanhBao, maLo, "Kho chờ xử lý",
                             AlertPriority.HIGH, AlertType.LECH_KHO,
                             rs.getString("MaSP"), slHT, BigDecimal.ZERO, 
-                            hinhAnh // 🟢 TRUYỀN ẢNH VÀO ĐÂY
+                            hinhAnh 
                         ));
                     }
                 } catch (Exception e) {

@@ -55,7 +55,7 @@ public class GiamGiaUI extends JPanel {
     private List<CheckBoxBoGoc> danhSachRowCheckboxes = new ArrayList<>();
     private boolean             isUpdatingCheckboxes  = false;
 
-    private TextFieldBoGoc    txtTimKiem;
+    private GUI.HoTro.TheBongDo.RoundedTextField txtTimKiem;
     private JComboBox<String> cbTrangThai;
     private JComboBox<String> cbNhomHang;
 
@@ -102,13 +102,15 @@ public class GiamGiaUI extends JPanel {
         JPanel pnlLoc = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
         pnlLoc.setOpaque(false);
 
-        // 1. Tạo ô tìm kiếm bo góc có icon kính lúp
-        txtTimKiem = new TextFieldBoGoc("Tìm tên, mã SP, mã lô...", true);
-        txtTimKiem.setPreferredSize(new Dimension(260, 40));
+     // 1. Tạo ô tìm kiếm bo góc có icon kính lúp (Chuẩn file Sản Phẩm)
+        txtTimKiem = new GUI.HoTro.TheBongDo.RoundedTextField("\uD83D\uDD0D Tìm tên, mã SP, mã lô...", 0);
+        txtTimKiem.setPreferredSize(new Dimension(400, 45));
         
+        // 🔥 ÉP FONT ĐẬM y xì đúc file DanhSachSPUi
+        txtTimKiem.setFont(GUI.HoTro.TienIchGiaoDien.FONT_DAM.deriveFont(16f)); 
+
         Timer searchTimer = new Timer(400, e -> TaiDanhSachSanPham()); 
         searchTimer.setRepeats(false);
-
         txtTimKiem.getDocument().addDocumentListener(new DocumentListener() {
             @Override public void insertUpdate(DocumentEvent e) { searchTimer.restart(); }
             @Override public void removeUpdate(DocumentEvent e) { searchTimer.restart(); }
@@ -121,10 +123,19 @@ public class GiamGiaUI extends JPanel {
 
         cbTrangThai.addActionListener(e -> TaiDanhSachSanPham());
         cbNhomHang.addActionListener(e -> TaiDanhSachSanPham());
+     // 🔥 THÊM NÚT LÀM MỚI MÀU XÁM VÀO ĐÂY
+        JButton btnRefresh = GUI.HoTro.TienIchGiaoDien.taoNutHienDai("Làm mới ↻", new Color(100, 116, 139));
+        btnRefresh.setPreferredSize(new Dimension(120, 40)); // Cao 40px để bằng y hệt ComboBox
+        btnRefresh.addActionListener(e -> {
+            txtTimKiem.setText("");
+            cbTrangThai.setSelectedIndex(0);
+            cbNhomHang.setSelectedIndex(0);
+        });
 
         pnlLoc.add(txtTimKiem);
         pnlLoc.add(cbTrangThai);
         pnlLoc.add(cbNhomHang);
+        pnlLoc.add(btnRefresh); // 🔥 Đã đẩy nút nằm ngay cạnh Tất cả nhóm hàng
 
         JPanel pnlThongKe = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         pnlThongKe.setOpaque(false);
@@ -192,11 +203,13 @@ public class GiamGiaUI extends JPanel {
     // =========================================================
     public void TaiDanhSachSanPham() {
         if (pnlDanhSachSanPham == null) return;
-        
+     // 🔥 HIỆU ỨNG TỨC THÌ: Xóa trắng màn hình ngay lập tức (Hết cảm giác đơ)
+        pnlDanhSachSanPham.removeAll();
+        pnlDanhSachSanPham.revalidate();
+        pnlDanhSachSanPham.repaint();
         // 1. Lấy dữ liệu lọc ngay trên luồng UI (ÁP DỤNG THUẬT TOÁN BỎ DẤU TIẾNG VIỆT)
         String tuKhoaRaw = (txtTimKiem != null) ? txtTimKiem.getText() : "";
-        final String tuKhoa = tuKhoaRaw.equals("Tìm tên, mã SP, mã lô...") ? "" 
-                : GUI.HoTro.DinhDangUtil.loaiBoDauTiengViet(tuKhoaRaw.trim().toLowerCase());
+        final String tuKhoa = GUI.HoTro.DinhDangUtil.loaiBoDauTiengViet(tuKhoaRaw.trim().toLowerCase());
         final String locTrangThai = (cbTrangThai != null) ? cbTrangThai.getSelectedItem().toString() : "Tất cả sản phẩm";
 
         // 2. Kích hoạt SwingWorker

@@ -852,11 +852,17 @@ public class KiemKeGUI extends JPanel {
             // 🔥 QUAN TRỌNG NHẤT: Bắt buộc gọi lại hàm tính chênh lệch 
             // để số chênh lệch cập nhật chuẩn xác với Tồn Hệ Thống mới
             tinhChenhLech(); 
-        } else {
+        }else {
             // Lô chưa đếm: Dọn dẹp sạch sẽ UI
             txtKiemDem.setText("");
-            // 🔥 ĐÃ ĐỔI: Reset về "Đã kiểm tra" thay vì thông báo placeholder cũ
-            txtLyDo.setText("Đã kiểm tra " + maLoDangChon);
+            
+            // 🔥 TỰ ĐỘNG LẤY MÃ KIỂM KÊ CŨ (NẾU CÓ) ĐỂ ĐIỀN VÀO LÝ DO
+            String maKKCu = layMaKiemKeLechCu(maSPDangChon, maLoDangChon);
+            if (!maKKCu.isEmpty()) {
+                txtLyDo.setText("Đã kiểm tra " + maKKCu);
+            } else {
+                txtLyDo.setText("Đã kiểm tra");
+            }
             txtLyDo.setForeground(MAU_CHU_CHINH);
             
             lblChenhLech.setText("--");
@@ -963,11 +969,9 @@ public class KiemKeGUI extends JPanel {
 
         String lyDo = txtLyDo.getText().trim();
         if (lyDo.equals("Nhập lý do chênh lệch nếu có...")) lyDo = "";
-        if (lyDo.isEmpty()) lyDo = "Đã kiểm tra " + maLoDangChon;
-        if (lech != 0 && lyDo.isEmpty()) {
-            // 🔥 THAY JOPTIONPANE
-            TienIchGiaoDien.hienThiThongBao(this, "Hệ thống phát hiện có chênh lệch.<br>Vui lòng nhập lý do!", "WARNING"); 
-            return;
+        if (lyDo.isEmpty()) {
+            String maKKCu = layMaKiemKeLechCu(maSPDangChon, maLoDangChon);
+            lyDo = maKKCu.isEmpty() ? "Đã kiểm tra" : "Đã kiểm tra " + maKKCu;
         }
 
         ChiTietKiemKeUI ct = mapTrangThaiUI.get(maSPDangChon + "_" + maLoDangChon);
@@ -1099,15 +1103,24 @@ public class KiemKeGUI extends JPanel {
                             }
 
                             // 3. Xử lý bù trừ chéo và gán mã Phiếu kiểm kê
+                            String baseMa = TaoMaTuDongLogic.taoMaKiemKe(); 
+                            String prefix = baseMa.substring(0, baseMa.lastIndexOf("-") + 1); 
+                            int stt = Integer.parseInt(baseMa.substring(baseMa.lastIndexOf("-") + 1)); 
+
                             for (List<KiemKeKho> dsPhieu : mapGomNhomTheoSP.values()) {
                                 logic.xuLyBuTruCheoTruocKhiLuu(dsPhieu);
                                 for (KiemKeKho kk : dsPhieu) {
-                                    kk.setMaKiemKe(TaoMaTuDongLogic.taoMaKiemKe());
+                                    // Tự động tăng số thứ tự lên 1 cho mỗi phiếu
+                                    String maTuTang = prefix + String.format("%03d", stt++);
+                                    kk.setMaKiemKe(maTuTang);
+                                    
+                                    // 🔥 ĐÃ XÓA BỎ HOÀN TOÀN ĐOẠN GHÉP MÃ MỚI Ở ĐÂY
+                                    // Bê nguyên Lý Do từ UI (đã có sẵn mã kiểm kê cũ) xuống Database
+                                    
                                     if (kk.getLyDo() != null && kk.getLyDo().contains("🔄 Nhận")) soSPSauCung++;
                                     tatCaPhieuChoLuu.add(kk);
                                 }
                             }
-
                             // 4. 🔥 GỌI DAO LƯU KẾT QUẢ KIỂM KÊ SIÊU TỐC (BATCH)
                             TruyVanSieuTocDAO.getInstance().dongBoKiemKeGopChungSieuToc(tatCaPhieuChoLuu);
                             isSuccess = true;
@@ -1142,6 +1155,20 @@ public class KiemKeGUI extends JPanel {
     // ==========================================
     // CLASS BỔ TRỢ & CUSTOM COMPONENTS
     // ==========================================
+
+    private String layMaKiemKeLechCu(String maSP, String maLo) {
+        // Tìm phiếu kiểm kê gần nhất của Lô này mà bị lệch (Hệ Thống <> Thực Tế)
+        String sql = "SELECT TOP 1 MaKiemKe FROM KiemKeKho WHERE MaSP = ? AND MaLoHang = ? AND SoLuongHeThong <> SoLuongThucTe ORDER BY MaKiemKe DESC";
+        try (java.sql.Connection con = Dao.ConnectDB.getInstance().getConnection();
+             java.sql.PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, maSP);
+            ps.setString(2, maLo);
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString("MaKiemKe");
+            }
+        } catch (Exception e) {}
+        return "";
+    }
 
     private class ChiTietKiemKeUI {
         boolean daKiem = false;

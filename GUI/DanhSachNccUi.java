@@ -59,7 +59,7 @@ public class DanhSachNccUi extends JPanel {
     private boolean isLoading = false;
 
     // ================= UI COMPONENTS =================
-    private ONhapLieuHienDai txtTimKiem;
+    private GUI.HoTro.TheBongDo.RoundedTextField txtTimKiem;
     private JPanel pnlRowListContainer;
     private JLabel lblTongNCC;
     
@@ -91,10 +91,13 @@ public class DanhSachNccUi extends JPanel {
         JPanel pnlNorth = new JPanel(new BorderLayout(20, 0));
         pnlNorth.setOpaque(false);
 
-        txtTimKiem = new ONhapLieuHienDai("", true, false);
-        txtTimKiem.setPlaceholder("🔍 Tìm mã NCC, tên, SĐT, Email...");
-        txtTimKiem.setPreferredSize(new Dimension(500, 65)); 
-        pnlNorth.add(txtTimKiem, BorderLayout.WEST);
+        txtTimKiem = new GUI.HoTro.TheBongDo.RoundedTextField("🔍 Tìm mã NCC, tên, SĐT, Email...", 0);
+        txtTimKiem.setPreferredSize(new Dimension(400, 45)); 
+        txtTimKiem.setFont(GUI.HoTro.TienIchGiaoDien.FONT_DAM.deriveFont(16f));
+        JPanel pnlSearchWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        pnlSearchWrap.setOpaque(false);
+        pnlSearchWrap.add(txtTimKiem);
+        pnlNorth.add(pnlSearchWrap, BorderLayout.WEST);
 
         JPanel pnlCenter = new JPanel(new BorderLayout(0, 10));
         pnlCenter.setOpaque(false);
@@ -465,7 +468,7 @@ public class DanhSachNccUi extends JPanel {
     // 7. HANDLERS & UX LOGIC
     // =========================================================
     private void setupListeners() {
-        txtTimKiem.getField().getDocument().addDocumentListener(new DocumentListener() {
+    	txtTimKiem.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { filterData(); }
             public void removeUpdate(DocumentEvent e) { filterData(); }
             public void changedUpdate(DocumentEvent e) { filterData(); }
@@ -639,7 +642,7 @@ public class DanhSachNccUi extends JPanel {
         dialog.setVisible(true); 
     }
     private void handleReload() {
-        txtTimKiem.clear();
+    	txtTimKiem.setText("");
         loadDataSieuToc();
     }
 

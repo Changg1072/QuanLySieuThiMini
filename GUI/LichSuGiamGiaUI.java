@@ -39,9 +39,7 @@ public class LichSuGiamGiaUI extends JPanel {
     private JPanel pnlListContainer;
     private JPanel pnlRightStats;
     
-    // Đưa txtSearch ra làm biến toàn cục để truy cập từ hàm tải dữ liệu
-    private JTextField txtSearch;
-    private final String PLACEHOLDER = " Tìm theo mã, tên SP...";
+    private GUI.HoTro.TheBongDo.RoundedTextField txtSearch;
 
     public LichSuGiamGiaUI() {
         setLayout(new BorderLayout(15, 15));
@@ -56,15 +54,35 @@ public class LichSuGiamGiaUI extends JPanel {
         add(taoTopBar(), BorderLayout.NORTH);
         add(taoCenterContent(), BorderLayout.CENTER);
         add(pnlRightStats, BorderLayout.EAST);
+        add(taoTopBar(), BorderLayout.NORTH);
+        add(taoCenterContent(), BorderLayout.CENTER);
+        add(pnlRightStats, BorderLayout.EAST);
+
+        // 🔥 THÊM NÚT LÀM MỚI VÀO GÓC TRÁI DƯỚI (GIỐNG NHÂN VIÊN)
+        JPanel pnlBottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        pnlBottom.setOpaque(false);
+        
+        JButton btnRefresh = GUI.HoTro.TienIchGiaoDien.taoNutHienDai("Làm mới ↻", new Color(100, 116, 139));
+        btnRefresh.setPreferredSize(new Dimension(120, 45)); 
+        btnRefresh.addActionListener(e -> {
+            txtSearch.setText("");
+        });
+        
+        pnlBottom.add(btnRefresh);
+        add(pnlBottom, BorderLayout.SOUTH);
 
         taiDuLieuThucTe();
     }
 
+
     private void taiDuLieuThucTe() {
-        // ✨ LẤY VÀ BỎ DẤU TỪ KHÓA TÌM KIẾM
-        String tuKhoaRaw = (txtSearch != null) ? txtSearch.getText() : "";
-        final String tuKhoa = tuKhoaRaw.equals(PLACEHOLDER) ? "" 
-                : GUI.HoTro.DinhDangUtil.loaiBoDauTiengViet(tuKhoaRaw.trim().toLowerCase());
+    	if (pnlListContainer != null) {
+            pnlListContainer.removeAll();
+            pnlListContainer.revalidate();
+            pnlListContainer.repaint();
+        }
+    	String tuKhoaRaw = (txtSearch != null) ? txtSearch.getText() : "";
+        final String tuKhoa = GUI.HoTro.DinhDangUtil.loaiBoDauTiengViet(tuKhoaRaw.trim().toLowerCase());
 
         SwingWorker<Object[], Void> worker = new SwingWorker<>() {
             @Override
@@ -147,41 +165,14 @@ public class LichSuGiamGiaUI extends JPanel {
     }
 
     private JPanel taoTopBar() {
-        JPanel pnlTop = new JPanel(new BorderLayout(20, 0));
+        JPanel pnlTop = new JPanel(new BorderLayout(0, 0));
         pnlTop.setBackground(BG_MAIN);
+        pnlTop.setBorder(new EmptyBorder(0, 0, 15, 0));
 
-        JLabel lblTitle = new JLabel("Lịch sử giảm giá");
-        lblTitle.setFont(FONT_TITLE);
-        lblTitle.setForeground(TEXT_MAIN);
+        txtSearch = new GUI.HoTro.TheBongDo.RoundedTextField("\uD83D\uDD0D Tìm theo mã, tên SP...", 0);
+        txtSearch.setPreferredSize(new Dimension(400, 45));
+        txtSearch.setFont(GUI.HoTro.TienIchGiaoDien.FONT_DAM.deriveFont(16f));
 
-        JPanel pnlControls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        pnlControls.setBackground(BG_MAIN);
-
-        txtSearch = new JTextField(PLACEHOLDER);
-        txtSearch.setPreferredSize(new Dimension(220, 36));
-        txtSearch.setForeground(TEXT_SUB);
-        txtSearch.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER_COLOR, 1, true),
-                new EmptyBorder(0, 10, 0, 10)
-        ));
-
-        // ✨ Xử lý Placeholder (chữ mờ)
-        txtSearch.addFocusListener(new java.awt.event.FocusAdapter() {
-            public void focusGained(java.awt.event.FocusEvent evt) {
-                if (txtSearch.getText().equals(PLACEHOLDER)) {
-                    txtSearch.setText("");
-                    txtSearch.setForeground(TEXT_MAIN);
-                }
-            }
-            public void focusLost(java.awt.event.FocusEvent evt) {
-                if (txtSearch.getText().isEmpty()) {
-                    txtSearch.setText(PLACEHOLDER);
-                    txtSearch.setForeground(TEXT_SUB);
-                }
-            }
-        });
-
-        // ✨ NỐI DÂY: Tìm kiếm mượt mà (Debounce 300ms)
         Timer searchTimer = new Timer(300, e -> taiDuLieuThucTe());
         searchTimer.setRepeats(false);
 
@@ -191,21 +182,20 @@ public class LichSuGiamGiaUI extends JPanel {
             public void changedUpdate(DocumentEvent e) { searchTimer.restart(); }
         });
 
-        JButton btnRefresh = taoNutBoGoc("Làm mới", ACCENT_BLUE, COLOR_WHITE, ACCENT_BLUE);
-        btnRefresh.addActionListener(e -> {
-            txtSearch.setText(PLACEHOLDER);
-            txtSearch.setForeground(TEXT_SUB);
-            taiDuLieuThucTe();
-        });
+        // Bọc "vòng kim cô" chống dãn
+        JPanel pnlSearchWrap = new JPanel(new BorderLayout());
+        pnlSearchWrap.setPreferredSize(new Dimension(400, 45));
+        pnlSearchWrap.setOpaque(false);
+        pnlSearchWrap.add(txtSearch, BorderLayout.CENTER);
 
-        pnlControls.add(txtSearch);
-        pnlControls.add(btnRefresh);
+        JPanel pnlSearchAlignLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        pnlSearchAlignLeft.setOpaque(false);
+        pnlSearchAlignLeft.add(pnlSearchWrap);
 
-        pnlTop.add(lblTitle, BorderLayout.WEST);
-        pnlTop.add(pnlControls, BorderLayout.EAST);
+        pnlTop.add(pnlSearchAlignLeft, BorderLayout.WEST);
+        
         return pnlTop;
     }
-
     private JPanel taoCenterContent() {
         JPanel pnlCenter = new JPanel(new BorderLayout(0, 0));
         pnlCenter.setBackground(BG_MAIN);

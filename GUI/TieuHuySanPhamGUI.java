@@ -47,7 +47,7 @@ public class TieuHuySanPhamGUI extends JPanel {
     // COMPONENTS & STATE
     // ==========================================
     private JPanel pnlDanhSachCard; 
-    private JTextField txtTimKiem;
+    private GUI.HoTro.TheBongDo.RoundedTextField txtTimKiem;
     
     // Filter Pills
     private String currentFilter = "Tất cả";
@@ -187,29 +187,29 @@ public class TieuHuySanPhamGUI extends JPanel {
         pnlFilterTop.setOpaque(false);
         pnlFilterTop.add(pnlLeftTitle, BorderLayout.NORTH);
         pnlFilterTop.add(pnlPills, BorderLayout.SOUTH);
-
-        // --- 2. THANH SEARCH + NÚT LỊCH SỬ (MỚI) ---
-        JPanel pnlSearchAndHistory = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+     // --- 2. THANH SEARCH + NÚT LỊCH SỬ + LÀM MỚI ---
+        // 🔥 Đổi sang BorderLayout để đẩy nút ra 2 góc
+        JPanel pnlSearchAndHistory = new JPanel(new BorderLayout()); 
         pnlSearchAndHistory.setOpaque(false);
+        pnlSearchAndHistory.setBorder(new EmptyBorder(0, 0, 10, 0)); // Cách danh sách bên dưới 10px cho thoáng
 
-        txtTimKiem = new JTextField(20); // Giảm size 1 chút để đủ chỗ cho nút
-        txtTimKiem.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        txtTimKiem.putClientProperty("JTextField.placeholderText", "Tìm theo tên, mã lô...");
-        txtTimKiem.setPreferredSize(new Dimension(250, 36));
-        txtTimKiem.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(BORDER_COLOR, 1), new EmptyBorder(0, 10, 0, 10)
-        ));
+        txtTimKiem = new GUI.HoTro.TheBongDo.RoundedTextField("\uD83D\uDD0D Tìm theo tên, mã lô...", 0);
+        txtTimKiem.setPreferredSize(new Dimension(400, 45)); 
+        txtTimKiem.setFont(GUI.HoTro.TienIchGiaoDien.FONT_DAM.deriveFont(16f)); 
 
-        // Nút Lịch sử Tiêu hủy (Bo góc, đồng bộ theme)
-        JButton btnLichSuHuy = new JButton("🕒 Lịch sử tiêu hủy") {
+        JPanel pnlSearchWrap = new JPanel(new BorderLayout());
+        pnlSearchWrap.setPreferredSize(new Dimension(400, 45));
+        pnlSearchWrap.setOpaque(false);
+        pnlSearchWrap.add(txtTimKiem, BorderLayout.CENTER);
+
+        JButton btnLichSuHuy = new JButton("\uD83D\uDD52 Lịch sử tiêu hủy") {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // Màu nền: Đỏ nhạt hoặc Trắng tùy sở thích
                 g2.setColor(getModel().isRollover() ? new Color(254, 226, 226) : Color.WHITE);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.setColor(new Color(239, 68, 68)); // Viền đỏ
+                g2.setColor(new Color(239, 68, 68)); 
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
                 g2.dispose();
                 super.paintComponent(g);
@@ -220,16 +220,36 @@ public class TieuHuySanPhamGUI extends JPanel {
         btnLichSuHuy.setContentAreaFilled(false);
         btnLichSuHuy.setBorderPainted(false);
         btnLichSuHuy.setFocusPainted(false);
-        btnLichSuHuy.setPreferredSize(new Dimension(160, 36));
+        btnLichSuHuy.setPreferredSize(new Dimension(165, 45));
         btnLichSuHuy.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        
-        // Sự kiện click mở danh sách lịch sử tiêu hủy
         btnLichSuHuy.addActionListener(e -> {
             GUI.HoTro.DanhSachLichSuTieuHuyDialog.showModal(TieuHuySanPhamGUI.this);
         });
 
-        pnlSearchAndHistory.add(txtTimKiem);
-        pnlSearchAndHistory.add(btnLichSuHuy);
+        // 🔥 Nút Làm Mới (Form chuẩn xám)
+        JButton btnRefresh = GUI.HoTro.TienIchGiaoDien.taoNutHienDai("Làm mới ↻", new Color(100, 116, 139));
+        btnRefresh.setPreferredSize(new Dimension(120, 45));
+        btnRefresh.addActionListener(e -> {
+            txtTimKiem.setText("");
+            currentFilter = "Tất cả";
+            updatePillsUI();
+            taiDanhSachHangCanHuyAsync(); 
+        });
+
+        // 🔥 Gom cụm Trái (Search + Lịch Sử)
+        JPanel pnlLeftSearch = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        pnlLeftSearch.setOpaque(false);
+        pnlLeftSearch.add(pnlSearchWrap);
+        pnlLeftSearch.add(btnLichSuHuy);
+
+        // 🔥 Gom cụm Phải (Làm Mới)
+        JPanel pnlRightRefresh = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        pnlRightRefresh.setOpaque(false);
+        pnlRightRefresh.add(btnRefresh);
+
+        // 🔥 Ráp vào 2 góc của thanh công cụ
+        pnlSearchAndHistory.add(pnlLeftSearch, BorderLayout.WEST);
+        pnlSearchAndHistory.add(pnlRightRefresh, BorderLayout.EAST);
 
         pnlFilter.add(pnlFilterTop, BorderLayout.NORTH);
         pnlFilter.add(pnlSearchAndHistory, BorderLayout.SOUTH);
@@ -466,9 +486,7 @@ public class TieuHuySanPhamGUI extends JPanel {
     private void timKiemRealtime() {
         if (danhSachGocCache == null || danhSachGocCache.isEmpty()) return;
 
-        String tuKhoa = txtTimKiem.getText();
-        String tuKhoaThuong = (tuKhoa != null && !tuKhoa.equals("Tìm theo tên, mã lô...")) 
-                ? GUI.HoTro.DinhDangUtil.loaiBoDauTiengViet(tuKhoa.toLowerCase().trim()) : "";
+        String tuKhoaThuong = GUI.HoTro.DinhDangUtil.loaiBoDauTiengViet(txtTimKiem.getText().toLowerCase().trim());
 
         LocalDate today = LocalDate.now();
         List<ChiTietLoHang> dsLoc = new ArrayList<>();

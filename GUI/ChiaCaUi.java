@@ -234,10 +234,12 @@ public class ChiaCaUi extends JPanel {
         btnHuyCa.addActionListener(e -> thucHienHuyCa());
         btnHuyCa.setVisible(false); 
         
-        NutBoGoc btnHuy = new NutBoGoc("Làm mới");
-        btnHuy.setColorBackground(new Color(241, 245, 249));
-        btnHuy.setForeground(MAU_CHU_CHINH);
-        btnHuy.addActionListener(e -> xoaRongForm(txtNgayApDung.getText())); 
+     // 🔥 ĐỔI SANG FORM NÚT XÁM CHUẨN & LOAD LẠI DATABASE
+        JButton btnHuy = GUI.HoTro.TienIchGiaoDien.taoNutHienDai("Làm mới ↻", new Color(100, 116, 139));
+        btnHuy.setPreferredSize(new Dimension(120, 42)); // Chiều cao 42 cho cân đối với form
+        btnHuy.addActionListener(e -> {
+            taiDuLieuCaTuDatabase(() -> xoaRongForm(txtNgayApDung.getText()));
+        });
         
         btnApDung = new NutBoGoc("Áp dụng");
         btnApDung.setColorBackground(new Color(249, 115, 22));

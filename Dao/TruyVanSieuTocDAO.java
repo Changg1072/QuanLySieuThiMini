@@ -5,6 +5,7 @@ import Data.*;
 import java.io.File;
 import java.math.BigDecimal;
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -337,7 +338,7 @@ public class TruyVanSieuTocDAO {
                 try (ResultSet rs = cs.getResultSet()) {
                     Date homNay = Date.valueOf(java.time.LocalDate.now());
                     while (rs.next()) {
-                        String maSP = rs.getString("MaSP");
+                        String maSP = rs.getString("MaSP").trim();
                         int soLuong = rs.getInt("SoLuongTon");
                         Date hsd = rs.getDate("HSD");
 
@@ -797,7 +798,7 @@ public class TruyVanSieuTocDAO {
                 try (ResultSet rs = st.getResultSet()) {
                     while (rs.next()) {
                         Data.SanPham sp = new Data.SanPham.ThoXaySanPham()
-                            .ganMaSP(rs.getString("MaSP"))
+                            .ganMaSP(rs.getString("MaSP").trim())
                             .ganTenSP(rs.getString("TenSP"))
                             .ganLinkHinhAnh(rs.getString("LinkHinhAnh"))
                             .ganMaLoai(rs.getString("MaLoai"))
@@ -1127,6 +1128,200 @@ public class TruyVanSieuTocDAO {
         } catch (SQLException e) {
             System.err.println("🔥 [SieuTocDAO] Lỗi loadThongKeNhanVienSieuToc: " + e.getMessage());
         }
+        return dto;
+    }
+    // =========================================================================
+    // 15. HỒI QUY TỒN KHO & GIÁ TRỊ KHO SIÊU TỐC (BACKTRACKING) 🚀
+    // =========================================================================
+    public static class DuLieuHoiQuyDTO {
+
+        public Map<String, Integer> mapXuatQty = new HashMap<>();
+        public Map<String, Integer> mapTraHangQty = new HashMap<>();
+        public Map<String, Integer> mapHuyQty = new HashMap<>();
+        public Map<String, Integer> mapNhapQty = new HashMap<>();
+
+        public Map<String, BigDecimal> mapXuatVal = new HashMap<>();
+        public Map<String, BigDecimal> mapTraHangVal = new HashMap<>();
+        public Map<String, BigDecimal> mapHuyVal = new HashMap<>();
+        public Map<String, BigDecimal> mapNhapVal = new HashMap<>();
+    }
+
+    public DuLieuHoiQuyDTO loadDuLieuHoiQuyKho(LocalDate targetDate) {
+
+        DuLieuHoiQuyDTO dto = new DuLieuHoiQuyDTO();
+
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) {
+            return dto;
+        }
+
+        Timestamp cutoffTime =
+                Timestamp.valueOf(targetDate.plusDays(1).atStartOfDay());
+
+        Date cutoffDate =
+                Date.valueOf(targetDate.plusDays(1));
+
+        try {
+
+            // ==========================================================
+            // 1. XUẤT KHO
+            // ==========================================================
+            String sqlXuat =
+                    "SELECT c.MaSP, " +
+                    "       SUM(c.SoLuong) AS TongSL, " +
+                    "       COALESCE(SUM(c.SoLuong * l.GiaNhap),0) AS TongGiaTri " +
+                    "FROM ChiTietHoaDon c " +
+                    "JOIN HoaDon h ON c.MaHD = h.MaHD " +
+                    "LEFT JOIN ChiTietLoHang l " +
+                    "       ON c.MaLoHang = l.MaLoHang " +
+                    "      AND c.MaSP = l.MaSP " +
+                    "WHERE h.NgayTao >= ? " +
+                    "  AND (h.TraHang = 0 OR h.TraHang IS NULL) " +
+                    "GROUP BY c.MaSP";
+
+            try (PreparedStatement ps = con.prepareStatement(sqlXuat)) {
+
+                ps.setTimestamp(1, cutoffTime);
+
+                try (ResultSet rs = ps.executeQuery()) {
+
+                    while (rs.next()) {
+
+                        String maSP = rs.getString("MaSP");
+
+                        dto.mapXuatQty.put(
+                                maSP,
+                                rs.getInt("TongSL")
+                        );
+
+                        dto.mapXuatVal.put(
+                                maSP,
+                                rs.getBigDecimal("TongGiaTri")
+                        );
+                    }
+                }
+            }
+
+            // ==========================================================
+            // 2. TRẢ HÀNG
+            // ==========================================================
+            String sqlTraHang =
+                    "SELECT c.MaSP, " +
+                    "       SUM(c.SoLuong) AS TongSL, " +
+                    "       COALESCE(SUM(c.SoLuong * l.GiaNhap),0) AS TongGiaTri " +
+                    "FROM ChiTietHoaDon c " +
+                    "JOIN HoaDon h ON c.MaHD = h.MaHD " +
+                    "LEFT JOIN ChiTietLoHang l " +
+                    "       ON c.MaLoHang = l.MaLoHang " +
+                    "      AND c.MaSP = l.MaSP " +
+                    "WHERE h.NgayTao >= ? " +
+                    "  AND h.TraHang = 1 " +
+                    "GROUP BY c.MaSP";
+
+            try (PreparedStatement ps = con.prepareStatement(sqlTraHang)) {
+
+                ps.setTimestamp(1, cutoffTime);
+
+                try (ResultSet rs = ps.executeQuery()) {
+
+                    while (rs.next()) {
+
+                        String maSP = rs.getString("MaSP").trim();
+
+                        dto.mapTraHangQty.put(
+                                maSP,
+                                rs.getInt("TongSL")
+                        );
+
+                        dto.mapTraHangVal.put(
+                                maSP,
+                                rs.getBigDecimal("TongGiaTri")
+                        );
+                    }
+                }
+            }
+
+            // ==========================================================
+            // 3. TIÊU HỦY
+            // ==========================================================
+            String sqlHuy =
+                    "SELECT c.MaSP, " +
+                    "       SUM(c.SoLuongHuy) AS TongSL, " +
+                    "       COALESCE(SUM(c.SoLuongHuy * l.GiaNhap),0) AS TongGiaTri " +
+                    "FROM ChiTietPhieuHuy c " +
+                    "JOIN PhieuTieuHuy p ON c.MaPhieuHuy = p.MaPhieuHuy " +
+                    "LEFT JOIN ChiTietLoHang l " +
+                    "       ON c.MaLoHang = l.MaLoHang " +
+                    "      AND c.MaSP = l.MaSP " +
+                    "WHERE p.NgayTao >= ? " +
+                    "GROUP BY c.MaSP";
+
+            try (PreparedStatement ps = con.prepareStatement(sqlHuy)) {
+
+                ps.setTimestamp(1, cutoffTime);
+
+                try (ResultSet rs = ps.executeQuery()) {
+
+                    while (rs.next()) {
+
+                        String maSP = rs.getString("MaSP").trim();
+                        dto.mapHuyQty.put(
+                                maSP,
+                                rs.getInt("TongSL")
+                        );
+
+                        dto.mapHuyVal.put(
+                                maSP,
+                                rs.getBigDecimal("TongGiaTri")
+                        );
+                    }
+                }
+            }
+
+            // ==========================================================
+            // 4. NHẬP KHO
+            // ==========================================================
+            String sqlNhap =
+                    "SELECT c.MaSP, " +
+                    "       SUM(c.SoLuongNhap) AS TongSL, " +
+                    "       COALESCE(SUM(c.SoLuongNhap * c.GiaNhap),0) AS TongGiaTri " +
+                    "FROM ChiTietLoHang c " +
+                    "JOIN LoHang h ON c.MaLoHang = h.MaLoHang " +
+                    "WHERE h.NgayNhapKho >= ? " +
+                    "GROUP BY c.MaSP";
+
+            try (PreparedStatement ps = con.prepareStatement(sqlNhap)) {
+
+                ps.setDate(1, cutoffDate);
+
+                try (ResultSet rs = ps.executeQuery()) {
+
+                    while (rs.next()) {
+
+                        String maSP = rs.getString("MaSP").trim();
+
+                        dto.mapNhapQty.put(
+                                maSP,
+                                rs.getInt("TongSL")
+                        );
+
+                        dto.mapNhapVal.put(
+                                maSP,
+                                rs.getBigDecimal("TongGiaTri")
+                        );
+                    }
+                }
+            }
+
+        } catch (Exception ex) {
+
+            System.err.println(
+                    "Lỗi hồi quy kho: " + ex.getMessage()
+            );
+
+            ex.printStackTrace();
+        }
+
         return dto;
     }
 }

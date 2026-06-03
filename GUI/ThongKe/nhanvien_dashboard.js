@@ -498,7 +498,9 @@ function exitHistoryMode() {
     loadExportHistory(); 
 
     // 4. Đồng bộ lại dữ liệu Database
-    alert("ACTION:SYNC");
+    let startStr = fmtDateISO(calSelStart);
+    let endStr = fmtDateISO(calSelEnd);
+    alert(`ACTION:DATE_SYNC|${startStr}|${endStr}`);
 }
 function applyHistoricalStateBase64(base64Data, fileName) {
     try {

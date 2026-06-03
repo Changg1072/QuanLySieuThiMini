@@ -92,11 +92,17 @@ public class DanhSachSPUi extends JPanel {
     }
 
     private void initUI() {
-    	JPanel pnlTopBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 20));
+        // Đổi sang BorderLayout để đẩy 2 khối ra 2 góc (Trái - Phải)
+        JPanel pnlTopBar = new JPanel(new BorderLayout());
         pnlTopBar.setBackground(BG_MAIN);
+        pnlTopBar.setBorder(new EmptyBorder(10, 0, 15, 0)); // Tạo khoảng cách với bảng bên dưới
 
-        txtTimKiem = new GUI.HoTro.TheBongDo.RoundedTextField("🔍 Tìm tên hoặc mã sản phẩm...", 0);
-        txtTimKiem.setPreferredSize(new Dimension(400, 45));
+        // =====================================
+        // 1. Ô TÌM KIẾM (GÓC TRÁI)
+        // =====================================
+        txtTimKiem = new GUI.HoTro.TheBongDo.RoundedTextField("\uD83D\uDD0D Tìm tên hoặc mã sản phẩm...", 0);
+        txtTimKiem.setPreferredSize(new Dimension(400, 45)); 
+        txtTimKiem.setFont(GUI.HoTro.TienIchGiaoDien.FONT_DAM.deriveFont(16f));
         
         txtTimKiem.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             public void insertUpdate(javax.swing.event.DocumentEvent e) { thucHienTimKiem(txtTimKiem.getText()); }
@@ -104,11 +110,34 @@ public class DanhSachSPUi extends JPanel {
             public void changedUpdate(javax.swing.event.DocumentEvent e) { thucHienTimKiem(txtTimKiem.getText()); }
         });
 
+        // Bọc vòng kim cô chống dãn
+        JPanel pnlSearchWrap = new JPanel(new BorderLayout());
+        pnlSearchWrap.setPreferredSize(new Dimension(400, 45));
+        pnlSearchWrap.setOpaque(false);
+        pnlSearchWrap.add(txtTimKiem, BorderLayout.CENTER);
+
         JPanel pnlSearchAlignLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         pnlSearchAlignLeft.setOpaque(false);
-        pnlSearchAlignLeft.add(txtTimKiem);
+        pnlSearchAlignLeft.add(pnlSearchWrap);
 
         pnlTopBar.add(pnlSearchAlignLeft, BorderLayout.WEST);
+
+        // =====================================
+        // 2. NÚT LÀM MỚI (GÓC PHẢI)
+        // =====================================
+        JButton btnRefresh = GUI.HoTro.TienIchGiaoDien.taoNutHienDai("Làm mới ↻", new Color(100, 116, 139));
+        btnRefresh.setPreferredSize(new Dimension(120, 45));
+        btnRefresh.addActionListener(e -> {
+            txtTimKiem.setText(""); // Xóa text tìm kiếm
+            taiDuLieuBanHangSieuToc("ALL"); // Tải lại toàn bộ dữ liệu
+        });
+
+        JPanel pnlRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        pnlRight.setOpaque(false);
+        pnlRight.setBorder(new EmptyBorder(0, 0, 0, 40)); // 🔥 Đệm thêm 20px bên phải để đẩy nút sang trái
+        pnlRight.add(btnRefresh);
+
+        pnlTopBar.add(pnlRight, BorderLayout.EAST);
 
         JPanel pnlCenter = new JPanel(new BorderLayout(0, 10));
         pnlCenter.setOpaque(false);
@@ -363,42 +392,68 @@ public class DanhSachSPUi extends JPanel {
     }
 
     public void taiDuLieuBanHangSieuToc(String maLoai) {
-        mapSanPham.clear(); 
+        // 1. Xóa rỗng danh sách trên màn hình ngay lập tức để tạo cảm giác phản hồi nhanh
+        pnlRowListContainer.removeAll();
+        pnlRowListContainer.revalidate();
+        pnlRowListContainer.repaint();
 
-        dataBanHangCache = TruyVanSieuTocDAO.getInstance().loadToanBoSanPhamBanHang();
-        if (dataBanHangCache == null || dataBanHangCache.dsSanPham == null) return;
+        // 2. Dùng SwingWorker đẩy việc tải Database xuống luồng ngầm (Hết lag UI)
+        SwingWorker<List<SanPham>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected List<SanPham> doInBackground() {
+                // Tải dữ liệu dưới nền
+                dataBanHangCache = TruyVanSieuTocDAO.getInstance().loadToanBoSanPhamBanHang();
+                if (dataBanHangCache == null || dataBanHangCache.dsSanPham == null) return new ArrayList<>();
 
-        List<SanPham> dsLoc = new ArrayList<>();
-        for (SanPham sp : dataBanHangCache.dsSanPham) {
-            if (maLoai.equals("ALL") || sp.getMaLoai().equals(maLoai)) {
-                dsLoc.add(sp);
+                List<SanPham> dsLoc = new ArrayList<>();
+                for (SanPham sp : dataBanHangCache.dsSanPham) {
+                    if (maLoai.equals("ALL") || sp.getMaLoai().equals(maLoai)) {
+                        dsLoc.add(sp);
+                    }
+                }
+
+                // Sắp xếp
+                dsLoc.sort((a, b) -> {
+                    int tonA = dataBanHangCache.mapTonKho.getOrDefault(a.getMaSP(), 0);
+                    int tonB = dataBanHangCache.mapTonKho.getOrDefault(b.getMaSP(), 0);
+                    int scoreA = tonA > 0 ? 0 : 1;
+                    int scoreB = tonB > 0 ? 0 : 1;
+                    return Integer.compare(scoreA, scoreB);
+                });
+
+                return dsLoc;
             }
-        }
 
-        dsLoc.sort((a, b) -> {
-            int tonA = dataBanHangCache.mapTonKho.getOrDefault(a.getMaSP(), 0);
-            int tonB = dataBanHangCache.mapTonKho.getOrDefault(b.getMaSP(), 0);
-            int scoreA = tonA > 0 ? 0 : 1;
-            int scoreB = tonB > 0 ? 0 : 1;
-            return Integer.compare(scoreA, scoreB);
-        });
+            @Override
+            protected void done() {
+                try {
+                    // Lấy kết quả từ luồng ngầm và Render lên giao diện
+                    List<SanPham> dsLoc = get();
+                    mapSanPham.clear();
 
-        for (SanPham sp : dsLoc) {
-            int tonKho = dataBanHangCache.mapTonKho.getOrDefault(sp.getMaSP(), 0);
-            int phanTram = dataBanHangCache.mapGiamGia != null ? dataBanHangCache.mapGiamGia.getOrDefault(sp.getMaSP(), 0) : 0;
-            
-            BigDecimal giaGoc = sp.getGiaBan();
-            BigDecimal giaThucTe = giaGoc;
-            if (phanTram > 0) {
-                BigDecimal tienGiam = giaGoc.multiply(new BigDecimal(phanTram)).divide(new BigDecimal(100));
-                giaThucTe = giaGoc.subtract(tienGiam);
+                    for (SanPham sp : dsLoc) {
+                        int tonKho = dataBanHangCache.mapTonKho.getOrDefault(sp.getMaSP(), 0);
+                        int phanTram = dataBanHangCache.mapGiamGia != null ? dataBanHangCache.mapGiamGia.getOrDefault(sp.getMaSP(), 0) : 0;
+                        
+                        BigDecimal giaGoc = sp.getGiaBan();
+                        BigDecimal giaThucTe = giaGoc;
+                        if (phanTram > 0) {
+                            BigDecimal tienGiam = giaGoc.multiply(new BigDecimal(phanTram)).divide(new BigDecimal(100));
+                            giaThucTe = giaGoc.subtract(tienGiam);
+                        }
+
+                        TheSanPham wrapper = new TheSanPham(sp, tonKho, giaThucTe, phanTram);
+                        mapSanPham.put(sp.getMaSP(), wrapper);
+                    }
+
+                    renderList(dsLoc); // Vẽ UI
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
-
-            TheSanPham wrapper = new TheSanPham(sp, tonKho, giaThucTe, phanTram);
-            mapSanPham.put(sp.getMaSP(), wrapper);
-        }
-
-        renderList(dsLoc);
+        };
+        
+        worker.execute(); // Kích hoạt luồng ngầm
     }
 
     public void loadDuLieuSanPham(String maLoai) {

@@ -39,16 +39,31 @@ public class DonHangUi extends JPanel {
     
     // 🌟 VŨ KHÍ BÍ MẬT: LỊCH XỔ XUỐNG TỰ CHẾ
     private LichXoXuongCustom dateChooserNgay;
-
+    private Timer debounceTimer;
     public DonHangUi() {
         setLayout(new BorderLayout());
         setBackground(COLOR_BG);
 
-        txtSearch = new TheBongDo.RoundedTextField("🔍 Tìm kiếm mã hóa đơn, tên khách...", 30);
+        txtSearch = new GUI.HoTro.TheBongDo.RoundedTextField("\uD83D\uDD0D Tìm kiếm mã hóa đơn, tên khách...", 0);
 
         add(createTopPanel(), BorderLayout.NORTH);
         add(createCenterPanel(), BorderLayout.CENTER);
         
+        // 🔥 ĐƯA NÚT LÀM MỚI XUỐNG GÓC TRÁI DƯỚI (MÀU XÁM)
+        JPanel pnlBottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
+        pnlBottom.setOpaque(false);
+        JButton btnRefresh = GUI.HoTro.TienIchGiaoDien.taoNutHienDai("Làm mới ↻", new Color(100, 116, 139));
+        btnRefresh.setPreferredSize(new Dimension(120, 45));
+        btnRefresh.addActionListener(e -> {
+            txtSearch.setText(""); 
+            boLocHienTai = "Tất cả"; 
+            setActiveTab(tabLabels.get(0)); 
+            dateChooserNgay.setNgay(null); 
+            // Xóa dòng gọi Database trực tiếp ở đây, để Timer tự động gom 4 lệnh thành 1 lần quét!
+        });
+        pnlBottom.add(btnRefresh);
+        add(pnlBottom, BorderLayout.SOUTH);
+
         taiDuLieuTuDatabase();
     }
 
@@ -73,54 +88,42 @@ public class DonHangUi extends JPanel {
         }
         setActiveTab(tabLabels.get(0));
 
-        // --- 🔍 Search Bar & Component Ngày Tháng ---
+     // --- 🔍 Search Bar & Component Ngày Tháng ---
         JPanel searchPanel = new JPanel(new BorderLayout());
         searchPanel.setBackground(COLOR_CARD_BG);
         searchPanel.setBorder(new EmptyBorder(10, 15, 12, 15));
         
-        txtSearch.setPreferredSize(new Dimension(350, 40)); 
-        txtSearch.setFont(new Font("Calibri", Font.PLAIN, 15));
+        txtSearch.setPreferredSize(new Dimension(400, 45)); 
+        txtSearch.setFont(GUI.HoTro.TienIchGiaoDien.FONT_DAM.deriveFont(16f));
+        
+        // 🔥 BẬT KHIÊN CHỐNG SPAM (Gom các lệnh gọi trong 300ms thành 1 lần duy nhất)
+        debounceTimer = new Timer(300, e -> taiDuLieuTuDatabase());
+        debounceTimer.setRepeats(false);
+
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) { taiDuLieuTuDatabase(); }
-            public void removeUpdate(DocumentEvent e) { taiDuLieuTuDatabase(); }
-            public void changedUpdate(DocumentEvent e) { taiDuLieuTuDatabase(); }
+            public void insertUpdate(DocumentEvent e) { debounceTimer.restart(); }
+            public void removeUpdate(DocumentEvent e) { debounceTimer.restart(); }
+            public void changedUpdate(DocumentEvent e) { debounceTimer.restart(); }
         });
 
-        // 📅 LỊCH TỰ CHẾ (Không dùng Checkbox)
+        // 📅 LỊCH TỰ CHẾ
         dateChooserNgay = new LichXoXuongCustom();
         dateChooserNgay.setPreferredSize(new Dimension(160, 40));
-        
-        // Sự kiện khi Click chọn ngày trên Lịch tự chế
-        dateChooserNgay.setHanhDongChonNgay(() -> {
-            taiDuLieuTuDatabase();
-        });
+        dateChooserNgay.setHanhDongChonNgay(() -> debounceTimer.restart());
+
+        JPanel pnlSearchWrap = new JPanel(new BorderLayout());
+        pnlSearchWrap.setPreferredSize(new Dimension(400, 45)); 
+        pnlSearchWrap.setOpaque(false);
+        pnlSearchWrap.add(txtSearch, BorderLayout.CENTER);
 
         JPanel pnlLeftSearch = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         pnlLeftSearch.setOpaque(false);
-        pnlLeftSearch.add(txtSearch);
+        pnlLeftSearch.add(pnlSearchWrap); 
         pnlLeftSearch.add(Box.createHorizontalStrut(20));
-        pnlLeftSearch.add(dateChooserNgay); // Lịch gắn trực tiếp, sang xịn mịn
+        pnlLeftSearch.add(dateChooserNgay); 
 
-        NutBoGoc btnRefresh = new NutBoGoc("🔄 Làm mới");
-        btnRefresh.setColorBackground(COLOR_DISCOUNT);
-        btnRefresh.setArc(15);
-        btnRefresh.setPreferredSize(new Dimension(120, 40));
-        btnRefresh.addActionListener(e -> {
-            txtSearch.setText(""); 
-            boLocHienTai = "Tất cả"; 
-            setActiveTab(tabLabels.get(0)); 
-            
-            // Xóa bộ lọc ngày, đưa lịch về mặc định
-            dateChooserNgay.setNgay(null); 
-            taiDuLieuTuDatabase(); 
-        });
-
-        JPanel pnlRightRefresh = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        pnlRightRefresh.setOpaque(false);
-        pnlRightRefresh.add(btnRefresh);
-
+        // 🔥 NÚT CŨ Ở GÓC PHẢI ĐÃ ĐƯỢC DỌN SẠCH
         searchPanel.add(pnlLeftSearch, BorderLayout.WEST);
-        searchPanel.add(pnlRightRefresh, BorderLayout.EAST);
 
         topPanel.add(tabPanel, BorderLayout.NORTH);
         topPanel.add(searchPanel, BorderLayout.SOUTH);
@@ -139,7 +142,8 @@ public class DonHangUi extends JPanel {
             @Override public void mouseClicked(MouseEvent e) { 
                 setActiveTab(label); 
                 boLocHienTai = text; 
-                taiDuLieuTuDatabase(); 
+                // Gọi qua Timer để chống lag
+                if (debounceTimer != null) debounceTimer.restart(); else taiDuLieuTuDatabase(); 
             }
         });
         return label;
@@ -181,7 +185,9 @@ public class DonHangUi extends JPanel {
     // 3. ĐỘNG CƠ TURBO + LỌC NGÀY CHUẨN 🚀
     // =======================================================
     public void taiDuLieuTuDatabase() {
-        centerPanel.removeAll();
+    	centerPanel.removeAll();
+        centerPanel.revalidate();
+        centerPanel.repaint();
         String tuKhoa = txtSearch.getText().trim().toLowerCase();
         
         // Lấy ngày từ Lịch Custom
