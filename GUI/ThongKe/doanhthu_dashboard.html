@@ -16,70 +16,93 @@
                 <p class="subtitle">Báo cáo phân tích kinh doanh dữ liệu thời gian thực</p>
             </div>
             <div class="header-right">
-                <div class="control-group">
-                    <select id="timeFilter" class="modern-select" onchange="handleTimeFilterChange(this.value)">
-                        <option value="current">Tháng Này</option>
-                        <option value="last_month">Tháng Trước</option>
-                        <option value="year">Toàn Bộ Năm</option>
+                <div class="control-group" style="display: flex; align-items: center; gap: 10px;">
+                    <select id="exportHistoryDropdown" class="modern-select" onchange="handleHistoryFileSelect(this.value)" style="display: none; max-width: 200px;">
+                        <option value="EXIT">⏳ Về thực tại (Live)</option>
                     </select>
-                    <button class="btn btn-secondary" onclick="triggerRefresh()">Làm Mới</button>
-                    <button class="btn btn-primary" onclick="triggerExcelExport()">Xuất Excel</button>
+                    
+                    <div style="position: relative;">
+                        <div class="date-picker-group" id="calendarToggleBtn" onclick="toggleCalendarPanel()">
+                            <i class="ti ti-calendar" style="color: #64748b; font-size: 16px; vertical-align: middle; margin-right: 6px;"></i>
+                            <span id="dateRangeDisplayLabel" class="date-range-label" style="font-size: 13.5px; font-weight: 500;">Chọn khoảng thời gian...</span>
+                            <i class="ti ti-chevron-down" style="color: #64748b; font-size: 14px; vertical-align: middle; margin-left: 6px;"></i>
+                        </div>
+                        
+                        <div class="inline-calendar-panel" id="inlineCalendarPanel" style="display: none;">
+                            <div style="position: absolute; top: -6px; right: 24px; width: 12px; height: 12px; background: white; transform: rotate(45deg); border-left: 1px solid #e2e8f0; border-top: 1px solid #e2e8f0;"></div>
+                            <div class="cal-header">
+                                <button class="cal-nav-btn" onclick="shiftCalendarMonth(-1)">&#8592;</button>
+                                <span class="cal-month-title" id="calMonthYearLabel">...</span>
+                                <button class="cal-nav-btn" onclick="shiftCalendarMonth(1)">&#8594;</button>
+                            </div>
+                            <div class="cal-weekdays">
+                                <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
+                            </div>
+                            <div class="cal-days-grid" id="calDaysGrid"></div>
+                            <div class="cal-footer">
+                                <span id="calSelectionHint" style="font-size:12px;color:#64748b;">Chọn ngày bắt đầu</span>
+                                <button class="cal-confirm-btn" onclick="confirmDateRange()">Áp dụng</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-secondary" onclick="location.reload()">Làm Mới</button>
+                    <button class="btn btn-primary" onclick="exportDataToJSON()" style="background: var(--success); color: white;">Lưu Báo Cáo</button>
+                    <button class="btn btn-primary" onclick="alert('ACTION:EXPORT_EXCEL')">Xuất Excel</button>
                 </div>
             </div>
         </header>
 
         <!-- 2. KPI CARDS -->
         <section class="kpi-grid">
-            <div class="stat-card" id="card-revenue">
-                <div class="card-shimmer"></div>
-                <div class="card-content">
-                    <div class="card-header">
-                        <span class="card-title">Tổng Doanh Thu</span>
-                    </div>
-                    <div class="card-body">
-                        <h2 class="counter-val" id="val-revenue">0đ</h2>
-                        <span class="trend-badge trend-up">12.4%</span>
-                    </div>
+            <div class="stat-card">
+                <div class="card-title">Tổng Doanh Thu</div>
+                <h2 class="counter-val" style="color: #2563eb;" id="val-revenue">0đ</h2>
+            </div>
+
+            <div class="stat-card">
+                <div class="card-title">Tổng Số Hóa Đơn</div>
+                <h2 class="counter-val" style="color: #0891b2;" id="val-invoices">0</h2>
+            </div>
+
+            <div class="stat-card">
+                <div class="card-title">Giờ Cao Điểm</div>
+                <h2 class="counter-val" style="color: #8b5cf6;" id="val-peak-hour">--:--</h2>
+                <div style="font-size: 11px; color: #64748b; margin-top: 8px;" id="val-peak-count">
+                    0 giao dịch đỉnh điểm
                 </div>
             </div>
-            <div class="stat-card" id="card-invoices">
-                <div class="card-shimmer"></div>
-                <div class="card-content">
-                    <div class="card-header"><span class="card-title">Tổng Hóa Đơn</span></div>
-                    <div class="card-body">
-                        <h2 class="counter-val" id="val-invoices">0</h2>
-                        <span class="subtext-context" id="val-avg-ticket">Trung bình: 0đ / đơn</span>
-                    </div>
+
+            <div class="stat-card" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none;">
+                <div class="card-title" style="color: #d1fae5;">Lợi Nhuận Thực Tế</div>
+                <h2 class="counter-val" style="color: #ffffff;" id="val-actual-profit">0đ</h2>
+                <div style="font-size: 11px; color: #a7f3d0; margin-top: 8px; font-weight: 500;">
+                    = DT - (Giá Nhập + Hủy + Lương)
                 </div>
             </div>
-            <div class="stat-card" id="card-profit">
-                <div class="card-shimmer"></div>
-                <div class="card-content">
-                    <div class="card-header"><span class="card-title">Lợi Nhuận Thực Tế</span></div>
-                    <div class="card-body">
-                        <h2 class="counter-val" id="val-profit">0đ</h2>
-                        <span class="trend-badge trend-neutral" id="val-margin">Margin: 0%</span>
-                    </div>
+
+            <div class="stat-card">
+                <div class="card-title">Giá Nhập Của Hàng Đã Bán</div>
+                <h2 class="counter-val" style="color: #f59e0b;" id="val-cogs">0đ</h2>
+            </div>
+
+            <div class="stat-card">
+                <div class="card-title">Chi Phí Lương Nhân Viên</div>
+                <h2 class="counter-val" style="color: #3b82f6;" id="val-salary">0đ</h2>
+            </div>
+
+            <div class="stat-card">
+                <div class="card-title">Tổng Tiêu Hủy & Lệch Kho</div>
+                <h2 class="counter-val" style="color: #ef4444;" id="val-loss">0đ</h2>
+                <div style="font-size: 11px; color: #64748b; margin-top: 8px; font-style: italic;">
+                    (Hàng hỏng, hết hạn, mất mát)
                 </div>
             </div>
-            <div class="stat-card" id="card-loss">
-                <div class="card-shimmer"></div>
-                <div class="card-content">
-                    <div class="card-header"><span class="card-title">Tổng Thất Thoát</span></div>
-                    <div class="card-body">
-                        <h2 class="counter-val" id="val-loss" style="color: #ef4444;">0đ</h2>
-                        <span class="subtext-context">Hàng hủy & Lệch kho</span>
-                    </div>
-                </div>
-            </div>
-            <div class="stat-card" id="card-peak">
-                <div class="card-shimmer"></div>
-                <div class="card-content">
-                    <div class="card-header"><span class="card-title">Giờ Cao Điểm</span></div>
-                    <div class="card-body">
-                        <h2 class="text-highlight" id="val-peak-hour">--:--</h2>
-                        <span class="subtext-context" id="val-peak-count">0 giao dịch đỉnh điểm</span>
-                    </div>
+            <div class="stat-card">
+                <div class="card-title">Tổng Tiền Nhập Kho</div>
+                <h2 class="counter-val" style="color: #d946ef;" id="val-import-cost">0đ</h2>
+                <div style="font-size: 11px; color: #64748b; margin-top: 8px; font-style: italic;">
+                    <i class="ti ti-truck-loading" style="vertical-align: middle;"></i> Chi phí mua hàng hóa vào kho
                 </div>
             </div>
         </section>
@@ -127,8 +150,13 @@
                 <table class="premium-table">
                     <thead>
                         <tr>
-                            <th>Mã Hóa Đơn</th><th>Khách Hàng</th><th>Thu Ngân</th>
-                            <th>Thời Gian</th><th>Phương Thức</th><th class="text-right">Thành Tiền</th>
+                            <th>Mã Hóa Đơn</th>
+                            <th>Khách Hàng</th>
+                            <th>Thu Ngân</th>
+                            <th>Thời Gian</th>
+                            <th>Phương Thức</th>
+                            <th>Thành Tiền</th>
+                            <th style="text-align: center;">Hành Động</th> 
                         </tr>
                     </thead>
                     <tbody id="invoice-rows-container"></tbody>

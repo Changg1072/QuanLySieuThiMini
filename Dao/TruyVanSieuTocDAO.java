@@ -41,6 +41,7 @@ public class TruyVanSieuTocDAO {
         public Map<String, String[]> mapKhachHang = new HashMap<>(); // [0]=TenKH, [1]=BacKH
         public Map<String, String> mapNhanVien = new HashMap<>();    // value=TenNV
         public Map<String, String[]> mapSanPham = new HashMap<>();   // [0]=TenSP, [1]=MaLoai
+        public List<PhieuTieuHuy> dsTieuHuy = new ArrayList<>();
     }
 
     public static class DuLieuBanHangDTO {
@@ -300,6 +301,21 @@ public class TruyVanSieuTocDAO {
             }
         } catch (SQLException e) {
             System.err.println("🔥 [SieuTocDAO] Lỗi tải dữ liệu Đơn Hàng: " + e.getMessage());
+        }
+        String sqlTieuHuy = "SELECT MaPhieuHuy, NgayTao, TongGiaTriHuy FROM PhieuTieuHuy";
+        try (Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(sqlTieuHuy)) {
+            while (rs.next()) {
+                Timestamp ngaySQL = rs.getTimestamp("NgayTao");
+                PhieuTieuHuy ph = new PhieuTieuHuy.ThoXayPhieuTieuHuy()
+                    .ganMaPhieuHuy(rs.getString("MaPhieuHuy"))
+                    .ganNgayTao(ngaySQL != null ? ngaySQL.toLocalDateTime() : null)
+                    .ganTongGiaTriHuy(rs.getBigDecimal("TongGiaTriHuy"))
+                    .taoMoi();
+                dto.dsTieuHuy.add(ph);
+            }
+        } catch (SQLException e) {
+            System.err.println("🔥 [SieuTocDAO] Lỗi tải dữ liệu Tiêu Hủy: " + e.getMessage());
         }
         return dto;
     }
