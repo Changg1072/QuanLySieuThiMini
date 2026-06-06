@@ -185,7 +185,7 @@ public class DonHangUi extends JPanel {
     // 3. ĐỘNG CƠ TURBO + LỌC NGÀY CHUẨN 🚀
     // =======================================================
     public void taiDuLieuTuDatabase() {
-    	centerPanel.removeAll();
+        centerPanel.removeAll();
         centerPanel.revalidate();
         centerPanel.repaint();
         String tuKhoa = txtSearch.getText().trim().toLowerCase();
@@ -202,7 +202,7 @@ public class DonHangUi extends JPanel {
                 // 1. Lấy dữ liệu Đơn hàng
                 Dao.TruyVanSieuTocDAO.DuLieuDonHangDTO data = Dao.TruyVanSieuTocDAO.getInstance().loadToanBoDuLieuDonHang();
 
-                // 🟢 2. CHIẾN THUẬT MỚI: Quét toàn bộ ảnh 1 lần duy nhất đẩy lên RAM (Trị dứt điểm nghẽn DB)
+                // 🟢 2. CHIẾN THUẬT MỚI: Quét toàn bộ ảnh 1 lần duy nhất đẩy lên RAM
                 java.util.Map<String, String> mapAnhSP = new java.util.HashMap<>();
                 try {
                     List<Data.SanPham> listSP = Dao.SanPhamDAO.getInstance().layDanhSachSanPham();
@@ -282,15 +282,22 @@ public class DonHangUi extends JPanel {
                             String[] spInfo = data.mapSanPham.get(ct.getMaSp());
                             String tenSP = (spInfo != null) ? spInfo[0] : "Sản phẩm (" + ct.getMaSp() + ")";
                             String loaiSP = (spInfo != null) ? "Danh mục: " + spInfo[1] : "Mã lô: " + ct.getMaLoHang();
-
-                            // 🟢 LẤY ẢNH TỪ RAM SIÊU NHANH (Thay vì chọc SQL liên tục)
                             String tenAnh = mapAnhSP.getOrDefault(ct.getMaSp(), "");
+
+                            // 🌟 TÍNH TOÁN GIẢM GIÁ TỪNG SẢN PHẨM Ở ĐÂY
+                            BigDecimal donGia = ct.getDonGia() != null ? ct.getDonGia() : BigDecimal.ZERO;
+                            BigDecimal soLuong = BigDecimal.valueOf(ct.getSoLuong());
+                            BigDecimal giaGocSP = donGia.multiply(soLuong);
+                            BigDecimal thanhTienSP = ct.getThanhTienSanPham() != null ? ct.getThanhTienSanPham() : giaGocSP;
+                            
+                            // Cộng dồn tiền giảm của sản phẩm này vào tổng giảm giá sản phẩm của cả bill
+                            orderUi.giamGiaSanPham = orderUi.giamGiaSanPham.add(giaGocSP.subtract(thanhTienSP));
 
                             orderUi.addItem(new SanPhamModel(
                                 tenSP, loaiSP,
                                 ct.getDonGia() != null ? ct.getDonGia().toString() : "0",
                                 ct.getSoLuong(),
-                                tenAnh // <-- Truyền tên ảnh vào
+                                tenAnh 
                             ));
                         }
                         listCards.add(createOrderCard(orderUi));
@@ -315,7 +322,6 @@ public class DonHangUi extends JPanel {
                             centerPanel.add(card);
                             centerPanel.add(Box.createRigidArea(new Dimension(0, 15)));
                         }
-                        // 🔥 ĐÃ FIX: Thêm lò xo hấp thụ khoảng trắng thừa, đẩy mọi thứ lên sát Top
                         centerPanel.add(Box.createVerticalGlue()); 
                     }
                     centerPanel.revalidate();
@@ -567,12 +573,26 @@ public class DonHangUi extends JPanel {
 
         int rowIdx = 0;
         addSummaryRow(summaryTable, "Tổng tiền hàng:", DinhDangUtil.dinhDangTien(order.totalPrice), COLOR_TEXT_MAIN, new Font("Calibri", Font.PLAIN, 14), gbc, rowIdx++);
-        addSummaryRow(summaryTable, "Tổng giảm giá:", "-" + DinhDangUtil.dinhDangTien(order.tongGiamGia), COLOR_DISCOUNT, new Font("Calibri", Font.PLAIN, 14), gbc, rowIdx++);
+        
+        // 🌟 TÁCH DÒNG 1: HIỂN THỊ GIẢM GIÁ SẢN PHẨM (Chỉ hiện khi > 0)
+        if (order.giamGiaSanPham.compareTo(BigDecimal.ZERO) > 0) {
+            addSummaryRow(summaryTable, "Giảm giá sản phẩm:", "-" + DinhDangUtil.dinhDangTien(order.giamGiaSanPham), COLOR_DISCOUNT, new Font("Calibri", Font.PLAIN, 14), gbc, rowIdx++);
+        }
+
+        // 🌟 TÁCH DÒNG 2: HIỂN THỊ GIẢM GIÁ HẠNG KHÁCH (Chỉ hiện khi > 0)
+        if (order.tongGiamGia.compareTo(BigDecimal.ZERO) > 0) {
+            addSummaryRow(summaryTable, "Giảm giá Hạng KH:", "-" + DinhDangUtil.dinhDangTien(order.tongGiamGia), COLOR_DISCOUNT, new Font("Calibri", Font.PLAIN, 14), gbc, rowIdx++);
+        }
+
         addSummaryRow(summaryTable, "Khách đưa:", DinhDangUtil.dinhDangTien(order.khachDua), COLOR_TEXT_MAIN, new Font("Calibri", Font.PLAIN, 14), gbc, rowIdx++);
         addSummaryRow(summaryTable, "Tiền thừa:", DinhDangUtil.dinhDangTien(order.tienThua), COLOR_TEXT_SUB, new Font("Calibri", Font.PLAIN, 14), gbc, rowIdx++);
         
         gbc.insets = new Insets(10, 30, 5, 0); 
-        BigDecimal thanhTien = order.totalPrice.subtract(order.tongGiamGia);
+        
+        // 🌟 TÍNH LẠI THÀNH TIỀN CHUẨN XÁC NHẤT
+        BigDecimal tongTatCaGiamGia = order.tongGiamGia.add(order.giamGiaSanPham);
+        BigDecimal thanhTien = order.totalPrice.subtract(tongTatCaGiamGia);
+        
         addSummaryRow(summaryTable, "Thành tiền:", DinhDangUtil.dinhDangTien(thanhTien), COLOR_PRIMARY, new Font("Calibri", Font.BOLD, 19), gbc, rowIdx++);
 
         eastFooter.add(summaryTable);
@@ -628,7 +648,9 @@ public class DonHangUi extends JPanel {
     class DonHangModel {
         String maHD, ngayTao, customerName, customerTier, tenNhanVien, status, phuongThucTT;
         BigDecimal tongGiamGia, khachDua, tienThua, totalPrice = BigDecimal.ZERO;
+        BigDecimal giamGiaSanPham = BigDecimal.ZERO; // 🌟 Thêm biến lưu giảm giá riêng của sản phẩm
         List<SanPhamModel> items = new ArrayList<>();
+        
         public DonHangModel(String maHD, String ngayTao, String cName, String cTier, String tNV, String stt, String pttt, String giamGia, String dua, String thoi) {
             this.maHD = maHD; this.ngayTao = ngayTao; this.customerName = cName; this.customerTier = cTier; this.tenNhanVien = tNV; this.status = stt; this.phuongThucTT = pttt;
             this.tongGiamGia = new BigDecimal(giamGia); this.khachDua = new BigDecimal(dua); this.tienThua = new BigDecimal(thoi);
