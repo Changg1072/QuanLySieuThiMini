@@ -2,6 +2,7 @@ package GUI;
 
 import GUI.HoTro.MenuSidebarUtil;
 import GUI.HoTro.TienIchGiaoDien;
+import GUI.ThongKe.KhoPanel;
 import Data.LoaiSP;
 
 import javax.swing.*;
@@ -53,7 +54,7 @@ public class TrangADMIN extends JFrame {
     private KiemKeGUI kiemKeUi = null;
     private QuanLyGiamGiaModule quanLyGiamGiaModuleUi = null; 
     private TieuHuySanPhamGUI tieuHuyUi = null;
-    private GUI.ThongKe.ThongKeUI thongKeUi = null;
+    private GUI.ThongKe.ThongKePanel thongKePanel = null;
     // ===================== KHAI BÁO BIẾN LƯU TRỮ DỮ LIỆU TẢI TRƯỚC =====================
     private final String maNhanVien;
     private final String tenNhanVien;
@@ -552,24 +553,62 @@ public class TrangADMIN extends JFrame {
                     }
                     break;
                 case "THONG_KE":
-                    if (thongKeUi == null) {
-                        thongKeUi = new GUI.ThongKe.ThongKeUI();
-                        
-                        // 🔥 ĐĂNG KÝ BỘ ĐIỀU HƯỚNG TỪ THONGKE_UI VỀ LẠI TRANG ADMIN
-                        thongKeUi.setRouterCallback(new GUI.ThongKe.ThongKeUI.ThongKeUiRouterCallback() {
-                            @Override
-                            public void dieuHuongTrang(String maTrang) {
-                                // Tận dụng sức mạnh có sẵn của hàm taoMucDropdown để tự kích hoạt Click chuyển trang
-                                taoMucDropdown("Chuyển Hướng Ảo", maTrang).doClick();
-                            }
-                        });
-                        
-                        pnlCards.add(thongKeUi, "THONG_KE");
-                        pnlCards.revalidate();
-                        pnlCards.repaint();
-                    } else {
-                        thongKeUi.synchronizeControlCenterMetrics(true);
+                    if (thongKePanel == null) {
+                        thongKePanel = new GUI.ThongKe.ThongKePanel();
+
+                        // ── KhoPanel callback (đã có) ──
+                        if (thongKePanel.getKhoPanel() != null) {
+                            thongKePanel.getKhoPanel().setCallback(new GUI.ThongKe.KhoPanel.KhoPanelCallback() {
+                                @Override
+                                public void moNhapHang() {
+                                    SwingUtilities.invokeLater(() ->
+                                        taoMucDropdown("Nhập hàng", "NHAP_HANG_MODULE").doClick()
+                                    );
+                                }
+                                @Override
+                                public void moKiemKe() {
+                                    SwingUtilities.invokeLater(() ->
+                                        taoMucDropdown("Kiểm kê kho", "KIEM_KE").doClick()
+                                    );
+                                }
+                            });
+                        }
+
+                        // 🔥 THÊM MỚI: NhanVienPanel callback
+                        if (thongKePanel.getNhanVienPanel() != null) {
+                            thongKePanel.getNhanVienPanel().setCallback(new GUI.ThongKe.NhanVienPanel.NhanVienPanelCallback() {
+                                @Override
+                                public void moThemNhanVien() {
+                                    // Chuyển sang tab Nhân viên (DanhSachNvUi) để thêm mới
+                                    SwingUtilities.invokeLater(() ->
+                                        taoMucDropdown("Nhân viên", "NHAN_VIEN").doClick()
+                                    );
+                                }
+
+                                @Override
+                                public void moPhanCa() {
+                                    // Chuyển sang tab Ca làm (ChiaCaUi)
+                                    SwingUtilities.invokeLater(() ->
+                                        taoMucDropdown("Ca làm", "CA_LAM").doClick()
+                                    );
+                                }
+
+                                @Override
+                                public void xemHoSoLuong(String maNV) {
+                                    // Chuyển sang BangLuongUi với mã NV cụ thể
+                                    SwingUtilities.invokeLater(() ->
+                                        TrangADMIN.this.chuyenTabGiaoDien("TAB_BANGLUONG")
+                                    );
+                                }
+                            });
+                        }
+
+                        pnlCards.add(thongKePanel, "THONG_KE");
                     }
+
+                    cardLayout.show(pnlCards, "THONG_KE");
+                    pnlCards.revalidate();
+                    pnlCards.repaint();
                     break;
             }
             cardLayout.show(pnlCards, cardName);

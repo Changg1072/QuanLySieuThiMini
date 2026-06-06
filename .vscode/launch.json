@@ -6,6 +6,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "ThongKePanel",
+            "request": "launch",
+            "mainClass": "GUI.ThongKe.ThongKePanel",
+            "projectName": "QuanLySieuThiMini_e2aa0a7f"
+        },
+        {
+            "type": "java",
             "name": "SuaSanPhamDialog",
             "request": "launch",
             "mainClass": "GUI.HoTro.SuaSanPhamDialog",

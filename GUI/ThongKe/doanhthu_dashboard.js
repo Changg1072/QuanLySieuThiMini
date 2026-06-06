@@ -4,6 +4,7 @@ let calViewYear, calViewMonth, calSelStart, calSelEnd, calPickStep;
 document.addEventListener("DOMContentLoaded", function () { 
     initializeCharts(); 
     initDatePickers(); 
+    alert("ACTION:LOAD_HISTORY_LIST");
 });
 function initializeCharts() {
     salesChart = new ApexCharts(document.querySelector("#salesLinearChart"), {
@@ -208,3 +209,78 @@ document.addEventListener("click", function(event) {
         calendarPanel.style.display = "none";
     }
 });
+
+function exportDataToExcel() {
+    let fileName = `Doanh_Thu_Tu_${fmtDate(calSelStart).replace(/\//g, "_")}_Den_${fmtDate(calSelEnd).replace(/\//g, "_")}.xlsx`;
+    alert(`ACTION:EXPORT|${fileName}`);
+}
+
+// Xử lý khi chọn file trong dropdown
+function handleHistoryFileSelect(val) {
+    if (val === "EXIT") {
+        alert("ACTION:EXIT_HISTORY");
+        
+        // RESET BIẾN LỊCH TRÊN WEB VỀ MẶC ĐỊNH (Đầu tháng → Hôm nay)
+        const today = new Date();
+        calSelStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        calSelEnd   = new Date(today);
+        calViewYear  = today.getFullYear();
+        calViewMonth = today.getMonth();
+        calPickStep  = 1;
+        
+        // Cập nhật lại chữ hiển thị trên thanh lịch
+        updateDateRangeLabel(); 
+        
+        // Reset dropdown về lựa chọn ban đầu
+        document.getElementById("exportHistoryDropdown").selectedIndex = 0;
+        
+        // 🔥 KHÔI PHỤC DÒNG THÔNG BÁO VỀ GIAO DIỆN CHUYÊN NGHIỆP MẶC ĐỊNH
+        const subtitle = document.querySelector(".subtitle");
+        if (subtitle) {
+            subtitle.textContent = "Báo cáo phân tích kinh doanh dữ liệu thời gian thực";
+            subtitle.style.color = ""; // Trả về màu CSS mặc định (xám)
+            subtitle.style.fontWeight = "normal";
+        }
+        
+    } else {
+        alert("ACTION:LOAD_HISTORY_FILE|" + val);
+    }
+}
+
+// Hàm nhận dữ liệu từ Java và dựng lại giao diện
+function applyHistoricalStateBase64(base64Str, fileName) {
+    const decoded = JSON.parse(decodeURIComponent(escape(atob(base64Str))));
+    updateDashboard(decoded);
+    
+    let dateDisplay = fileName.replace(".json", "").replace(/_/g, " ");
+    
+    // Đảo ngược tên file để set lại ngày trên Calendar
+    const match = fileName.match(/Tu_(\d{2})_(\d{2})_(\d{4})_Den_(\d{2})_(\d{2})_(\d{4})/);
+    if(match) {
+        calSelStart = new Date(match[3], match[2]-1, match[1]);
+        calSelEnd = new Date(match[6], match[5]-1, match[4]);
+        updateDateRangeLabel();
+        
+        // Format lại chuỗi ngày tháng cho đẹp
+        dateDisplay = `${match[1]}/${match[2]}/${match[3]} → ${match[4]}/${match[5]}/${match[6]}`;
+    }
+    
+    // 🔥 THAY ĐỔI DÒNG THÔNG BÁO THÀNH MÀU ĐỎ CẢNH BÁO LỊCH SỬ
+    const subtitle = document.querySelector(".subtitle");
+    if (subtitle) {
+        subtitle.textContent = "[LỊCH SỬ] Đang xem dữ liệu: " + dateDisplay + " — Chọn 'Thoát' để về hiện tại";
+        subtitle.style.color = "#ef4444"; // Đổi sang màu đỏ
+        subtitle.style.fontWeight = "600";
+    }
+}
+
+// Hàm cập nhật dropdown
+function updateHistoryDropdown(filesJson) {
+    let files = JSON.parse(filesJson);
+    let dropdown = document.getElementById("exportHistoryDropdown");
+    dropdown.innerHTML = '<option value="" disabled selected>Lịch sử xuất...</option><option value="EXIT">↩ Thoát (Về hiện tại)</option>';
+    if(files.length > 0) {
+        files.forEach(f => dropdown.innerHTML += `<option value="${f.path}">${f.name}</option>`);
+        dropdown.style.display = "block";
+    }
+}

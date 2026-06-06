@@ -17,6 +17,7 @@
             </div>
             <div class="header-right">
                 <div class="control-group" style="display: flex; align-items: center; gap: 10px;">
+                    
                     <div style="position: relative;">
                         <div class="date-picker-group" id="calendarToggleBtn" onclick="toggleCalendarPanel()">
                             <i class="ti ti-calendar" style="color: #64748b; font-size: 16px; vertical-align: middle; margin-right: 6px;"></i>
@@ -42,8 +43,16 @@
                         </div>
                     </div>
                     
+                    <select id="exportHistoryDropdown" onchange="handleHistoryFileSelect(this.value)" 
+                            style="display:none; padding: 8px; border-radius: 8px; border: 1px solid #0ea5e9; color: #0ea5e9; font-weight: 600; cursor: pointer; background: #ffffff; max-width: 180px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                        <option value="" disabled selected>🕒 Lịch sử xuất...</option>
+                        <option value="EXIT">↩ Thoát (Về hiện tại)</option>
+                    </select>
+                    
                     <button class="btn btn-secondary" onclick="location.reload()">Làm Mới</button>
-                    <button class="btn btn-primary" onclick="alert('ACTION:EXPORT_EXCEL')">Xuất Excel</button>
+                    
+                    <button class="btn btn-primary" onclick="exportDataToExcel()">Xuất Excel</button>
+                    
                 </div>
             </div>
         </header>

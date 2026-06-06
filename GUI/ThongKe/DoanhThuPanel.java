@@ -6,10 +6,14 @@ import com.google.gson.JsonArray;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
 import java.math.BigDecimal;
 import java.net.URL;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -72,11 +76,69 @@ public class DoanhThuPanel extends JPanel {
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
-                } else if (action.equals("ACTION:EXPORT_EXCEL")) {
-                    JOptionPane.showMessageDialog(this, "Đang xuất dữ liệu từ " + filterStartDate + " đến " + filterEndDate + " ra Excel...");
-                    // Thêm logic xuất Excel của bạn vào đây
+                } else if (action.startsWith("ACTION:EXPORT|")) {
+                    String fileName = action.split("\\|")[1];
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            File dir = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\DoanhThu");
+                            if (!dir.exists()) dir.mkdirs();
+                            
+                            String jsonFileName = fileName.replace(".xlsx", ".json");
+                            File jsonFile = new File(dir, jsonFileName);
+                            
+                            if (lastCachedJson != null) {
+                                Files.write(jsonFile.toPath(), lastCachedJson.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                            }
+                            
+                            // Hiển thị thông báo và gọi hàm load lại danh sách
+                            Platform.runLater(() -> webEngine.executeScript("alert('Đã lưu lịch sử: " + jsonFileName + "')"));
+                            
+                            // GỌI HÀM VỪA TẠO Ở BƯỚC 1 ĐỂ SỬA LỖI
+                            reloadHistoryList(); 
+                            
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
+                } else if (action.equals("ACTION:LOAD_HISTORY_LIST")) {
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            // Đường dẫn lưu trữ cho Doanh Thu
+                            File dir = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\DoanhThu");
+                            if (!dir.exists()) dir.mkdirs();
+                            
+                            File[] files = dir.listFiles((d, name) -> name.endsWith(".json"));
+                            JsonArray arr = new JsonArray();
+                            if (files != null) {
+                                Arrays.sort(files, (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
+                                for (File f : files) {
+                                    JsonObject obj = new JsonObject();
+                                    obj.addProperty("name", f.getName());
+                                    obj.addProperty("path", f.getAbsolutePath().replace("\\", "/"));
+                                    arr.add(obj);
+                                }
+                            }
+                            String json = gson.toJson(arr);
+                            Platform.runLater(() -> webEngine.executeScript("updateHistoryDropdown('" + json + "')"));
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
                 }
-                
+                else if (action.startsWith("ACTION:LOAD_HISTORY_FILE|")) {
+                    String path = action.substring("ACTION:LOAD_HISTORY_FILE|".length());
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            File f = new File(path);
+                            if (f.exists()) {
+                                byte[] bytes = Files.readAllBytes(f.toPath());
+                                String base64 = Base64.getEncoder().encodeToString(bytes);
+                                String safeName = f.getName().replace("'", "\\'");
+                                Platform.runLater(() -> webEngine.executeScript("applyHistoricalStateBase64('" + base64 + "', '" + safeName + "')"));
+                            }
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
+                }
+                else if (action.equals("ACTION:LOAD_HISTORY_LIST")) {
+                    // Gọi hàm load list khi web vừa khởi động xong
+                    reloadHistoryList();
+                }
                 else if (action.startsWith("ACTION:VIEW_INVOICE|")) {
                     String maHD = action.substring("ACTION:VIEW_INVOICE|".length());
                     
@@ -190,6 +252,16 @@ public class DoanhThuPanel extends JPanel {
                             e.printStackTrace();
                         }
                     });
+                }
+                else if (action.equals("ACTION:EXIT_HISTORY")) {
+                    // 🔥 RESET BIẾN NGÀY TRÊN JAVA VỀ MẶC ĐỊNH: Đầu tháng -> Hôm nay
+                    this.filterStartDate = LocalDate.now().withDayOfMonth(1);
+                    this.filterEndDate = LocalDate.now();
+                    
+                    System.out.println("🔄 Đã trả về khoảng thời gian mặc định: " + filterStartDate + " ĐẾN " + filterEndDate);
+                    
+                    // Lấy lại dữ liệu thực tế từ database theo khoảng ngày mặc định này
+                    pushLiveAnalyticsData(true); 
                 }
             });
 
@@ -510,6 +582,32 @@ public class DoanhThuPanel extends JPanel {
             try {
                 if (webEngine != null) webEngine.executeScript(script);
             } catch (Exception e) {}
+        });
+    }
+    private void reloadHistoryList() {
+        CompletableFuture.runAsync(() -> {
+            try {
+                File dir = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\DoanhThu");
+                if (!dir.exists()) dir.mkdirs();
+                
+                File[] files = dir.listFiles((d, name) -> name.endsWith(".json"));
+                JsonArray arr = new JsonArray();
+                if (files != null) {
+                    Arrays.sort(files, (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
+                    for (File f : files) {
+                        JsonObject obj = new JsonObject();
+                        obj.addProperty("name", f.getName());
+                        obj.addProperty("path", f.getAbsolutePath().replace("\\", "/"));
+                        arr.add(obj);
+                    }
+                }
+                String json = gson.toJson(arr);
+                Platform.runLater(() -> {
+                    if (webEngine != null) {
+                        webEngine.executeScript("updateHistoryDropdown('" + json + "')");
+                    }
+                });
+            } catch (Exception e) { e.printStackTrace(); }
         });
     }
 

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <style>
+        :root {
+            --blue-accent: #2563eb;
+            --blue-light: #eff6ff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #f1f5f9;
+            --bg-hover: #f8fafc;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: #ffffff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            user-select: none;
+        }
+
+        /* KHU VỰC LOGO */
+        .brand-area {
+            padding: 32px 24px 24px 24px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .brand-icon {
+            width: 40px; height: 40px;
+            background: var(--bg-hover);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; color: var(--text-main);
+        }
+        .brand-title { font-weight: 700; font-size: 16px; color: var(--text-main); line-height: 1.2; margin-bottom: 2px;}
+        .brand-subtitle { font-size: 12.5px; color: var(--text-muted); font-weight: 500; }
+
+        /* KHU VỰC MENU DANH MỤC */
+        .menu-area {
+            flex: 1;
+            padding: 10px 16px;
+            overflow-y: auto;
+        }
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 18px;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 14.5px;
+            transition: all 0.25s ease;
+        }
+        .menu-item i { font-size: 20px; transition: transform 0.2s ease;}
+        
+        .menu-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-main);
+        }
+        .menu-item:hover i { transform: scale(1.1); }
+        
+        .menu-item.active {
+            background: var(--blue-light);
+            color: var(--blue-accent);
+        }
+
+        /* Scrollbar tàng hình cho đẹp */
+        ::-webkit-scrollbar { width: 0px; }
+    </style>
+</head>
+<body>
+
+    <div class="brand-area">
+        <div class="brand-icon">
+            <i class="ti ti-layout-sidebar"></i>
+        </div>
+        <div>
+            <div class="brand-title">Hệ Thống Quản Lý</div>
+            <div class="brand-subtitle">Bản Doanh Nghiệp</div>
+        </div>
+    </div>
+
+    <div class="menu-area">
+        <div class="menu-item active" onclick="switchPanel('DOANH_THU', this)">
+            <i class="ti ti-cash"></i> Phân Phối Doanh Thu
+        </div>
+        <div class="menu-item" onclick="switchPanel('KHO', this)">
+            <i class="ti ti-building-warehouse"></i> Sức Khỏe Kho Hàng
+        </div>
+        <div class="menu-item" onclick="switchPanel('KHACH_HANG', this)">
+            <i class="ti ti-users"></i> Trí Tuệ Khách Hàng
+        </div>
+        <div class="menu-item" onclick="switchPanel('NHAN_VIEN', this)">
+            <i class="ti ti-briefcase"></i> Hiệu Suất Nhân Sự
+        </div>
+        <div class="menu-item" onclick="switchPanel('SAN_PHAM', this)">
+            <i class="ti ti-packages"></i> Danh Mục Sản Phẩm
+        </div>
+    </div>
+
+    <script>
+        function switchPanel(panelKey, element) {
+            // Xóa class active của tất cả menu
+            const items = document.querySelectorAll('.menu-item');
+            items.forEach(item => item.classList.remove('active'));
+            
+            // Set active cho menu được click
+            element.classList.add('active');
+
+            // Bắn tín hiệu sang Java Swing để đổi CardLayout
+            if (window.javaConnector) {
+                window.javaConnector.switchTab(panelKey);
+            }
+        }
+    </script>
+</body>
+</html>
