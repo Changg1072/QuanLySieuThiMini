@@ -76,28 +76,12 @@ public class DoanhThuPanel extends JPanel {
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
-                } else if (action.startsWith("ACTION:EXPORT|")) {
-                    String fileName = action.split("\\|")[1];
-                    CompletableFuture.runAsync(() -> {
-                        try {
-                            File dir = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\DoanhThu");
-                            if (!dir.exists()) dir.mkdirs();
-                            
-                            String jsonFileName = fileName.replace(".xlsx", ".json");
-                            File jsonFile = new File(dir, jsonFileName);
-                            
-                            if (lastCachedJson != null) {
-                                Files.write(jsonFile.toPath(), lastCachedJson.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                            }
-                            
-                            // Hiển thị thông báo và gọi hàm load lại danh sách
-                            Platform.runLater(() -> webEngine.executeScript("alert('Đã lưu lịch sử: " + jsonFileName + "')"));
-                            
-                            // GỌI HÀM VỪA TẠO Ở BƯỚC 1 ĐỂ SỬA LỖI
-                            reloadHistoryList(); 
-                            
-                        } catch (Exception e) { e.printStackTrace(); }
-                    });
+                } else if (action.equals("ACTION:EXIT_HISTORY")) {
+                    // 🔥 RESET BIẾN NGÀY TRÊN JAVA VỀ MẶC ĐỊNH: Đầu tháng -> Hôm nay
+                    this.filterStartDate = LocalDate.now().withDayOfMonth(1);
+                    this.filterEndDate = LocalDate.now();
+                    System.out.println("🔄 Đã trả về khoảng thời gian mặc định: " + filterStartDate + " ĐẾN " + filterEndDate);
+                    pushLiveAnalyticsData(true); 
                 } else if (action.equals("ACTION:LOAD_HISTORY_LIST")) {
                     CompletableFuture.runAsync(() -> {
                         try {
@@ -122,21 +106,19 @@ public class DoanhThuPanel extends JPanel {
                     });
                 }
                 else if (action.startsWith("ACTION:LOAD_HISTORY_FILE|")) {
-                    String path = action.substring("ACTION:LOAD_HISTORY_FILE|".length());
+                    String tenFile = action.substring("ACTION:LOAD_HISTORY_FILE|".length());
                     CompletableFuture.runAsync(() -> {
                         try {
-                            File f = new File(path);
-                            if (f.exists()) {
-                                byte[] bytes = Files.readAllBytes(f.toPath());
-                                String base64 = Base64.getEncoder().encodeToString(bytes);
-                                String safeName = f.getName().replace("'", "\\'");
+                            // GỌI DATABASE LẤY CHUỖI BASE64
+                            String base64 = Dao.LichSuThongKeDAO.getInstance().docNoiDungLichSuBase64(tenFile);
+                            if (base64 != null) {
+                                String safeName = tenFile.replace("'", "\\'");
                                 Platform.runLater(() -> webEngine.executeScript("applyHistoricalStateBase64('" + base64 + "', '" + safeName + "')"));
                             }
                         } catch (Exception e) { e.printStackTrace(); }
                     });
                 }
                 else if (action.equals("ACTION:LOAD_HISTORY_LIST")) {
-                    // Gọi hàm load list khi web vừa khởi động xong
                     reloadHistoryList();
                 }
                 else if (action.startsWith("ACTION:VIEW_INVOICE|")) {
@@ -253,15 +235,24 @@ public class DoanhThuPanel extends JPanel {
                         }
                     });
                 }
-                else if (action.equals("ACTION:EXIT_HISTORY")) {
-                    // 🔥 RESET BIẾN NGÀY TRÊN JAVA VỀ MẶC ĐỊNH: Đầu tháng -> Hôm nay
-                    this.filterStartDate = LocalDate.now().withDayOfMonth(1);
-                    this.filterEndDate = LocalDate.now();
-                    
-                    System.out.println("🔄 Đã trả về khoảng thời gian mặc định: " + filterStartDate + " ĐẾN " + filterEndDate);
-                    
-                    // Lấy lại dữ liệu thực tế từ database theo khoảng ngày mặc định này
-                    pushLiveAnalyticsData(true); 
+                else if (action.startsWith("ACTION:EXPORT|")) {
+                    String fileName = action.split("\\|")[1];
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            String jsonFileName = fileName.replace(".xlsx", ".json");
+                            
+                            // GỌI DATABASE ĐỂ LƯU CHUỖI JSON
+                            if (lastCachedJson != null) {
+                                Dao.LichSuThongKeDAO.getInstance().luuLichSu("DOANH_THU", jsonFileName, lastCachedJson);
+                            }
+                            
+                            // Hiển thị thông báo và gọi hàm load lại danh sách
+                            Platform.runLater(() -> webEngine.executeScript("alert('Đã lưu lịch sử: " + jsonFileName + "')"));
+                            
+                            reloadHistoryList(); // Cập nhật lại dropdown lịch sử
+                            
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
                 }
             });
 

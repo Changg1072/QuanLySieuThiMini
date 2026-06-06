@@ -84,6 +84,7 @@ public class NhanVienPanel extends JPanel {
             webEngine = webView.getEngine();
             webEngine.setJavaScriptEnabled(true);
 
+            // 1. LẮNG NGHE TÍN HIỆU ACTION QUA ALERT (DỰ PHÒNG)
             webEngine.setOnAlert(event -> {
                 String signal = event.getData();
                 if (signal != null && signal.startsWith("ACTION:")) {
@@ -91,13 +92,15 @@ public class NhanVienPanel extends JPanel {
                 }
             });
 
+            // 2. TIÊM JS BRIDGE KHI WEB TẢI XONG
             webEngine.getLoadWorker().stateProperty().addListener((observable, oldValue, newValue) -> {
                 if (newValue == Worker.State.SUCCEEDED) {
                     try {
                         jsBridgeInstance = new JsBridge();
-                        JSObject window = (JSObject) webEngine.executeScript("window");
+                        netscape.javascript.JSObject window = (netscape.javascript.JSObject) webEngine.executeScript("window");
                         window.setMember("javaConnector", jsBridgeInstance);
 
+                        // Tự động load danh sách lịch sử khi mở trang
                         webEngine.executeScript(
                             "setTimeout(function(){ " +
                             "  if(typeof loadExportHistory === 'function') loadExportHistory(); " +
@@ -105,6 +108,8 @@ public class NhanVienPanel extends JPanel {
                         );
 
                         pushLiveWorkforceAnalytics(false);
+                        reloadHistoryList(); // Ép load list từ DB
+                        
                     } catch (Exception e) {
                         System.err.println("Lỗi tiêm javaConnector: " + e.getMessage());
                         e.printStackTrace();
@@ -112,8 +117,9 @@ public class NhanVienPanel extends JPanel {
                 }
             });
 
+            // 3. LOAD GIAO DIỆN HTML
             try {
-                URL htmlUrl = getClass().getResource("nhanvien_dashboard.html");
+                java.net.URL htmlUrl = getClass().getResource("nhanvien_dashboard.html");
                 if (htmlUrl != null) {
                     webEngine.load(htmlUrl.toExternalForm());
                 } else {
@@ -123,7 +129,7 @@ public class NhanVienPanel extends JPanel {
                 System.err.println("[NhanVienPanel Bridge] Lỗi khởi tạo: " + e.getMessage());
             }
 
-            Scene scene = new Scene(webView);
+            javafx.scene.Scene scene = new javafx.scene.Scene(webView);
             jfxPanel.setScene(scene);
         });
     }
@@ -447,82 +453,68 @@ public class NhanVienPanel extends JPanel {
         });
     }
 
-    private void handleWebActionSignal(String actionToken) {
-        SwingUtilities.invokeLater(() -> {
-            if ("SYNC".equalsIgnoreCase(actionToken)) {
+    private void handleWebActionSignal(String action) {
+        if (action.startsWith("DATE_SYNC|")) {
+            try {
+                String[] parts = action.split("\\|");
+                this.filterStartDate = LocalDate.parse(parts[1]);
+                this.filterEndDate = LocalDate.parse(parts[2]);
                 pushLiveWorkforceAnalytics(true);
-            } else if (actionToken.startsWith("DATE_SYNC|")) {
-                try {
-                    String[] parts = actionToken.split("\\|");
-                    filterStartDate = LocalDate.parse(parts[1]); 
-                    filterEndDate = LocalDate.parse(parts[2]);
-                    pushLiveWorkforceAnalytics(true); 
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            } else if ("ADD_STAFF".equalsIgnoreCase(actionToken)) {
-                if (actionCallback != null) actionCallback.moThemNhanVien();
-            } else if ("ASSIGN_SHIFT".equalsIgnoreCase(actionToken)) {
-                if (actionCallback != null) actionCallback.moPhanCa();
-            } else if (actionToken.startsWith("VIEW_")) {
-                String staffId = actionToken.substring(5);
-                if (actionCallback != null) actionCallback.xemHoSoLuong(staffId);
-            }
-        });
+            } catch (Exception e) { e.printStackTrace(); }
+        } 
+        else if (action.equals("EXIT_HISTORY")) {
+            this.filterStartDate = LocalDate.now().withDayOfMonth(1);
+            this.filterEndDate = LocalDate.now();
+            pushLiveWorkforceAnalytics(true);
+        }
+        else if (action.equals("LOAD_HISTORY_LIST")) {
+            reloadHistoryList();
+        }
+        else if (action.startsWith("LOAD_HISTORY_FILE|")) {
+            String fileName = action.substring("LOAD_HISTORY_FILE|".length());
+            jsBridgeInstance.readAndLoadExportFile(fileName); // Chuyển cho JsBridge đọc DB
+        }
+        else if (action.startsWith("EXPORT|")) {
+            String fileName = action.split("\\|")[1];
+            jsBridgeInstance.exportDashboardData(fileName); // Chuyển cho JsBridge lưu DB
+        }
     }
 
     public class JsBridge {
 
-        // 🔥 THÊM THAM SỐ fileName ĐỂ NHẬN TÊN FILE TỪ JS
+        // LƯU LỊCH SỬ VÀO DATABASE
         public void exportDashboardData(String customFileName) {
-            SwingUtilities.invokeLater(() -> {
+            CompletableFuture.runAsync(() -> {
                 try {
-                    String folderPath = "D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\NhanVien";
-                    File folder = new File(folderPath);
-                    
-                    if (!folder.exists()) {
-                        boolean created = folder.mkdirs();
-                        if (!created) {
-                            JOptionPane.showMessageDialog(NhanVienPanel.this,
-                                "Không thể tạo thư mục:\n" + folderPath,
-                                "Lỗi Tạo Thư Mục", JOptionPane.ERROR_MESSAGE);
-                            return;
-                        }
-                    }
-
-                    // 🔥 KHẮC PHỤC LỖI GẠCH CHÂN ĐỎ (Tạo biến trung gian finalFileName)
                     String finalFileName = customFileName; 
                     if (finalFileName == null || finalFileName.trim().isEmpty()) {
                         finalFileName = "Thong_Ke_Nhan_Vien_" + System.currentTimeMillis() + ".json";
+                    } else {
+                        finalFileName = finalFileName.replace(".xlsx", ".json");
                     }
 
-                    File fileExport = new File(folder, finalFileName);
-
                     if (lastCachedDashboardJson == null || lastCachedDashboardJson.trim().isEmpty()) {
-                        JOptionPane.showMessageDialog(NhanVienPanel.this,
-                            "Dữ liệu chưa được tải! Hãy đợi dashboard load xong hoặc nhấn Đồng bộ trước.",
-                            "Chưa Có Dữ Liệu", JOptionPane.WARNING_MESSAGE);
+                        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(NhanVienPanel.this,
+                                "Dữ liệu chưa được tải! Hãy đợi dashboard load xong.",
+                                "Chưa Có Dữ Liệu", JOptionPane.WARNING_MESSAGE));
                         return;
                     }
 
-                    try (Writer writer = new OutputStreamWriter(
-                            new FileOutputStream(fileExport), StandardCharsets.UTF_8)) {
-                        writer.write(lastCachedDashboardJson);
-                    }
+                    // Gọi DAO để lưu vào Database chung
+                    Dao.LichSuThongKeDAO.getInstance().luuLichSu("NHAN_VIEN", finalFileName, lastCachedDashboardJson);
 
-                    JOptionPane.showMessageDialog(NhanVienPanel.this,
-                        "✅ Xuất file thành công!\n\n" +
-                        "📁 Thư mục: " + folderPath + "\n" +
-                        "📄 File: " + finalFileName + "\n\n" + // Dùng finalFileName ở đây
-                        "Bạn có thể xem lại file vừa xuất qua Dropdown Lịch Sử.",
-                        "Xuất File Hoàn Tất", JOptionPane.INFORMATION_MESSAGE);
+                    String successMsg = finalFileName; 
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(NhanVienPanel.this,
+                            "✅ Đã xuất dữ liệu thành công vào cơ sở dữ liệu!\n\n" +
+                            "📄 Tên bản ghi: " + successMsg + "\n\n" +
+                            "Bạn có thể xem lại ngay qua Dropdown Lịch Sử.",
+                            "Xuất Báo Cáo Hoàn Tất", JOptionPane.INFORMATION_MESSAGE));
                     
-                    executeJavaScript("loadExportHistory()");
+                    reloadHistoryList(); // Kích hoạt làm mới dropdown trên Web
 
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(NhanVienPanel.this,
-                        "❌ Lỗi ghi file:\n" + ex.getMessage(),
-                        "Lỗi Hệ Thống", JOptionPane.ERROR_MESSAGE);
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(NhanVienPanel.this,
+                            "❌ Lỗi ghi Database:\n" + ex.getMessage(), "Lỗi Hệ Thống", JOptionPane.ERROR_MESSAGE));
                     ex.printStackTrace();
                 }
             });
@@ -530,19 +522,21 @@ public class NhanVienPanel extends JPanel {
 
         public String getExportHistoryList() {
             try {
-                File folder = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\NhanVien");
-                if (!folder.exists() || !folder.isDirectory()) return "[]";
-
-                // 🔥 Lọc đúng định dạng tên file mới và bỏ file không hợp lệ
-                File[] files = folder.listFiles((dir, name) -> name.startsWith("Thong_Ke_Nhan_Vien_") && name.endsWith(".json"));
-                if (files == null || files.length == 0) return "[]";
-
-                // 🔥 Sắp xếp file MỚI NHẤT lên đầu tiên
-                Arrays.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
-
-                JsonArray arr = new JsonArray();
-                for (File f : files) arr.add(f.getName());
-                return arr.toString();
+                // 1. Lấy chuỗi JSON đối tượng từ Database
+                String daoJson = Dao.LichSuThongKeDAO.getInstance().layDanhSachLichSu("NHAN_VIEN");
+                JsonArray daoArr = gson.fromJson(daoJson, JsonArray.class);
+                
+                // 2. Trích xuất chỉ lấy phần "name" đưa vào mảng chuỗi đơn giản giống hệt ổ D ngày xưa
+                JsonArray simpleArr = new JsonArray();
+                if (daoArr != null) {
+                    for (int i = 0; i < daoArr.size(); i++) {
+                        JsonObject obj = daoArr.get(i).getAsJsonObject();
+                        if (obj.has("name")) {
+                            simpleArr.add(obj.get("name").getAsString());
+                        }
+                    }
+                }
+                return simpleArr.toString(); // Trả về dạng ["file1.json", "file2.json"]
             } catch (Exception e) {
                 System.err.println("[JsBridge] getExportHistoryList lỗi: " + e.getMessage());
                 return "[]";
@@ -552,42 +546,44 @@ public class NhanVienPanel extends JPanel {
         public void readAndLoadExportFile(String fileName) {
             CompletableFuture.runAsync(() -> {
                 try {
-                    String safeFileName = new File(fileName).getName();
-                    File file = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\NhanVien", safeFileName);
+                    String safeFileName = new java.io.File(fileName).getName();
                     
-                    if (!file.exists()) {
-                        SwingUtilities.invokeLater(() ->
-                            JOptionPane.showMessageDialog(NhanVienPanel.this,
-                                "File không tồn tại: " + safeFileName, "Lỗi", JOptionPane.ERROR_MESSAGE)
-                        );
+                    // Gọi DAO lấy Base64 trực tiếp từ SQL Server
+                    String base64Data = Dao.LichSuThongKeDAO.getInstance().docNoiDungLichSuBase64(safeFileName);
+                    
+                    if (base64Data == null || base64Data.isEmpty()) {
+                        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(NhanVienPanel.this,
+                                "Bản ghi không tồn tại trong hệ thống Database: " + safeFileName, "Lỗi", JOptionPane.ERROR_MESSAGE));
                         return;
                     }
 
-                    byte[] fileBytes = Files.readAllBytes(file.toPath());
-                    if (fileBytes.length == 0) return;
-
-                    String base64Data = Base64.getEncoder().encodeToString(fileBytes);
-                    
                     Platform.runLater(() -> {
                         try {
-                            webEngine.executeScript(
-                                "applyHistoricalStateBase64('" + base64Data + "', '" + safeFileName + "')"
-                            );
+                            webEngine.executeScript("applyHistoricalStateBase64('" + base64Data + "', '" + safeFileName.replace("'", "\\'") + "')");
                         } catch (Exception ex) {
                             System.err.println("[JsBridge] Lỗi render file lịch sử: " + ex.getMessage());
                         }
                     });
                 } catch (Exception e) {
-                    SwingUtilities.invokeLater(() ->
-                        JOptionPane.showMessageDialog(NhanVienPanel.this,
-                            "Lỗi đọc file lịch sử:\n" + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE)
-                    );
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(NhanVienPanel.this,
+                            "Lỗi đọc dữ liệu lịch sử từ Database:\n" + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE));
                     e.printStackTrace();
                 }
             });
         }
     }
-
+    private void reloadHistoryList() {
+        Platform.runLater(() -> {
+            try {
+                if (webEngine != null) {
+                    // Ép phía giao diện web chạy lại hàm nạp lịch sử để đọc mảng dữ liệu mới từ JsBridge
+                    webEngine.executeScript("if(typeof loadExportHistory === 'function') loadExportHistory();");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             JFrame devFrame = new JFrame("Workforce Intelligence - Standalone Test");

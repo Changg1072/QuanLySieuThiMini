@@ -21,11 +21,6 @@ import java.net.URL;
 import java.time.LocalDate;
 import java.util.concurrent.CompletableFuture;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.time.format.DateTimeFormatter;
-import java.util.Base64;
-
 public class KhoPanel extends JPanel {
     private JFXPanel jfxPanel;
     private WebEngine webEngine;
@@ -79,22 +74,11 @@ public class KhoPanel extends JPanel {
                 else if (action.equals("ACTION:LOAD_HISTORY_LIST")) {
                     CompletableFuture.runAsync(() -> {
                         try {
-                            java.io.File dir = new java.io.File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\Kho");
-                            if (!dir.exists()) dir.mkdirs();
+                            // Truy vấn danh sách từ SQL thay vì quét thư mục
+                            String jsonArrayData = Dao.LichSuThongKeDAO.getInstance().layDanhSachLichSu("KHO");
                             
-                            java.io.File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".json"));
-                            JsonArray arr = new JsonArray();
-                            if (files != null) {
-                                java.util.Arrays.sort(files, (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
-                                for (java.io.File f : files) {
-                                    JsonObject obj = new JsonObject();
-                                    obj.addProperty("name", f.getName());
-                                    obj.addProperty("path", f.getAbsolutePath().replace("\\", "/")); 
-                                    arr.add(obj);
-                                }
-                            }
-                            String jsonPayload = gson.toJson(arr).replace("'", "\\'");
-                            Platform.runLater(() -> webEngine.executeScript("populateHistoryDropdown('" + jsonPayload + "')"));
+                            // Lưu ý: Nếu web báo lỗi không tìm thấy hàm, hãy đổi updateHistoryDropdown thành populateHistoryDropdown tùy theo file JS của bạn
+                            Platform.runLater(() -> webEngine.executeScript("updateHistoryDropdown('" + jsonArrayData + "')"));
                         } catch (Exception e) { e.printStackTrace(); }
                     });
                 }
@@ -105,22 +89,19 @@ public class KhoPanel extends JPanel {
                     String jsonPayload = action.substring("ACTION:EXPORT_KHO|".length());
                     CompletableFuture.runAsync(() -> {
                         try {
-                            java.io.File dir = new java.io.File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\Kho");
-                            if (!dir.exists()) dir.mkdirs();
-
                             java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy");
-                            String fileName = "ThongKe_" + filterStartDate.format(fmt) + "_den_" + filterEndDate.format(fmt) + ".json";
-                            java.io.File targetFile = new java.io.File(dir, fileName);
+                            String fileName = "ThongKe_Kho_" + filterStartDate.format(fmt) + "_den_" + filterEndDate.format(fmt) + ".json";
 
-                            java.nio.file.Files.write(targetFile.toPath(), jsonPayload.getBytes("UTF-8"));
+                            // Ghi thẳng chuỗi JSON xuống SQL Server
+                            Dao.LichSuThongKeDAO.getInstance().luuLichSu("KHO", fileName, jsonPayload);
                             
                             Platform.runLater(() -> {
-                                JOptionPane.showMessageDialog(this, "Đã lưu bản Thống kê Kho thành công vào:\n" + targetFile.getAbsolutePath(), "Xuất File Thành Công", JOptionPane.INFORMATION_MESSAGE);
-                                webEngine.executeScript("alert('ACTION:LOAD_HISTORY_LIST')");
+                                JOptionPane.showMessageDialog(this, "Đã lưu bản Thống kê Kho thành công vào Database:\n" + fileName, "Xuất Lịch Sử Thành Công", JOptionPane.INFORMATION_MESSAGE);
+                                webEngine.executeScript("alert('ACTION:LOAD_HISTORY_LIST')"); // Yêu cầu JS tự động load lại danh sách
                             });
                         } catch (Exception e) { 
                             e.printStackTrace(); 
-                            Platform.runLater(() -> JOptionPane.showMessageDialog(this, "Lỗi khi lưu file: " + e.getMessage(), "Lỗi Xuất File", JOptionPane.ERROR_MESSAGE));
+                            Platform.runLater(() -> JOptionPane.showMessageDialog(this, "Lỗi khi lưu Database: " + e.getMessage(), "Lỗi Xuất File", JOptionPane.ERROR_MESSAGE));
                         }
                     });
                 }
@@ -128,14 +109,13 @@ public class KhoPanel extends JPanel {
                 // 🔥 ĐÂY LÀ ĐOẠN ĐỌC FILE BỊ MẤT TÍCH LÚC NÃY
                 // =========================================================
                 else if (action.startsWith("ACTION:LOAD_HISTORY_FILE|")) {
-                    String path = action.substring("ACTION:LOAD_HISTORY_FILE|".length());
+                    String tenFile = action.substring("ACTION:LOAD_HISTORY_FILE|".length());
                     CompletableFuture.runAsync(() -> {
                         try {
-                            java.io.File f = new java.io.File(path);
-                            if (f.exists()) {
-                                byte[] bytes = java.nio.file.Files.readAllBytes(f.toPath());
-                                String base64 = java.util.Base64.getEncoder().encodeToString(bytes);
-                                String safeName = f.getName().replace("'", "\\'");
+                            // Lấy chuỗi Base64 từ SQL Server
+                            String base64 = Dao.LichSuThongKeDAO.getInstance().docNoiDungLichSuBase64(tenFile);
+                            if (base64 != null) {
+                                String safeName = tenFile.replace("'", "\\'");
                                 Platform.runLater(() -> webEngine.executeScript("applyHistoricalStateBase64('" + base64 + "', '" + safeName + "')"));
                             }
                         } catch (Exception e) { e.printStackTrace(); }
@@ -145,6 +125,9 @@ public class KhoPanel extends JPanel {
                 // THOÁT LỊCH SỬ & CÁC NÚT ĐIỀU HƯỚNG
                 // =========================================================
                 else if (action.equals("ACTION:EXIT_HISTORY")) {
+                    // 🔥 RESET NGÀY VỀ MẶC ĐỊNH KHI THOÁT CHẾ ĐỘ LỊCH SỬ
+                    this.filterStartDate = LocalDate.now().withDayOfMonth(1);
+                    this.filterEndDate = LocalDate.now();
                     refreshDashboardData(true);
                 }
                 else if (action.equals("ACTION:IMPORT")) {
@@ -191,6 +174,7 @@ public class KhoPanel extends JPanel {
             webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
                 if (newState == Worker.State.SUCCEEDED) {
                     refreshDashboardData(false);
+                    reloadHistoryList();
                 }
             });
 
@@ -542,7 +526,27 @@ public class KhoPanel extends JPanel {
             }
         });
     }
-
+    
+    private void reloadHistoryList() {
+        CompletableFuture.runAsync(() -> {
+            try {
+                // Truy vấn danh sách mốc lịch sử của phân hệ KHO từ Database
+                String jsonArrayData = Dao.LichSuThongKeDAO.getInstance().layDanhSachLichSu("KHO");
+                
+                // Chống lỗi ký tự đặc biệt
+                String safeJson = jsonArrayData.replace("'", "\\'"); 
+                
+                Platform.runLater(() -> {
+                    if (webEngine != null) {
+                        // SỬA THÀNH ĐÚNG TÊN HÀM CỦA KHO: populateHistoryDropdown
+                        webEngine.executeScript("populateHistoryDropdown('" + safeJson + "')");
+                    }
+                });
+            } catch (Exception e) { 
+                e.printStackTrace(); 
+            }
+        });
+    }
     public static void main(String[] args) {
         try {
             for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {

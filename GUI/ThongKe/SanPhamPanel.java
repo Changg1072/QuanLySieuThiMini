@@ -26,7 +26,6 @@ import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.concurrent.Worker;
 import netscape.javascript.JSObject;
-import java.io.File;
 
 public class SanPhamPanel extends JPanel {
 
@@ -324,74 +323,108 @@ public class SanPhamPanel extends JPanel {
         }
         
         public void exportDashboardData(String customFileName) {
-            SwingUtilities.invokeLater(() -> {
+            CompletableFuture.runAsync(() -> {
                 try {
-                    String folderPath = "D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\SanPham";
-                    java.io.File folder = new java.io.File(folderPath);
-                    if (!folder.exists()) folder.mkdirs(); 
-                    
                     String finalFileName = customFileName;
                     if (finalFileName == null || finalFileName.trim().isEmpty()) {
                         finalFileName = "Thong_Ke_San_Pham_" + System.currentTimeMillis() + ".json";
-                    }
-
-                    java.io.File fileExport = new java.io.File(folder, finalFileName);
-
-                    if (lastCachedDashboardJson != null && !lastCachedDashboardJson.isEmpty()) {
-                        try (java.io.Writer writer = new java.io.OutputStreamWriter(new java.io.FileOutputStream(fileExport), java.nio.charset.StandardCharsets.UTF_8)) {
-                            writer.write(lastCachedDashboardJson);
-                        }
-                        JOptionPane.showMessageDialog(SanPhamPanel.this, 
-                            "Xuất file thành công!\nĐã lưu tại: " + folderPath + "\nFile: " + finalFileName, 
-                            "Hoàn tất", JOptionPane.INFORMATION_MESSAGE);
-                        
-                        executeJavaScript("loadExportHistory()");
                     } else {
-                        JOptionPane.showMessageDialog(SanPhamPanel.this, "Chưa có dữ liệu thống kê để xuất!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+                        finalFileName = finalFileName.replace(".xlsx", ".json");
                     }
+
+                    if (lastCachedDashboardJson == null || lastCachedDashboardJson.trim().isEmpty()) {
+                        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(SanPhamPanel.this,
+                                "Dữ liệu chưa được tải! Hãy đợi dashboard load xong.",
+                                "Chưa Có Dữ Liệu", JOptionPane.WARNING_MESSAGE));
+                        return;
+                    }
+
+                    // Gọi DAO để lưu vào Database
+                    Dao.LichSuThongKeDAO.getInstance().luuLichSu("SAN_PHAM", finalFileName, lastCachedDashboardJson);
+
+                    String successMsg = finalFileName;
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(SanPhamPanel.this,
+                            "Đã xuất dữ liệu thành công vào cơ sở dữ liệu!\n\n" +
+                            "Ten ban ghi: " + successMsg + "\n\n" +
+                            "Ban co the xem lai ngay qua Dropdown Lich Su.",
+                            "Xuat Bao Cao Hoan Tat", JOptionPane.INFORMATION_MESSAGE));
+
+                    reloadHistoryList();
+
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(SanPhamPanel.this, "Đã xảy ra lỗi:\n" + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(SanPhamPanel.this,
+                            "Loi ghi Database:\n" + ex.getMessage(), "Loi He Thong", JOptionPane.ERROR_MESSAGE));
+                    ex.printStackTrace();
                 }
             });
         }
 
         public String getExportHistoryList() {
             try {
-                java.io.File folder = new java.io.File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\SanPham");
-                if (!folder.exists() || !folder.isDirectory()) return "[]";
-                
-                java.io.File[] files = folder.listFiles((dir, name) -> name.startsWith("Thong_Ke_San_Pham_") && name.endsWith(".json"));
-                if (files == null || files.length == 0) return "[]";
-                
-                Arrays.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
-                
-                JsonArray arr = new JsonArray();
-                for (java.io.File f : files) arr.add(f.getName());
-                return arr.toString();
-            } catch (Exception e) { return "[]"; }
+                // Lấy danh sách lịch sử từ Database theo phân hệ SAN_PHAM
+                String daoJson = Dao.LichSuThongKeDAO.getInstance().layDanhSachLichSu("SAN_PHAM");
+                com.google.gson.JsonArray daoArr = gson.fromJson(daoJson, com.google.gson.JsonArray.class);
+
+                // Trả về mảng tên file đơn giản giống NhanVienPanel
+                com.google.gson.JsonArray simpleArr = new com.google.gson.JsonArray();
+                if (daoArr != null) {
+                    for (int i = 0; i < daoArr.size(); i++) {
+                        com.google.gson.JsonObject obj = daoArr.get(i).getAsJsonObject();
+                        if (obj.has("name")) {
+                            simpleArr.add(obj.get("name").getAsString());
+                        }
+                    }
+                }
+                return simpleArr.toString();
+            } catch (Exception e) {
+                System.err.println("[JsBridge] getExportHistoryList loi: " + e.getMessage());
+                return "[]";
+            }
         }
 
         public void readAndLoadExportFile(String fileName) {
             CompletableFuture.runAsync(() -> {
                 try {
-                    java.io.File file = new java.io.File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\SanPham", fileName);
-                    if (!file.exists()) {
-                        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(SanPhamPanel.this, "Không tìm thấy file!", "Lỗi", JOptionPane.ERROR_MESSAGE));
+                    String safeFileName = new java.io.File(fileName).getName();
+
+                    // Lấy nội dung Base64 từ Database
+                    String base64Data = Dao.LichSuThongKeDAO.getInstance().docNoiDungLichSuBase64(safeFileName);
+
+                    if (base64Data == null || base64Data.isEmpty()) {
+                        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(SanPhamPanel.this,
+                                "Ban ghi khong ton tai trong he thong Database: " + safeFileName,
+                                "Loi", JOptionPane.ERROR_MESSAGE));
                         return;
                     }
-                    
-                    byte[] fileBytes = java.nio.file.Files.readAllBytes(file.toPath());
-                    if (fileBytes.length == 0) return;
-                    String base64Data = java.util.Base64.getEncoder().encodeToString(fileBytes);
 
                     Platform.runLater(() -> {
                         try {
-                            webEngine.executeScript("applyHistoricalStateBase64('" + base64Data + "', '" + fileName + "')");
-                        } catch (Exception ex) {}
+                            webEngine.executeScript(
+                                "applyHistoricalStateBase64('" + base64Data + "', '" + safeFileName.replace("'", "\\'") + "')"
+                            );
+                        } catch (Exception ex) {
+                            System.err.println("[JsBridge] Loi render file lich su: " + ex.getMessage());
+                        }
                     });
-                } catch (Exception e) {}
+                } catch (Exception e) {
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(SanPhamPanel.this,
+                            "Loi doc du lieu lich su tu Database:\n" + e.getMessage(),
+                            "Loi", JOptionPane.ERROR_MESSAGE));
+                    e.printStackTrace();
+                }
             });
         }
+    }
+    private void reloadHistoryList() {
+        Platform.runLater(() -> {
+            try {
+                if (webEngine != null) {
+                    webEngine.executeScript("if(typeof loadExportHistory === 'function') loadExportHistory();");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     public static void main(String[] args) {
