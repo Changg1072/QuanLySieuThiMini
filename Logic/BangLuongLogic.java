@@ -264,4 +264,30 @@ public class BangLuongLogic {
         }
         return chiTiet;
     }
+    /**
+     * NÂNG CẤP: Thống kê tổng chi phí lương đã chốt tương thích với khoảng thời gian lọc trên UI
+     */
+    public BigDecimal tinhTongChiPhiLuongTheoKhoangThoiGian(LocalDate startDate, LocalDate endDate) {
+        List<BangLuong> dsBangLuong = blDao.layDanhSachBangLuong(); 
+        if (dsBangLuong == null) return BigDecimal.ZERO;
+        
+        return dsBangLuong.stream()
+                .filter(b -> b.getThangNam() != null)
+                .filter(b -> {
+                    try {
+                        String[] parts = b.getThangNam().split("/");
+                        int m = Integer.parseInt(parts[0]);
+                        int y = Integer.parseInt(parts[1]);
+                        LocalDate dauThang = LocalDate.of(y, m, 1);
+                        LocalDate cuoiThang = dauThang.withDayOfMonth(dauThang.lengthOfMonth());
+                        
+                        return !dauThang.isAfter(endDate) && !cuoiThang.isBefore(startDate);
+                    } catch (Exception e) {
+                        return false;
+                    }
+                })
+                .map(BangLuong::getTongLuong)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
 }

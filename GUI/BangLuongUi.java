@@ -131,7 +131,7 @@ public class BangLuongUi extends JPanel {
         JPanel pnlLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 0));
         pnlLeft.setOpaque(false);
         
-        JLabel lblTitle = new JLabel("SuperPayroll");
+        JLabel lblTitle = new JLabel("Chi tiết bảng lương");
         lblTitle.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(Font.BOLD, 22f));
         lblTitle.setForeground(new Color(37, 99, 235));
         lblTitle.setPreferredSize(new Dimension(200, 38)); // Đồng bộ 38px

@@ -83,27 +83,8 @@ public class DoanhThuPanel extends JPanel {
                     System.out.println("🔄 Đã trả về khoảng thời gian mặc định: " + filterStartDate + " ĐẾN " + filterEndDate);
                     pushLiveAnalyticsData(true); 
                 } else if (action.equals("ACTION:LOAD_HISTORY_LIST")) {
-                    CompletableFuture.runAsync(() -> {
-                        try {
-                            // Đường dẫn lưu trữ cho Doanh Thu
-                            File dir = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\DoanhThu");
-                            if (!dir.exists()) dir.mkdirs();
-                            
-                            File[] files = dir.listFiles((d, name) -> name.endsWith(".json"));
-                            JsonArray arr = new JsonArray();
-                            if (files != null) {
-                                Arrays.sort(files, (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
-                                for (File f : files) {
-                                    JsonObject obj = new JsonObject();
-                                    obj.addProperty("name", f.getName());
-                                    obj.addProperty("path", f.getAbsolutePath().replace("\\", "/"));
-                                    arr.add(obj);
-                                }
-                            }
-                            String json = gson.toJson(arr);
-                            Platform.runLater(() -> webEngine.executeScript("updateHistoryDropdown('" + json + "')"));
-                        } catch (Exception e) { e.printStackTrace(); }
-                    });
+                    // Gọi hàm chuẩn hóa lấy từ Database
+                    reloadHistoryList();
                 }
                 else if (action.startsWith("ACTION:LOAD_HISTORY_FILE|")) {
                     String tenFile = action.substring("ACTION:LOAD_HISTORY_FILE|".length());
@@ -288,7 +269,10 @@ public class DoanhThuPanel extends JPanel {
         CompletableFuture.supplyAsync(() -> {
             try {
                 JsonObject dashboardData = new JsonObject();
-
+                java.math.BigDecimal chiPhiLuong = new Logic.BangLuongLogic().tinhTongChiPhiLuongTheoKhoangThoiGian(filterStartDate, filterEndDate);
+                BigDecimal thietHaiHuy = Logic.PhieuTieuHuyLogic.getInstance().thongKeThietHaiTheoKhoangThoiGian(filterStartDate, filterEndDate);
+                dashboardData.addProperty("chiPhiLuong", chiPhiLuong);
+                dashboardData.addProperty("thietHaiHuy", thietHaiHuy);
                 // 1. KÉO DỮ LIỆU TỪ RAM CACHE
                 if (forceRefresh || cachedDonHangDTO == null) {
                     cachedDonHangDTO = Dao.TruyVanSieuTocDAO.getInstance().loadToanBoDuLieuDonHang();
@@ -578,27 +562,16 @@ public class DoanhThuPanel extends JPanel {
     private void reloadHistoryList() {
         CompletableFuture.runAsync(() -> {
             try {
-                File dir = new File("D:\\Code\\QuanLySieuThiMini\\XuatThongKe\\DoanhThu");
-                if (!dir.exists()) dir.mkdirs();
-                
-                File[] files = dir.listFiles((d, name) -> name.endsWith(".json"));
-                JsonArray arr = new JsonArray();
-                if (files != null) {
-                    Arrays.sort(files, (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
-                    for (File f : files) {
-                        JsonObject obj = new JsonObject();
-                        obj.addProperty("name", f.getName());
-                        obj.addProperty("path", f.getAbsolutePath().replace("\\", "/"));
-                        arr.add(obj);
-                    }
-                }
-                String json = gson.toJson(arr);
+                // Lấy danh sách lịch sử của phân hệ DOANH_THU từ Database
+                String jsonArrayData = Dao.LichSuThongKeDAO.getInstance().layDanhSachLichSu("DOANH_THU");
                 Platform.runLater(() -> {
                     if (webEngine != null) {
-                        webEngine.executeScript("updateHistoryDropdown('" + json + "')");
+                        webEngine.executeScript("updateHistoryDropdown('" + jsonArrayData + "')");
                     }
                 });
-            } catch (Exception e) { e.printStackTrace(); }
+            } catch (Exception e) { 
+                e.printStackTrace(); 
+            }
         });
     }
 

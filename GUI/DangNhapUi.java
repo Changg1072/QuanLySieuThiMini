@@ -40,7 +40,7 @@ public class DangNhapUi extends JFrame {
 
                 if (backgroundImage == null) {
                     try {
-                        File file = new File("Images\\Gemini_Generated_Image_d517g8d517g8d517.png");
+                        File file = new File("Images\\HinhHinnh.jpg");
                         if (file.exists()) backgroundImage = ImageIO.read(file);
                     } catch (Exception e) {}
                 }

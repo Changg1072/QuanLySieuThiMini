@@ -125,13 +125,20 @@ public class PhieuTieuHuyLogic {
     /**
      * Thống kê tổng thiệt hại tiêu hủy theo tháng hiện tại
      */
-    public BigDecimal thongKeThietHaiTheoThang(int thang, int nam) {
+    public BigDecimal thongKeThietHaiTheoKhoangThoiGian(LocalDate startDate, LocalDate endDate) {
         List<PhieuTieuHuy> dsPhieu = phieuTieuHuyDao.layDanhSachPhieuTieuHuy();
+        if (dsPhieu == null) return BigDecimal.ZERO;
         
         return dsPhieu.stream()
-                .filter(p -> "DA_TIEU_HUY".equals(p.getTrangThaiHuy())) // Chỉ tính phiếu đã chốt
-                .filter(p -> p.getNgayTao() != null && p.getNgayTao().getMonthValue() == thang && p.getNgayTao().getYear() == nam)
+                .filter(p -> "DA_TIEU_HUY".equals(p.getTrangThaiHuy())) // Chỉ tính các phiếu đã duyệt hủy
+                .filter(p -> p.getNgayTao() != null)
+                .filter(p -> {
+                    LocalDate ngayHuy = p.getNgayTao().toLocalDate();
+                    // Nằm trong khoảng ngày được chọn trên bộ lọc
+                    return !ngayHuy.isBefore(startDate) && !ngayHuy.isAfter(endDate);
+                })
                 .map(PhieuTieuHuy::getTongGiaTriHuy)
+                .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

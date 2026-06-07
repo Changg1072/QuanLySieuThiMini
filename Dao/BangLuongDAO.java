@@ -129,5 +129,24 @@ public class BangLuongDAO {
         }
         return null;
     }
+        // ==========================================================
+    // LẤY TOÀN BỘ DANH SÁCH BẢNG LƯƠNG
+    // ==========================================================
+    public List<BangLuong> layDanhSachBangLuong() {
+        List<BangLuong> ds = new ArrayList<>();
+        String sql = "SELECT * FROM BangLuong";
+        try (
+            Connection con = ConnectDB.getInstance().getConnection();
+            PreparedStatement ps = con.prepareStatement(sql);
+            ResultSet rs = ps.executeQuery()
+        ) {
+            while (rs.next()) {
+                ds.add(mapResultSetToBangLuong(rs));
+            }
+        } catch (SQLException e) {
+            logError("layDanhSachBangLuong", e);
+        }
+        return ds;
+    }
 
 }
