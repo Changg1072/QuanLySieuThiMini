@@ -51,6 +51,7 @@ public class GiamGiaUI extends JPanel {
     private List<NutTab>    danhSachNutTab      = new ArrayList<>();
 
     private List<String>        danhSachSPDuocChon  = new ArrayList<>();
+    private List<Data.LoaiSP>   dsLoaiSP = new ArrayList<>();
     private CheckBoxBoGoc       chkAll;
     private List<CheckBoxBoGoc> danhSachRowCheckboxes = new ArrayList<>();
     private boolean             isUpdatingCheckboxes  = false;
@@ -119,7 +120,16 @@ public class GiamGiaUI extends JPanel {
 
         // 2. Tạo ComboBox với viền bo tròn nhẹ
         cbTrangThai = TaoComboBox(new String[]{"Tất cả sản phẩm", "⏳ Sắp hết hạn", "Quá hạn", "🔥 Đang Sale"});
-        cbNhomHang  = TaoComboBox(new String[]{"Tất cả nhóm hàng", "Thực phẩm", "Đồ uống", "Mì gói", "Hóa mỹ phẩm"});
+        dsLoaiSP = new Logic.LoaiSPLogic().layDanhSachLoaiSP();
+        List<String> tenCacLoai = new ArrayList<>();
+        tenCacLoai.add("Tất cả nhóm hàng"); // Nhóm mặc định
+        
+        if (dsLoaiSP != null) {
+            for (Data.LoaiSP loai : dsLoaiSP) {
+                tenCacLoai.add(loai.getTenLoai());
+            }
+        }
+        cbNhomHang = TaoComboBox(tenCacLoai.toArray(new String[0]));
 
         cbTrangThai.addActionListener(e -> TaiDanhSachSanPham());
         cbNhomHang.addActionListener(e -> TaiDanhSachSanPham());
@@ -211,18 +221,38 @@ public class GiamGiaUI extends JPanel {
         String tuKhoaRaw = (txtTimKiem != null) ? txtTimKiem.getText() : "";
         final String tuKhoa = GUI.HoTro.DinhDangUtil.loaiBoDauTiengViet(tuKhoaRaw.trim().toLowerCase());
         final String locTrangThai = (cbTrangThai != null) ? cbTrangThai.getSelectedItem().toString() : "Tất cả sản phẩm";
+        
+        // Truy xuất Mã Loại (MaLoai) từ Tên Nhóm Hàng được chọn
+        final String locNhomHang = (cbNhomHang != null) ? cbNhomHang.getSelectedItem().toString() : "Tất cả nhóm hàng";
+        String maLoaiTemp = "";
+        if (!locNhomHang.equals("Tất cả nhóm hàng") && dsLoaiSP != null) {
+            for (Data.LoaiSP loai : dsLoaiSP) {
+                if (loai.getTenLoai().equals(locNhomHang)) {
+                    maLoaiTemp = loai.getMaLoai();
+                    break;
+                }
+            }
+        }
+        final String maLoaiLoc = maLoaiTemp;
 
         // 2. Kích hoạt SwingWorker
         SwingWorker<List<Object[]>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<Object[]> doInBackground() {
                 List<Object[]> listData = new ArrayList<>();
+                
+                // Nối chuỗi SQL động dựa trên việc có chọn loại sản phẩm hay không
                 String sql = "SELECT sp.MaSP, sp.TenSP, ct.MaLoHang, ct.HSD, ct.SoLuongTon, sp.GiaBan, " +
                              "ISNULL(gg.GiamGia, 0) AS GiamGia " +
                              "FROM ChiTietLoHang ct " +
                              "JOIN SanPham sp ON ct.MaSP = sp.MaSP " +
                              "LEFT JOIN GiamGia gg ON sp.MaSP = gg.MaSP AND gg.TrangThaiGiamGia = N'Đang diễn ra' AND gg.SoLuongApDung > 0 " +
-                             "WHERE ct.SoLuongTon > 0 ORDER BY ct.HSD ASC";
+                             "WHERE ct.SoLuongTon > 0 ";
+                             
+                if (!maLoaiLoc.isEmpty()) {
+                    sql += " AND sp.MaLoai = '" + maLoaiLoc + "' ";
+                }
+                sql += " ORDER BY ct.HSD ASC";
                 
                 try (java.sql.Connection con = Dao.ConnectDB.getInstance().getConnection();
                      java.sql.PreparedStatement ps = con.prepareStatement(sql);
@@ -261,9 +291,9 @@ public class GiamGiaUI extends JPanel {
 
                         // Lọc trạng thái
                         if (!locTrangThai.equals("Tất cả sản phẩm")) {
-                            if (locTrangThai.equals("⏳ Sắp hết hạn") && !trangThai.equals("Sắp hết hạn") && !trangThai.equals("Nguy hiểm")) continue;
+                            if (locTrangThai.equals("Sắp hết hạn") && !trangThai.equals("Sắp hết hạn") && !trangThai.equals("Nguy hiểm")) continue;
                             if (locTrangThai.equals("Quá hạn") && !trangThai.equals("Quá hạn")) continue;
-                            if (locTrangThai.equals("🔥 Đang Sale") && !trangThai.equals("Đang Sale")) continue;
+                            if (locTrangThai.equals("Đang Sale") && !trangThai.equals("Đang Sale")) continue;
                         }
                         
                         listData.add(new Object[]{tenSP, maLo, (int) ngayConLai, tonKho, giaGoc, phanTram, trangThai, maSP});

@@ -2,7 +2,6 @@ package GUI.ThongKe;
 
 import Dao.KhachHangDAO;
 import Dao.TruyVanSieuTocDAO;
-import Logic.ThongKeLogic;
 import Data.KhachHang;
 import Dao.HoaDonDAO;
 import Data.HoaDon;

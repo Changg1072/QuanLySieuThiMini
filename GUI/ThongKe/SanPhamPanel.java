@@ -1,7 +1,6 @@
 package GUI.ThongKe;
 
 import Logic.SanPhamLogic;
-import Logic.ThongKeLogic;
 import Dao.TruyVanSieuTocDAO;
 import Data.SanPham;
 import Data.ChiTietLoHang;
