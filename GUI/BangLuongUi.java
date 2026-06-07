@@ -45,9 +45,10 @@ public class BangLuongUi extends JPanel {
     private List<PhieuLuongRowData> danhSachGoc = new ArrayList<>();
     private List<PhieuLuongRowData> danhSachHienThi = new ArrayList<>();
     private boolean isLoading = false;
+    private boolean listenersActive = false;
 
     // ================= UI COMPONENTS =================
-    private JComboBox<String> cbThang, cbNam;
+    private WheelPicker wheelThang, wheelNam;
     private JTextField txtTimKiem;
     private JPanel pnlRowListContainer;
     
@@ -142,44 +143,45 @@ public class BangLuongUi extends JPanel {
         pnlRight.setOpaque(false);
         
         // 1. Cụm chọn Tháng/Năm
-        JPanel pnlThangNam = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0)); 
+        JPanel pnlThangNam = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0)); 
         pnlThangNam.setOpaque(false);
-        pnlThangNam.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(BORDER_COLOR, 1, true),
-            new EmptyBorder(0, 10, 0, 10) 
-        ));
+        pnlThangNam.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1, true));
         pnlThangNam.setBackground(Color.WHITE);
         pnlThangNam.setOpaque(true);
-        pnlThangNam.setPreferredSize(new Dimension(320, 38)); // 🚀 Ép cứng chiều cao 38px
+        // 🚀 Tăng chiều cao lên 60px để hiển thị đẹp vòng xoay
+        pnlThangNam.setPreferredSize(new Dimension(200, 60)); 
         
-        JLabel lblIcon = new JLabel("📅 ");
-        cbThang = new JComboBox<>(new String[]{"01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"});
+        wheelThang = new WheelPicker(new String[]{"01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"});
         
         int namHienTai = LocalDate.now().getYear();
         String[] dsNam = new String[5];
         for (int i = 0; i < 5; i++) {
             dsNam[i] = String.valueOf(namHienTai - 2 + i);
         }
-        cbNam = new JComboBox<>(dsNam);
+        wheelNam = new WheelPicker(dsNam);
         
-        cbThang.setSelectedItem(String.format("%02d", LocalDate.now().getMonthValue()));
-        cbNam.setSelectedItem(String.valueOf(namHienTai));
+        wheelThang.setSelectedItem(String.format("%02d", LocalDate.now().getMonthValue()));
+        wheelNam.setSelectedItem(String.valueOf(namHienTai));
         
-        TienIchGiaoDien.trangTriComboBox(cbThang); 
-        TienIchGiaoDien.trangTriComboBox(cbNam);
-        
-        cbThang.setPreferredSize(new Dimension(85, 30)); // Rút lõi xuống 30px để nằm gọn trong 38px
-        cbNam.setPreferredSize(new Dimension(105, 30));
-        
-        JLabel lblThang = new JLabel("Tháng ");
-        JLabel lblSlash = new JLabel("/");
-        
-        pnlThangNam.add(lblIcon);
-        pnlThangNam.add(lblThang);
-        pnlThangNam.add(cbThang);
-        pnlThangNam.add(lblSlash);
-        pnlThangNam.add(cbNam);
+        JLabel lblThang = new JLabel("Tháng", SwingConstants.CENTER);
+        lblThang.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(12f));
+        lblThang.setForeground(TEXT_SUB);
 
+        // Dấu hai chấm (hoặc xuyệt) phân cách ở giữa giống hình của bạn
+        JLabel lblColon = new JLabel(":", SwingConstants.CENTER);
+        lblColon.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(22f));
+        lblColon.setForeground(TEXT_MAIN);
+        lblColon.setPreferredSize(new Dimension(15, 60));
+        
+        // Bố trí layout cho Picker
+        pnlThangNam.add(wheelThang);
+        pnlThangNam.add(lblColon);
+        pnlThangNam.add(wheelNam);
+        
+        if (isNhanVienMode) {
+            wheelThang.setVisible(false);
+            lblColon.setVisible(false);
+        }
         // 2. Ô Tìm Kiếm
         // 2. Ô Tìm Kiếm - Dùng JTextField thô thay vì ONhapLieuHienDai để kiểm soát chiều cao
         JTextField txtField = new JTextField();
@@ -202,9 +204,9 @@ public class BangLuongUi extends JPanel {
         };
         pnlSearch.setOpaque(false);
         pnlSearch.setBorder(new EmptyBorder(0, 10, 0, 10));
-        pnlSearch.setPreferredSize(new Dimension(250, 38));
-        pnlSearch.setMinimumSize(new Dimension(250, 38));
-        pnlSearch.setMaximumSize(new Dimension(250, 38));
+        pnlSearch.setPreferredSize(new Dimension(250, 60));
+        pnlSearch.setMinimumSize(new Dimension(250, 60));
+        pnlSearch.setMaximumSize(new Dimension(250, 60));
 
         JLabel lblSearchIcon = new JLabel("🔍");
         lblSearchIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
@@ -234,9 +236,9 @@ public class BangLuongUi extends JPanel {
         JButton btnThoat = TienIchGiaoDien.taoNutHienDai("Thoát ✕", new Color(239, 68, 68));
         btnThoat.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(Font.BOLD, 14f));
         // 🚀 Ép cứng chiều cao 38px (Hoàn toàn cân bằng)
-        btnThoat.setPreferredSize(new Dimension(100, 38)); 
-        btnThoat.setMinimumSize(new Dimension(100, 38));
-        btnThoat.setMaximumSize(new Dimension(100, 38));
+        btnThoat.setPreferredSize(new Dimension(100, 60)); 
+        btnThoat.setMinimumSize(new Dimension(100, 60));
+        btnThoat.setMaximumSize(new Dimension(100, 60));
         
         btnThoat.addActionListener(e -> {
             Window window = SwingUtilities.getWindowAncestor(this);
@@ -450,7 +452,7 @@ public class BangLuongUi extends JPanel {
         pnlTextName.setOpaque(false);
         
         // 🚀 ĐÃ SỬA: Đổi tiêu đề cột thành "Phiếu lương kỳ MM/yyyy" nếu là nhân viên đang xem
-        String txtTieuDe = (isNhanVienMode && daChot) ? "Phiếu lương kỳ " + data.bangLuong.getThangNam() : data.nhanVien.getHoTen();
+        String txtTieuDe = isNhanVienMode ? "Phiếu lương kỳ " + data.kyLuong : data.nhanVien.getHoTen();
         JLabel lblTen = new JLabel(txtTieuDe);
         lblTen.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(15f));
         lblTen.setForeground(TEXT_MAIN);
@@ -467,13 +469,32 @@ public class BangLuongUi extends JPanel {
         row.add(pnlName);
 
         // 2. Cột Giờ công
-        JLabel lblGio = createCell(data.tongGioLam + "h", 150, false);
+        JLabel lblGio = createCell(String.format("%.2f", data.tongGioLam) + "h", 150, false);
         row.add(lblGio);
 
         // 3. Cột Lương
-        String txtLuong = daChot ? DinhDangUtil.dinhDangTien(data.bangLuong.getTongLuong()) : "Chưa xác định";
+        String txtLuong = "";
+        
+        // Trích xuất cấu hình để tính toán (tránh lỗi null)
+        final BigDecimal luongCB = (data.cauHinh != null && data.cauHinh.getLuongTheoGio() != null) ? data.cauHinh.getLuongTheoGio() : BigDecimal.ZERO;
+        final BigDecimal heSo = (data.cauHinh != null && data.cauHinh.getHeSoLuong() != null) ? data.cauHinh.getHeSoLuong() : BigDecimal.ONE;
+        final BigDecimal phuCap = (data.cauHinh != null && data.cauHinh.getPhuCapCoDinh() != null) ? data.cauHinh.getPhuCapCoDinh() : BigDecimal.ZERO;
+        
+        // Tính tiền tạm tính
+        BigDecimal calcTienLuong = luongCB.multiply(heSo).multiply(BigDecimal.valueOf(data.tongGioLam));
+        BigDecimal calcTongTamTinh = calcTienLuong.add(phuCap).subtract(data.tienPhatDuKien);
+        if (calcTongTamTinh.compareTo(BigDecimal.ZERO) < 0) calcTongTamTinh = BigDecimal.ZERO;
+        final BigDecimal tongTamTinh = calcTongTamTinh;
+
+        if (daChot) {
+            txtLuong = DinhDangUtil.dinhDangTien(data.bangLuong.getTongLuong()) + " VNĐ";
+        } else {
+            txtLuong = "Tạm tính: " + DinhDangUtil.dinhDangTien(tongTamTinh) + " VNĐ";
+        }
+
         JLabel lblLuong = createCell(txtLuong, 200, true);
         if (daChot) lblLuong.setForeground(COLOR_BONUS);
+        else lblLuong.setForeground(new Color(217, 119, 6)); // Màu cam cho tiền tạm tính
         row.add(lblLuong);
 
         // 4. Cột Trạng thái (Badge)
@@ -506,46 +527,50 @@ public class BangLuongUi extends JPanel {
         btnAction.setBorder(BorderFactory.createLineBorder(daChot ? BORDER_COLOR : COLOR_BONUS, 1));
         
         btnAction.addActionListener(e -> {
+            String thangNamPhieu = data.kyLuong;
+            
             if (isNhanVienMode) {
-                // Gọi đúng Constructor cho Nhân viên (đã có ở file ChiTietChotLuongDialog)
+                // CHẾ ĐỘ NHÂN VIÊN
+                BangLuong blHienThi = data.bangLuong;
+                
+                // Nếu chưa chốt, tạo Phiếu Lương Ảo để hiển thị form
+                if (blHienThi == null) {
+                    blHienThi = new BangLuong.ThoXayBangLuong()
+                        .ganMaNV(data.nhanVien.getMaNV())
+                        .ganThangNam(thangNamPhieu)
+                        .ganTongGioLam(BigDecimal.valueOf(data.tongGioLam))
+                        .ganGioTangCa(BigDecimal.ZERO)
+                        .ganLuongTheoGio(luongCB)
+                        .ganThuong(BigDecimal.ZERO)
+                        .ganKhauTru(data.tienPhatDuKien)
+                        .ganTongLuong(tongTamTinh)
+                        .taoMoi();
+                }
+
                 GUI.HoTro.ChiTietChotLuongDialog dialog = new GUI.HoTro.ChiTietChotLuongDialog(
                     (Window) SwingUtilities.getWindowAncestor(this),
-                    data.bangLuong,          // Tham số 2: Object BangLuong
-                    data.nhanVien.getHoTen(),// Tham số 3: Tên NV
-                    data.nhanVien.getChucVu(),// Tham số 4: Chức vụ
-                    0                        // Tham số 5: Số lần trễ (int)
+                    blHienThi,
+                    data.nhanVien.getHoTen(),
+                    data.nhanVien.getChucVu(),
+                    0
                 );
                 dialog.setVisible(true);
             } else {
-                // ===================================================
-                // 🚀 CHẾ ĐỘ QUẢN LÝ: Mở form Tính toán / Chốt lương
-                // ===================================================
+                // CHẾ ĐỘ QUẢN LÝ (Giữ nguyên)
                 String maNV = data.nhanVien.getMaNV();
                 String tenNV = data.nhanVien.getHoTen();
                 String chucVu = data.nhanVien.getChucVu();
-                BigDecimal luongCB = (data.cauHinh != null) ? data.cauHinh.getLuongTheoGio() : BigDecimal.ZERO;
-                BigDecimal heSoOT = (data.cauHinh != null && data.cauHinh.getHeSoTangCa() != null) ? data.cauHinh.getHeSoTangCa() : new BigDecimal("1.5");
                 double gioLam = data.tongGioLam;
-                double gioOT = 0; 
                 BigDecimal phat = data.tienPhatDuKien;
-                int soLanTre = 0; 
                 
-                // Tránh lỗi lấy nhầm tháng của thanh Combo box khi bấm xem phiếu cũ
-                String thangNam = daChot ? data.bangLuong.getThangNam() : (cbThang.getSelectedItem() + "/" + cbNam.getSelectedItem());
-
                 GUI.HoTro.ChiTietChotLuongDialog dialog = new GUI.HoTro.ChiTietChotLuongDialog(
                     (Window) SwingUtilities.getWindowAncestor(this),
-                    maNV, tenNV, chucVu, luongCB, gioLam, gioOT, heSoOT, phat, soLanTre, thangNam
+                    maNV, tenNV, chucVu, luongCB, gioLam, 0, BigDecimal.valueOf(1.5), phat, 0, thangNamPhieu
                 );
-                
                 dialog.setVisible(true);
-
-                if (dialog.isSuccess()) {
-                    loadDuLieuBangLuong(); 
-                }
+                if (dialog.isSuccess()) loadDuLieuBangLuong(); 
             }
         });
-        
         row.add(btnAction);
 
         row.addMouseListener(new MouseAdapter() {
@@ -568,59 +593,91 @@ public class BangLuongUi extends JPanel {
     // 3. LOGIC DATA & THỐNG KÊ
     // =========================================================
     private void setupListeners() {
-        cbThang.addActionListener(e -> loadDuLieuBangLuong());
-        cbNam.addActionListener(e -> loadDuLieuBangLuong());
+        wheelThang.addChangeListener(e -> loadDuLieuBangLuong());
+        wheelNam.addChangeListener(e -> loadDuLieuBangLuong());
 
         txtTimKiem.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { locDuLieu(); }
             public void removeUpdate(DocumentEvent e) { locDuLieu(); }
             public void changedUpdate(DocumentEvent e) { locDuLieu(); }
         });
+        listenersActive = true;
     }
     private void loadDuLieuBangLuong() {
         if (isLoading) return;
         isLoading = true;
         renderList(new ArrayList<>()); 
 
-        int nam = Integer.parseInt(cbNam.getSelectedItem().toString());
+        String thangStr = wheelThang.getSelectedItem();
+        String namStr = wheelNam.getSelectedItem();
+        String thangNamDangChon = thangStr + "/" + namStr;
+
+        final int thangInt = Integer.parseInt(thangStr);
+        final int namInt = Integer.parseInt(namStr);
 
         SwingWorker<List<PhieuLuongRowData>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<PhieuLuongRowData> doInBackground() throws Exception {
                 List<PhieuLuongRowData> result = new ArrayList<>();
-                NhanVien nv = nvLogic.timNhanVienTheoMa(maNhanVienHienTai); 
 
-                if (isNhanVienMode && nv != null) {
-                    // Lấy toàn bộ lịch sử lương của nhân viên
-                    List<BangLuong> ls = Dao.BangLuongDAO.getInstance().layLichSuLuongTheoMaNV(maNhanVienHienTai);
-                    
-                    for (BangLuong bl : ls) {
-                        // Lọc theo năm được chọn trên combobox
-                        if (bl.getThangNam() != null && bl.getThangNam().endsWith("/" + nam)) {
+                if (isNhanVienMode) {
+                    // ==========================================
+                    // CHẾ ĐỘ NHÂN VIÊN (Siêu tốc O(1))
+                    // ==========================================
+                    NhanVien nv = nvLogic.timNhanVienTheoMa(maNhanVienHienTai); 
+                    if (nv == null) return result;
+
+                    CauHinhLuong cauHinh = Dao.CauHinhLuongDAO.getInstance().layCauHinhHienTaiTheoMaNV(maNhanVienHienTai);
+                    Dao.TruyVanSieuTocDAO.DuLieuBangLuongDTO dto = Dao.TruyVanSieuTocDAO.getInstance().loadBangLuongNhanVienSieuToc(maNhanVienHienTai, namInt);
+                    LocalDate now = LocalDate.now();
+
+                    for (int i = 12; i >= 1; i--) {
+                        String thangNamKiemTra = String.format("%02d/%d", i, namInt);
+                        BangLuong blThangNay = dto.mapBangLuongChot.get(thangNamKiemTra);
+                        
+                        if (blThangNay != null) {
                             PhieuLuongRowData row = new PhieuLuongRowData();
-                            row.nhanVien = nv;
-                            row.bangLuong = bl;
-                            row.tongGioLam = bl.getTongGioLam() != null ? bl.getTongGioLam().doubleValue() : 0;
+                            row.nhanVien = nv; row.bangLuong = blThangNay; row.cauHinh = cauHinh;
+                            row.tongGioLam = blThangNay.getTongGioLam() != null ? blThangNay.getTongGioLam().doubleValue() : 0;
+                            row.kyLuong = thangNamKiemTra;
                             result.add(row);
+                        } else {
+                            if (namInt > now.getYear() || (namInt == now.getYear() && i > now.getMonthValue())) continue;
+                            
+                            double gioLam = dto.mapTongGioLam.getOrDefault(thangNamKiemTra, 0.0);
+                            if (gioLam > 0 || (i == now.getMonthValue() && namInt == now.getYear())) {
+                                PhieuLuongRowData row = new PhieuLuongRowData();
+                                row.nhanVien = nv; row.bangLuong = null; row.cauHinh = cauHinh;
+                                row.tongGioLam = gioLam;
+                                row.tienPhatDuKien = dto.mapTongPhat.getOrDefault(thangNamKiemTra, BigDecimal.ZERO);
+                                row.kyLuong = thangNamKiemTra;
+                                result.add(row);
+                            }
                         }
                     }
-                    
-                    // Sắp xếp theo tháng (01 đến 12)
-                    result.sort((a, b) -> {
-                        int thangA = Integer.parseInt(a.bangLuong.getThangNam().split("/")[0]);
-                        int thangB = Integer.parseInt(b.bangLuong.getThangNam().split("/")[0]);
-                        return Integer.compare(thangA, thangB);
-                    });
                 } else {
-                    // Logic cũ cho Quản lý
-                    int thang = Integer.parseInt(cbThang.getSelectedItem().toString());
-                    List<NhanVien> tatCaNV = nvLogic.layDanhSachNhanVien();
+                    // ==========================================
+                    // CHẾ ĐỘ QUẢN LÝ (Siêu tốc O(1)) - Tránh N+1 Query
+                    // ==========================================
+                    List<NhanVien> tatCaNV = nvLogic.layDanhSachNhanVien(); // Chỉ load danh sách NV cơ bản
+                    Dao.TruyVanSieuTocDAO.DuLieuBangLuongDTO dto = Dao.TruyVanSieuTocDAO.getInstance().loadBangLuongQuanLySieuToc(thangNamDangChon, thangInt, namInt);
+
                     for (NhanVien n : tatCaNV) {
-                        BangLuong bl = Dao.BangLuongDAO.getInstance().layBangLuong(n.getMaNV(), thang + "/" + nam);
+                        String maNV = n.getMaNV();
+                        BangLuong bl = dto.mapBangLuongChot.get(maNV); // O(1) Lookup từ RAM
+                        
                         PhieuLuongRowData row = new PhieuLuongRowData();
-                        row.nhanVien = n;
+                        row.nhanVien = n; 
                         row.bangLuong = bl;
-                        row.tongGioLam = (bl != null) ? bl.getTongGioLam().doubleValue() : 0;
+                        row.cauHinh = dto.mapCauHinh.get(maNV);
+                        row.kyLuong = thangNamDangChon;
+
+                        if (bl != null) {
+                            row.tongGioLam = bl.getTongGioLam() != null ? bl.getTongGioLam().doubleValue() : 0;
+                        } else {
+                            row.tongGioLam = dto.mapTongGioLam.getOrDefault(maNV, 0.0);
+                            row.tienPhatDuKien = dto.mapTongPhat.getOrDefault(maNV, BigDecimal.ZERO);
+                        }
                         result.add(row);
                     }
                 }
@@ -629,13 +686,13 @@ public class BangLuongUi extends JPanel {
 
             @Override
             protected void done() {
+                isLoading = false; 
                 try {
                     danhSachGoc = get();
-                    isLoading = false;
-                    renderList(danhSachGoc);
+                    locDuLieu();
                 } catch (Exception e) {
                     e.printStackTrace();
-                    isLoading = false;
+                    renderList(new ArrayList<>()); 
                 }
             }
         };
@@ -663,24 +720,40 @@ public class BangLuongUi extends JPanel {
 
         for (PhieuLuongRowData row : danhSachHienThi) {
             if (row.bangLuong != null) {
+                // ĐÃ CHỐT: Lấy cứng từ DB
                 daChot++;
                 tongQuy = tongQuy.add(row.bangLuong.getTongLuong());
                 tongThuong = tongThuong.add(row.bangLuong.getThuong());
                 tongPhat = tongPhat.add(row.bangLuong.getKhauTru());
+            } else if (isNhanVienMode) {
+                // CHƯA CHỐT VÀ LÀ NHÂN VIÊN: Tính cộng dồn số Tạm tính lên Thẻ Thống Kê
+                BigDecimal luongCB = (row.cauHinh != null && row.cauHinh.getLuongTheoGio() != null) ? row.cauHinh.getLuongTheoGio() : BigDecimal.ZERO;
+                BigDecimal heSo = (row.cauHinh != null && row.cauHinh.getHeSoLuong() != null) ? row.cauHinh.getHeSoLuong() : BigDecimal.ONE;
+                BigDecimal phuCap = (row.cauHinh != null && row.cauHinh.getPhuCapCoDinh() != null) ? row.cauHinh.getPhuCapCoDinh() : BigDecimal.ZERO;
+                
+                BigDecimal tienLuong = luongCB.multiply(heSo).multiply(BigDecimal.valueOf(row.tongGioLam));
+                BigDecimal tamTinh = tienLuong.add(phuCap).subtract(row.tienPhatDuKien);
+                if (tamTinh.compareTo(BigDecimal.ZERO) < 0) tamTinh = BigDecimal.ZERO;
+
+                tongQuy = tongQuy.add(tamTinh);
+                tongPhat = tongPhat.add(row.tienPhatDuKien);
             }
         }
 
-        lblTongQuyLuong.setText(DinhDangUtil.dinhDangTien(tongQuy));
-        lblTongThuong.setText(DinhDangUtil.dinhDangTien(tongThuong));
-        lblTongKhauTru.setText(DinhDangUtil.dinhDangTien(tongPhat));
-        lblTienDo.setText(daChot + "/" + danhSachHienThi.size() + " nhân viên");
-
+        lblTongQuyLuong.setText(DinhDangUtil.dinhDangTien(tongQuy) + " VNĐ");
+        lblTongThuong.setText(DinhDangUtil.dinhDangTien(tongThuong) + " VNĐ");
+        lblTongKhauTru.setText(DinhDangUtil.dinhDangTien(tongPhat) + " VNĐ");
+        if (isNhanVienMode) {
+            lblTienDo.setText(daChot + "/" + danhSachHienThi.size() + " tháng");
+        } else {
+            lblTienDo.setText(daChot + "/" + danhSachHienThi.size() + " nhân viên");
+        }
         int pt = danhSachHienThi.size() == 0 ? 0 : (int)((daChot * 100.0f) / danhSachHienThi.size());
         progressBar.setValue(pt);
     }
 
     private void chotLuongHangLoat() {
-        String thangNamStr = cbThang.getSelectedItem() + "/" + cbNam.getSelectedItem();
+        String thangNamStr = wheelThang.getSelectedItem() + "/" + wheelNam.getSelectedItem();
         int countChuaChot = 0;
         for (PhieuLuongRowData r : danhSachGoc) {
             if (r.bangLuong == null) countChuaChot++;
@@ -728,5 +801,128 @@ public class BangLuongUi extends JPanel {
         BangLuong bangLuong; // Bằng NULL nếu chưa chốt
         double tongGioLam = 0;
         BigDecimal tienPhatDuKien = BigDecimal.ZERO;
+        String kyLuong;
     }
+        // =========================================================
+    // COMPONENT CHỌN NGÀY THÁNG DẠNG VÒNG XOAY (WHEEL PICKER)
+    // =========================================================
+    class WheelPicker extends JPanel {
+        private String[] items;
+        private int selectedIndex = 0;
+        private List<javax.swing.event.ChangeListener> listeners = new ArrayList<>();
+
+        public WheelPicker(String[] items) {
+            this.items = items;
+            setOpaque(false);
+            // Kích thước đủ cao để hiện 3 dòng số (Số trước - Số hiện tại - Số sau)
+            setPreferredSize(new Dimension(60, 60)); 
+            setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            // Hỗ trợ lăn chuột
+            addMouseWheelListener(e -> {
+                if (e.getWheelRotation() < 0 && selectedIndex > 0) {
+                    selectedIndex--;
+                    fireChangeEvent();
+                } else if (e.getWheelRotation() > 0 && selectedIndex < items.length - 1) {
+                    selectedIndex++;
+                    fireChangeEvent();
+                }
+            });
+
+            // Hỗ trợ click nửa trên/nửa dưới để chuyển số
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    if (e.getY() < getHeight() / 2 && selectedIndex > 0) {
+                        selectedIndex--; fireChangeEvent();
+                    } else if (e.getY() > getHeight() / 2 && selectedIndex < items.length - 1) {
+                        selectedIndex++; fireChangeEvent();
+                    }
+                }
+            });
+        }
+
+        public String getSelectedItem() {
+            return items[selectedIndex];
+        }
+
+        public void setSelectedItem(String item) {
+            for (int i = 0; i < items.length; i++) {
+                if (items[i].equals(item)) {
+                    selectedIndex = i;
+                    repaint();
+                    break;
+                }
+            }
+        }
+
+        public void addChangeListener(javax.swing.event.ChangeListener l) {
+            listeners.add(l);
+        }
+
+        private void fireChangeEvent() {
+            repaint();
+            javax.swing.event.ChangeEvent e = new javax.swing.event.ChangeEvent(this);
+            for (javax.swing.event.ChangeListener l : listeners) {
+                l.stateChanged(e);
+            }
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int w = getWidth();
+            int h = getHeight();
+            int centerY = h / 2;
+
+            // Font cho số đang được chọn (To, Đậm, Đen)
+            g2.setFont(TienIchGiaoDien.FONT_DAM.deriveFont(Font.BOLD, 22f));
+            FontMetrics fmMain = g2.getFontMetrics();
+            String current = items[selectedIndex];
+            int textX = (w - fmMain.stringWidth(current)) / 2;
+            int textY = centerY + fmMain.getAscent() / 2 - 4; // Căn giữa trục Y
+            
+            g2.setColor(TEXT_MAIN);
+            g2.drawString(current, textX, textY);
+
+            // Font cho số trước và sau (Nhỏ, Mờ)
+            g2.setFont(TienIchGiaoDien.FONT_CHINH.deriveFont(16f));
+            FontMetrics fmSub = g2.getFontMetrics();
+            g2.setColor(new Color(148, 163, 184)); // TEXT_SUB nhạt hơn chút
+
+            if (selectedIndex > 0) {
+                String prev = items[selectedIndex - 1];
+                int px = (w - fmSub.stringWidth(prev)) / 2;
+                g2.drawString(prev, px, textY - 24); // Đẩy lên trên
+            }
+
+            if (selectedIndex < items.length - 1) {
+                String next = items[selectedIndex + 1];
+                int nx = (w - fmSub.stringWidth(next)) / 2;
+                g2.drawString(next, nx, textY + 24); // Đẩy xuống dưới
+            }
+            g2.dispose();
+        }
+    }
+
+    public static void main(String[] args) {
+    SwingUtilities.invokeLater(() -> {
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception ignored) {}
+
+        JFrame frame = new JFrame("BangLuongUi - Test");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(1300, 750);
+        frame.setLocationRelativeTo(null);
+
+        // Đổi dòng dưới để test chế độ NV: new BangLuongUi("NV001")
+        frame.add(new BangLuongUi());
+
+        frame.setVisible(true);
+    });
+}
 }

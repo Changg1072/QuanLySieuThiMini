@@ -475,7 +475,10 @@ public class TrangADMIN extends JFrame {
                     if (banHangUi != null) banHangUi.getPnlDanhSachSP().loadDuLieuSanPham("ALL");
                     break;
                 case "CA_LAM":
-                    if (chiaCaUi == null) { chiaCaUi = new ChiaCaUi(this.maNhanVien); pnlCards.add(chiaCaUi, "CA_LAM"); }
+                    if (chiaCaUi == null) { 
+                        chiaCaUi = new ChiaCaUi(this.maNhanVien, true); // 🔥 true: Bật toàn quyền Quản lý
+                        pnlCards.add(chiaCaUi, "CA_LAM"); 
+                    }
                     break;
                 case "TAI_KHOAN":
                     if (taiKhoanUi == null) { taiKhoanUi = new TaiKhoanUi(maNhanVien); pnlCards.add(taiKhoanUi, "TAI_KHOAN"); }

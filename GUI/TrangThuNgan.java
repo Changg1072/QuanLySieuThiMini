@@ -1,7 +1,6 @@
 package GUI;
 
 import GUI.HoTro.MenuSidebarUtil;
-import GUI.HoTro.NutBoGoc;
 import GUI.HoTro.TienIchGiaoDien;
 import Dao.NhanVienDAO;
 import Data.NhanVien;
@@ -42,12 +41,14 @@ public class TrangThuNgan extends JFrame {
     private final int SIDEBAR_W = 230;
     private final int ITEM_H    = 40;
 
-    // ===================== LAZY PANELS =====================
+    // ===================== LAZY PANELS (Dành riêng cho Thu Ngân) =====================
     private BanHangUi    banHangUi   = null;
     private ThanhToanUi  thanhToanUi = null;
-    private ChiaCaUi     chiaCaUi    = null;
     private TaiKhoanUi   taiKhoanUi  = null;
-    private BangLuongUi bangLuongUi = null;
+    private BangLuongUi  bangLuongUi = null;
+    private DonHangUi    donHangUi   = null;
+    private DanhSachKhUi khachHangUi = null;
+    private ChiaCaUi     chiaCaUi    = null;
 
     private final String maNhanVien;
     private final String tenNhanVien;
@@ -75,14 +76,9 @@ public class TrangThuNgan extends JFrame {
         pnlCards   = new JPanel(cardLayout);
         pnlCards.setBackground(CLR_CONTENT_BG);
 
-        pnlCards.add(taoPanelGiuCho("TRANG CHỦ TỔNG QUAN"),            "TRANG_CHU");
-        pnlCards.add(taoPanelGiuCho("BÁO CÁO THỐNG KÊ DOANH THU"),     "THONG_KE");
-        pnlCards.add(taoPanelGiuCho("QUẢN LÝ SẢN PHẨM"),               "SAN_PHAM");
-        pnlCards.add(taoPanelGiuCho("QUẢN LÝ CHƯƠNG TRÌNH GIẢM GIÁ"),  "GIAM_GIA");
-        pnlCards.add(taoPanelGiuCho("QUẢN LÝ NHÀ CUNG CẤP"),           "NHA_CUNG_CAP");
+        // Chỉ giữ lại những Panel thuộc quyền Thu ngân
         pnlCards.add(taoPanelGiuCho("LỊCH SỬ ĐƠN HÀNG"),               "DON_HANG");
         pnlCards.add(taoPanelGiuCho("QUẢN LÝ KHÁCH HÀNG THÀNH VIÊN"),  "KHACH_HANG");
-        pnlCards.add(taoPanelGiuCho("DANH SÁCH NHÂN VIÊN"),             "NHAN_VIEN");
 
         // ===================== SIDEBAR =====================
         JPanel pnlSidebar = xaySidebar();
@@ -98,7 +94,7 @@ public class TrangThuNgan extends JFrame {
         add(scrollSidebar, BorderLayout.WEST);
         add(pnlCards,      BorderLayout.CENTER);
 
-        // Kích hoạt item đầu tiên
+        // Kích hoạt item đầu tiên (Bán Hàng)
         if (!danhSachNutMenu.isEmpty()) danhSachNutMenu.get(0).doClick();
     }
 
@@ -152,7 +148,7 @@ public class TrangThuNgan extends JFrame {
     }
 
     // =========================================================
-    //  PHẦN 2 — MENU CHÍNH
+    //  PHẦN 2 — MENU CHÍNH (Đã phân quyền Thu Ngân)
     // =========================================================
     private JPanel taoMenuChinh() {
         JPanel pnl = new JPanel();
@@ -160,33 +156,26 @@ public class TrangThuNgan extends JFrame {
         pnl.setBackground(CLR_SIDEBAR_BG);
         pnl.setBorder(new EmptyBorder(10, 0, 10, 0));
 
-        // --- Nút BÁN HÀNG nổi bật ---
+        // --- Nút BÁN HÀNG nổi bật (Nghiệp vụ cốt lõi) ---
         pnl.add(taoNutBanHang());
         pnl.add(Box.createRigidArea(new Dimension(0, 6)));
         pnl.add(taoSeparatorFull());
         pnl.add(Box.createRigidArea(new Dimension(0, 6)));
 
-        // --- Các nhóm menu ---
-        pnl.add(taoNhomMenuHover("  Tổng quan",
-            taoMucDropdown("Trang chủ",  "TRANG_CHU"),
-            taoMucDropdown("Thống kê",   "THONG_KE")
-        ));
-
+        // --- Nhóm Hàng Hóa (Để xổ dropdown chọn loại sản phẩm bán nhanh) ---
         pnl.add(taoNhomMenuHoverHangHoa("  Hàng hóa"));
 
-        pnl.add(taoNhomMenuHover("  Quản lý",
-            taoMucDropdown("Sản phẩm",     "SAN_PHAM"),
-            taoMucDropdown("Giảm giá",     "GIAM_GIA"),
-            taoMucDropdown("Nhà cung cấp", "NHA_CUNG_CAP"),
-            taoMucDropdown("Đơn hàng",     "DON_HANG"),
-            taoMucDropdown("Khách hàng",   "KHACH_HANG"),
-            taoMucDropdown("Nhân viên",    "NHAN_VIEN"),
-            taoMucDropdown("Ca làm",       "CA_LAM")
+        // --- Nhóm Quản lý Giao dịch (Thu ngân tra cứu hóa đơn và tạo KH mới) ---
+        pnl.add(taoNhomMenuHover("  Giao dịch",
+            taoMucDropdown("Lịch sử đơn hàng", "DON_HANG"),
+            taoMucDropdown("Khách hàng",       "KHACH_HANG")
         ));
 
-        pnl.add(taoNhomMenuHover("  Hệ thống",
+        // --- Nhóm Cá nhân ---
+        pnl.add(taoNhomMenuHover("  Cá nhân",
+            taoMucDropdown("Lịch làm việc", "CA_LAM"),  
             taoMucDropdown("Lương của tôi", "LUONG_CUA_TOI"),
-            taoMucDropdown("Tài khoản", "TAI_KHOAN")
+            taoMucDropdown("Tài khoản",     "TAI_KHOAN")
         ));
 
         return pnl;
@@ -244,19 +233,6 @@ public class TrangThuNgan extends JFrame {
         wrapper.setBorder(new EmptyBorder(4, 10, 4, 10));
         wrapper.setMaximumSize(new Dimension(SIDEBAR_W, ITEM_H + 10));
 
-        JButton btn = new JButton("  \uD83D\uDED2  BÁN HÀNG");
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        btn.setForeground(Color.WHITE);
-        btn.setBackground(CLR_BAN_HANG);
-        btn.setBorder(new EmptyBorder(0, 16, 0, 16));
-        btn.setOpaque(true);
-        btn.setBorderPainted(false);
-        btn.setFocusPainted(false);
-        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.setPreferredSize(new Dimension(SIDEBAR_W - 20, ITEM_H));
-        btn.setMaximumSize(new Dimension(SIDEBAR_W - 20, ITEM_H));
-
         // Bo góc bằng cách override paintComponent
         JButton btnRounded = new JButton("  \uD83D\uDED2  BÁN HÀNG") {
             @Override protected void paintComponent(Graphics g) {
@@ -300,7 +276,7 @@ public class TrangThuNgan extends JFrame {
     }
 
     // =========================================================
-    //  TẠO MỤC DROPDOWN (dùng trong popup)
+    //  TẠO MỤC DROPDOWN & ĐIỀU HƯỚNG TRANG THU NGÂN
     // =========================================================
     private JButton taoMucDropdown(String title, String cardName) {
         JButton btn = new JButton(title);
@@ -310,20 +286,54 @@ public class TrangThuNgan extends JFrame {
                     initBanHangUiIfNotExists();
                     if (banHangUi != null) banHangUi.getPnlDanhSachSP().loadDuLieuSanPham("ALL");
                     break;
-                case "CA_LAM":
-                    if (chiaCaUi == null) { chiaCaUi = new ChiaCaUi(this.maNhanVien); pnlCards.add(chiaCaUi, "CA_LAM"); }
+                    
+                case "DON_HANG":
+                    // Thu ngân cần xem lịch sử để xử lý đổi trả hoặc in lại bill
+                    if (donHangUi == null) { 
+                        donHangUi = new DonHangUi(); 
+                        pnlCards.add(donHangUi, "DON_HANG"); 
+                        pnlCards.revalidate(); 
+                        pnlCards.repaint();
+                    } else {
+                        donHangUi.taiDuLieuTuDatabase(); 
+                    }
                     break;
-                case "TAI_KHOAN":
-                    if (taiKhoanUi == null) { taiKhoanUi = new TaiKhoanUi(maNhanVien); pnlCards.add(taiKhoanUi, "TAI_KHOAN"); }
+                    
+                case "KHACH_HANG":
+                    // Thu ngân tạo thông tin KH để tích điểm khi thanh toán
+                    if (khachHangUi == null) { 
+                        khachHangUi = new DanhSachKhUi(); 
+                        pnlCards.add(khachHangUi, "KHACH_HANG"); 
+                        pnlCards.revalidate(); 
+                        pnlCards.repaint();
+                    }
                     break;
-                case "LUONG_CUA_TOI":
-                if (bangLuongUi == null) { 
-                    bangLuongUi = new BangLuongUi(this.maNhanVien); 
-                    pnlCards.add(bangLuongUi, "LUONG_CUA_TOI");
-                    pnlCards.revalidate(); // ✅ Thêm dòng này
-                }
-                break;
 
+                case "LUONG_CUA_TOI":
+                    if (bangLuongUi == null) { 
+                        bangLuongUi = new BangLuongUi(this.maNhanVien); 
+                        pnlCards.add(bangLuongUi, "LUONG_CUA_TOI");
+                        pnlCards.revalidate(); 
+                        pnlCards.repaint();
+                    }
+                    break;
+                    
+                case "TAI_KHOAN":
+                    if (taiKhoanUi == null) { 
+                        taiKhoanUi = new TaiKhoanUi(maNhanVien); 
+                        pnlCards.add(taiKhoanUi, "TAI_KHOAN"); 
+                        pnlCards.revalidate();
+                        pnlCards.repaint();
+                    }
+                    break;
+                case "CA_LAM":
+                    if (chiaCaUi == null) { 
+                        chiaCaUi = new ChiaCaUi(this.maNhanVien, false); // 🔥 false: Chỉ xem lịch của mình, không có nút Thêm ca
+                        pnlCards.add(chiaCaUi, "CA_LAM");
+                        pnlCards.revalidate();
+                        pnlCards.repaint();
+                    }
+                    break;
             }
             cardLayout.show(pnlCards, cardName);
         });

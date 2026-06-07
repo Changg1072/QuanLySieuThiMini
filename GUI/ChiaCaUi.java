@@ -3,7 +3,7 @@ package GUI;
 import GUI.HoTro.NutBoGoc;
 import GUI.HoTro.TheBongDo;
 import GUI.HoTro.TienIchGiaoDien;
-import Dao.TruyVanSieuTocDAO; // Nhúng Động cơ Turbo vào đây 🚀
+import Dao.TruyVanSieuTocDAO; 
 import Logic.ChiaCaLogic;
 import Logic.LoaiCaLogic;
 import Logic.TaoMaTuDongLogic; 
@@ -37,13 +37,14 @@ public class ChiaCaUi extends JPanel {
     private static final Color MAU_HIGHLIGHT_NEN = new Color(224, 242, 254);
     private static final Color MAU_HIGHLIGHT_CHU = new Color(3, 105, 161);
 
-    private JComboBox<String> cbCaLam, cbTinhTrang;
+    private JComboBox<String> cbTinhTrang;
+    private ThanhChonCa selectorCaLam;
     private TheBongDo.RoundedTextField txtTimNhanVien, txtNgayApDung, txtMaCa;
     private TheBongDo.RoundedTextField txtCheckIn, txtCheckOut;
     private TheBongDo.RoundedTextField txtTienDauCa, txtTienCuoiCa, txtTienBanHang, txtTienChenhLech;
     private JPanel pnlDanhSachTag;
     
-    private NutBoGoc btnApDung, btnHuyCa, btnKetCa, btnDuyetCa;
+    private NutBoGoc btnApDung, btnHuyCa, btnKetCa, btnDuyetCa, btnLich;
     private Timer timerRealtime;
 
     private JPopupMenu suggestPopup;
@@ -59,23 +60,28 @@ public class ChiaCaUi extends JPanel {
     private List<ChiaCa> danhSachCaDangChon = new ArrayList<>();
 
     private BangChiaCaRight pnlLichRight;
-    private ChiaCaLogic ccLogic = new ChiaCaLogic(); // Vẫn giữ Logic để xử lý Thêm/Sửa/Xóa
+    private ChiaCaLogic ccLogic = new ChiaCaLogic(); 
+    
     private String maNVDangNhap = null;
+    private boolean isQuanLy = false; // 🔥 BIẾN PHÂN QUYỀN TRUNG TÂM
 
-    public ChiaCaUi(String maNV) {
+    // =======================================================
+    // CONSTRUCTOR MỚI CÓ PHÂN QUYỀN
+    // =======================================================
+    public ChiaCaUi(String maNV, boolean isQuanLy) {
         this.maNVDangNhap = maNV;
+        this.isQuanLy = isQuanLy;
         khoiTaoGiaoDien();
         
-        // Tải dữ liệu siêu tốc bằng Background Thread, sau khi tải xong thì tự động load ca của NV
         taiDuLieuCaTuDatabase(() -> tuDongHienThiCaCuaNV(maNV));
         
         timerRealtime = new Timer(3000, e -> capNhatSoLieuRealtime());
         timerRealtime.start();
     }
     
-    public ChiaCaUi() {
-        khoiTaoGiaoDien();
-        taiDuLieuCaTuDatabase(null);
+    // Constructor cũ chạy mặc định là Nhân Viên Thường để an toàn
+    public ChiaCaUi(String maNV) {
+        this(maNV, false); 
     }
 
     // =======================================================
@@ -86,11 +92,9 @@ public class ChiaCaUi extends JPanel {
             @Override
             protected TruyVanSieuTocDAO.DuLieuChiaCaDTO doInBackground() {
                 try {
-                    // Quét Auto Checkout trước khi kéo dữ liệu về
                     ccLogic.kiemTraVaTuDongKetCa();
                 } catch (Exception e) {}
                 
-                // Gọi Động Cơ Turbo (Lấy 3 bảng ChiaCa, LoaiCa, NhanVien trong 1 nốt nhạc)
                 return TruyVanSieuTocDAO.getInstance().loadToanBoLichChiaCa();
             }
 
@@ -101,9 +105,9 @@ public class ChiaCaUi extends JPanel {
                     listNhanVienAll = new ArrayList<>(cachedDataCa.mapNhanVien.values());
                     listLoaiCaAll = new ArrayList<>(cachedDataCa.mapLoaiCa.values());
 
-                    // Nạp Combobox Loại Ca
-                    cbCaLam.removeAllItems();
-                    for (LoaiCa lc : listLoaiCaAll) cbCaLam.addItem(lc.getTenCa());
+                    if (selectorCaLam != null) {
+                        selectorCaLam.setItems(listLoaiCaAll);
+                    }
 
                     if (pnlLichRight != null) pnlLichRight.taiDuLieuLenLich();
                     if (onSuccessCallback != null) onSuccessCallback.run();
@@ -136,8 +140,8 @@ public class ChiaCaUi extends JPanel {
     private void hienThiChiTietCaLam(String tenCa, String ngayFormat, String maNVUuTien) {
         if (cachedDataCa == null) return;
         xoaRongForm(ngayFormat); 
-        cbCaLam.setSelectedItem(tenCa);
-
+        selectorCaLam.setSelectedItem(tenCa);
+        DateTimeFormatter dateFormatter = java.time.format.DateTimeFormatter.ofPattern("[dd/MM/yyyy][d/M/yyyy]");
         try {
             LocalDate date = LocalDate.parse(ngayFormat, DateTimeFormatter.ofPattern("dd/MM/yyyy"));
             String maLoaiCa = "";
@@ -148,14 +152,18 @@ public class ChiaCaUi extends JPanel {
             List<ChiaCa> matchingCa = new ArrayList<>();
             ChiaCa caCuaToi = null; 
 
-            // Đọc trực tiếp từ Cache (O(N) bộ nhớ, 0 truy vấn DB)
             for (ChiaCa cc : cachedDataCa.dsChiaCa) {
+                // 🔥 LỌC PHÂN QUYỀN: Nhân viên thường không được xem ca của người khác
+                if (!isQuanLy && (cc.getMaNV() == null || !cc.getMaNV().trim().equals(maNVDangNhap.trim()))) {
+                    continue;
+                }
+
                 if (cc.getNgayLam() != null && cc.getNgayLam().equals(date) 
                     && cc.getMaLoaiCa().equals(maLoaiCa) 
                     && !cc.getTinhTrang().equals("Đã hủy")) {
                     
                     matchingCa.add(cc);
-                    if (maNVUuTien != null && cc.getMaNV().trim().equals(maNVUuTien.trim())) {
+                    if (maNVUuTien != null && cc.getMaNV() != null && cc.getMaNV().trim().equals(maNVUuTien.trim())) {
                         caCuaToi = cc;
                     }
                 }
@@ -186,16 +194,15 @@ public class ChiaCaUi extends JPanel {
                 btnApDung.setVisible(false);
                 
                 if ("Đã phân công".equalsIgnoreCase(displayCa.getTinhTrang())) {
-                    btnDuyetCa.setVisible(false); // Không cần nút duyệt nữa vì DB gộp chung vào "Đã phân công"
-                    btnHuyCa.setVisible(true);
+                    btnDuyetCa.setVisible(false); 
+                    btnHuyCa.setVisible(isQuanLy); // Chỉ Quản lý mới được hủy
                     btnKetCa.setVisible(false);
                 } else if ("Đang làm việc".equalsIgnoreCase(displayCa.getTinhTrang())) {
                     btnDuyetCa.setVisible(false);
                     btnHuyCa.setVisible(false); 
-                    btnKetCa.setVisible(true);
+                    btnKetCa.setVisible(true); // 🔥 Nhân viên được phép bấm KẾT CA
                     if (timerRealtime != null) timerRealtime.restart();
                 } else {
-                    // Đã hoàn thành hoặc Đã hủy thì ẩn hết nút thao tác
                     btnDuyetCa.setVisible(false);
                     btnHuyCa.setVisible(false);
                     btnKetCa.setVisible(false);
@@ -210,7 +217,6 @@ public class ChiaCaUi extends JPanel {
         hienThiChiTietCaLam(tenCa, ngayFormat, maNVDangNhap);
     }
 
-    // Giao diện (Giữ nguyên cấu trúc xịn xò của cậu)
     private void khoiTaoGiaoDien() {
         setLayout(new BorderLayout(0, 0));
         setBackground(MAU_NEN);
@@ -218,7 +224,8 @@ public class ChiaCaUi extends JPanel {
         JPanel pnlHeader = new JPanel(new BorderLayout());
         pnlHeader.setBackground(Color.WHITE);
         pnlHeader.setBorder(new EmptyBorder(15, 25, 15, 25));
-        JLabel lblTitle = new JLabel("Hệ thống quản lý ca làm việc");
+        
+        JLabel lblTitle = new JLabel(isQuanLy ? "Hệ thống quản lý ca làm việc" : "Lịch làm việc của tôi");
         lblTitle.setFont(FONT_DAM.deriveFont(28f));
         
         JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
@@ -234,9 +241,8 @@ public class ChiaCaUi extends JPanel {
         btnHuyCa.addActionListener(e -> thucHienHuyCa());
         btnHuyCa.setVisible(false); 
         
-     // 🔥 ĐỔI SANG FORM NÚT XÁM CHUẨN & LOAD LẠI DATABASE
         JButton btnHuy = GUI.HoTro.TienIchGiaoDien.taoNutHienDai("Làm mới ↻", new Color(100, 116, 139));
-        btnHuy.setPreferredSize(new Dimension(120, 42)); // Chiều cao 42 cho cân đối với form
+        btnHuy.setPreferredSize(new Dimension(120, 42)); 
         btnHuy.addActionListener(e -> {
             taiDuLieuCaTuDatabase(() -> xoaRongForm(txtNgayApDung.getText()));
         });
@@ -244,6 +250,7 @@ public class ChiaCaUi extends JPanel {
         btnApDung = new NutBoGoc("Áp dụng");
         btnApDung.setColorBackground(new Color(249, 115, 22));
         btnApDung.addActionListener(e -> thucHienLuuChiaCa());
+        btnApDung.setVisible(isQuanLy); // 🔥 ẨN NÚT TẠO CA VỚI NHÂN VIÊN
         
         btnKetCa = new NutBoGoc("Kết Ca");
         btnKetCa.setColorBackground(new Color(16, 185, 129)); 
@@ -255,7 +262,9 @@ public class ChiaCaUi extends JPanel {
         pnlButtons.add(btnKetCa);
         pnlButtons.add(btnHuy); 
         pnlButtons.add(btnApDung);
-        pnlHeader.add(lblTitle, BorderLayout.WEST); pnlHeader.add(pnlButtons, BorderLayout.EAST);
+        
+        pnlHeader.add(lblTitle, BorderLayout.WEST); 
+        pnlHeader.add(pnlButtons, BorderLayout.EAST);
 
         JPanel pnlBody = new JPanel(new GridBagLayout());
         pnlBody.setBackground(MAU_NEN);
@@ -288,14 +297,15 @@ public class ChiaCaUi extends JPanel {
         txtMaCa.setEnabled(false); txtMaCa.setDisabledTextColor(new Color(100, 100, 100)); 
         pnlForm.add(taoRow("Mã ca :", txtMaCa)); pnlForm.add(Box.createVerticalStrut(15));
 
-        cbCaLam = new JComboBox<>();
-        TienIchGiaoDien.trangTriComboBox(cbCaLam);
-        cbCaLam.setRenderer(taoRendererCombo());
-        pnlForm.add(taoRow("Chọn ca * :", cbCaLam)); pnlForm.add(Box.createVerticalStrut(15));
+        selectorCaLam = new ThanhChonCa();
+        selectorCaLam.setEnabled(isQuanLy); // Lọc quyền
+        pnlForm.add(taoRow("Chọn ca * :", selectorCaLam)); 
+        pnlForm.add(Box.createVerticalStrut(15));
 
         pnlForm.add(taoRow("Ngày áp dụng :", taoMiniDatePicker())); pnlForm.add(Box.createVerticalStrut(15));
 
         txtTimNhanVien = new TheBongDo.RoundedTextField("Tìm kiếm nhân viên...", 0);
+        txtTimNhanVien.setEnabled(isQuanLy); // Lọc quyền
         pnlForm.add(taoRow("Nhân viên :", txtTimNhanVien)); pnlForm.add(Box.createVerticalStrut(10));
         
         pnlDanhSachTag = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8)); pnlDanhSachTag.setOpaque(false);
@@ -318,7 +328,6 @@ public class ChiaCaUi extends JPanel {
         txtCheckOut.setEnabled(false); txtCheckOut.setDisabledTextColor(Color.GRAY);
         pnlForm.add(taoRow("Giờ Check-out :", txtCheckOut)); pnlForm.add(Box.createVerticalStrut(15));
 
-       // Giảm bớt các trạng thái màu mè, đưa về chuẩn của DB
         cbTinhTrang = new JComboBox<>(new String[]{"Chưa Phân Công", "Đã phân công", "Đang làm việc", "Đã hoàn thành", "Đã hủy"});
         cbTinhTrang.setEnabled(false); 
         TienIchGiaoDien.trangTriComboBox(cbTinhTrang);
@@ -370,11 +379,15 @@ public class ChiaCaUi extends JPanel {
         JPanel pnl = new JPanel(new BorderLayout(5, 0)); pnl.setOpaque(false);
         txtNgayApDung = new TheBongDo.RoundedTextField("dd/MM/yyyy", 0);
         txtNgayApDung.setText(LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-        NutBoGoc btn = new NutBoGoc("📅"); btn.setPreferredSize(new Dimension(45, 45));
-        btn.setColorBackground(new Color(236, 242, 255)); btn.setMargin(new Insets(2, 2, 2, 2));
+        txtNgayApDung.setEnabled(isQuanLy);
+        
+        btnLich = new NutBoGoc("📅"); btnLich.setPreferredSize(new Dimension(45, 45));
+        btnLich.setColorBackground(new Color(236, 242, 255)); btnLich.setMargin(new Insets(2, 2, 2, 2));
+        btnLich.setEnabled(isQuanLy); // Khóa nút chọn ngày nếu là nhân viên
+        
         JPopupMenu popup = taoPopupLich();
-        btn.addActionListener(e -> popup.show(btn, 0, btn.getHeight()));
-        pnl.add(txtNgayApDung, BorderLayout.CENTER); pnl.add(btn, BorderLayout.EAST);
+        btnLich.addActionListener(e -> popup.show(btnLich, 0, btnLich.getHeight()));
+        pnl.add(txtNgayApDung, BorderLayout.CENTER); pnl.add(btnLich, BorderLayout.EAST);
         return pnl;
     }
 
@@ -402,6 +415,7 @@ public class ChiaCaUi extends JPanel {
             public void removeUpdate(DocumentEvent e) { update(); }
             public void changedUpdate(DocumentEvent e) { update(); }
             private void update() {
+                if (!isQuanLy) return;
                 String text = txtTimNhanVien.getText().toLowerCase(); suggestModel.clear();
                 if (text.isEmpty()) { suggestPopup.setVisible(false); return; }
                 for (NhanVien nv : listNhanVienAll) {
@@ -437,13 +451,20 @@ public class ChiaCaUi extends JPanel {
         };
         tag.setOpaque(false); tag.setLayout(new FlowLayout(FlowLayout.CENTER, 10, 5));
         JLabel lbl = new JLabel(nv.getHoTen() + " (" + nv.getMaNV() + ")"); lbl.setFont(FONT_THUONG.deriveFont(15f));
-        JLabel close = new JLabel("✕"); close.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        close.addMouseListener(new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) {
-                danhSachMaNVDaChon.remove(nv.getMaNV());
-                pnlDanhSachTag.remove(tag); pnlDanhSachTag.revalidate(); pnlDanhSachTag.repaint();
-            }
-        });
+        JLabel close = new JLabel("✕"); 
+        
+        if (isQuanLy) { // Chỉ quản lý mới được xóa tag
+            close.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            close.addMouseListener(new MouseAdapter() {
+                public void mouseClicked(MouseEvent e) {
+                    danhSachMaNVDaChon.remove(nv.getMaNV());
+                    pnlDanhSachTag.remove(tag); pnlDanhSachTag.revalidate(); pnlDanhSachTag.repaint();
+                }
+            });
+        } else {
+            close.setText(""); // Ẩn nút X nếu là NV
+        }
+        
         tag.add(lbl); tag.add(close);
         pnlDanhSachTag.add(tag); pnlDanhSachTag.revalidate(); pnlDanhSachTag.repaint();
     }
@@ -481,12 +502,15 @@ public class ChiaCaUi extends JPanel {
                 TienIchGiaoDien.hienThiThongBao(this, "Lỗi: Không tạo ca làm việc cho quá khứ!", "ERROR"); return;
             }
 
-            int selectedIdx = cbCaLam.getSelectedIndex();
+            int selectedIdx = selectorCaLam.getSelectedIndex();
+            if (selectedIdx < 0 || listLoaiCaAll.isEmpty()) {
+                TienIchGiaoDien.hienThiThongBao(this, "Vui lòng chọn ca làm hợp lệ!", "WARNING");
+                return;
+            }
             if (listLoaiCaAll.isEmpty()) return;
             String maLoaiCa = listLoaiCaAll.get(selectedIdx).getMaLoaiCa();
             String tenCa = listLoaiCaAll.get(selectedIdx).getTenCa();
             
-            // Check trùng ca trong Cache thay vì DB
             for (ChiaCa caDB : cachedDataCa.dsChiaCa) {
                 if (caDB.getNgayLam() != null && caDB.getNgayLam().equals(ngayLam) 
                     && caDB.getMaLoaiCa().equals(maLoaiCa) 
@@ -504,14 +528,13 @@ public class ChiaCaUi extends JPanel {
                 String maCaMoi = TaoMaTuDongLogic.taoMaCa();
                 ChiaCa ca = new ChiaCa.ThoXayChiaCa().ganMaCa(maCaMoi).ganMaLoaiCa(maLoaiCa)
                     .ganNgayLam(ngayLam).ganMaNV(maNV).ganTinhTrang("Đã phân công").ganTienDauCa(tienDau).taoMoi();
-                ccLogic.themChiaCa(ca); // Ghi xuống DB
+                ccLogic.themChiaCa(ca); 
                 soCaThanhCong++;
                 try { Thread.sleep(10); } catch (Exception ignored) {}
             }
 
             TienIchGiaoDien.hienThiThongBao(this, "Đã tạo thành công " + soCaThanhCong + " ca làm việc!", "SUCCESS");
             
-            // 🔥 SAU KHI LƯU DB, GỌI ĐỘNG CƠ TẢI LẠI DỮ LIỆU ĐỂ RENDER UI
             taiDuLieuCaTuDatabase(() -> xoaRongForm(txtNgayApDung.getText()));
             
         } catch (Exception e) {
@@ -585,12 +608,13 @@ public class ChiaCaUi extends JPanel {
 
     private void xoaRongForm(String ngayFormat) {
         danhSachCaDangChon.clear(); 
-        if(btnApDung != null) btnApDung.setVisible(true);
+        
+        if(btnApDung != null) btnApDung.setVisible(isQuanLy); // 🔥 ẨN NÚT VỚI NHÂN VIÊN
         if(btnHuyCa != null) btnHuyCa.setVisible(false);
         if(btnDuyetCa != null) btnDuyetCa.setVisible(false);
 
         txtNgayApDung.setText(ngayFormat);
-        if (cbCaLam.getItemCount() > 0) cbCaLam.setSelectedIndex(0);
+        if (selectorCaLam.getItemCount() > 0) selectorCaLam.setSelectedIndex(0);
         
         txtMaCa.setText(TaoMaTuDongLogic.taoMaCa());
         danhSachMaNVDaChon.clear(); pnlDanhSachTag.removeAll();
@@ -676,8 +700,12 @@ public class ChiaCaUi extends JPanel {
             if (cachedDataCa == null) return;
             mapCaLamHienTai.clear();
             
-            // Xử lý thần tốc bằng Memory O(N)
             for (ChiaCa cc : cachedDataCa.dsChiaCa) {
+                // 🔥 LỌC PHÂN QUYỀN TRÊN LỊCH CHÍNH: Nếu không phải quản lý, bỏ qua ca của người khác
+                if (!isQuanLy && (cc.getMaNV() == null || !cc.getMaNV().trim().equals(maNVDangNhap.trim()))) {
+                    continue; 
+                }
+
                 if (cc.getNgayLam() != null && cc.getNgayLam().getYear() == ym.getYear() 
                     && cc.getNgayLam().getMonthValue() == ym.getMonthValue()
                     && !cc.getTinhTrang().equals("Đã hủy")) {
@@ -771,5 +799,141 @@ public class ChiaCaUi extends JPanel {
                 g2.drawString(tenHienThi, 5, 17); g2.dispose();
             }
         }
+    }
+        // =======================================================
+    // COMPONENT CHỌN CA LÀM (DẠNG NÚT BẤM NGANG)
+    // =======================================================
+    class ThanhChonCa extends JPanel {
+        private List<LoaiCa> dsCa = new ArrayList<>();
+        private int selectedIndex = -1;
+        private boolean isEnabled = true;
+        private JPanel container;
+
+        public ThanhChonCa() {
+            setLayout(new BorderLayout());
+            setOpaque(false);
+            
+            // FlowLayout xếp các nút nằm ngang từ trái qua phải
+            container = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+            container.setOpaque(false);
+            add(container, BorderLayout.CENTER);
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.isEnabled = enabled;
+            renderButtons();
+        }
+
+        public void setItems(List<LoaiCa> items) {
+            this.dsCa = items;
+            if (!items.isEmpty() && selectedIndex == -1) selectedIndex = 0;
+            renderButtons();
+        }
+
+        public void setSelectedItem(String tenCa) {
+            for (int i = 0; i < dsCa.size(); i++) {
+                if (dsCa.get(i).getTenCa().equals(tenCa)) {
+                    selectedIndex = i;
+                    renderButtons();
+                    break;
+                }
+            }
+        }
+
+        public void setSelectedIndex(int idx) {
+            if (idx >= 0 && idx < dsCa.size()) {
+                selectedIndex = idx;
+                renderButtons();
+            }
+        }
+
+        public int getSelectedIndex() { return selectedIndex; }
+        public int getItemCount() { return dsCa.size(); }
+
+        // Hàm vẽ lại các nút dựa trên danh sách Ca và trạng thái hiện tại
+        private void renderButtons() {
+            container.removeAll();
+            for (int i = 0; i < dsCa.size(); i++) {
+                final int idx = i;
+                LoaiCa ca = dsCa.get(i);
+                boolean isSelected = (i == selectedIndex);
+
+                JPanel btn = new JPanel(new BorderLayout()) {
+                    @Override
+                    protected void paintComponent(Graphics g) {
+                        Graphics2D g2 = (Graphics2D) g.create();
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        if (isSelected) {
+                            g2.setColor(new Color(3, 105, 161)); // Xanh dương đậm khi được chọn
+                        } else {
+                            g2.setColor(isEnabled ? Color.WHITE : new Color(240, 240, 240)); // Trắng/Xám khi bỏ chọn
+                        }
+                        g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 20, 20); // Bo góc 20
+
+                        if (!isSelected) {
+                            g2.setColor(new Color(200, 200, 200)); // Viền xám
+                            g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 20, 20);
+                        }
+                        g2.dispose();
+                    }
+                };
+                btn.setOpaque(false);
+                btn.setBorder(new EmptyBorder(8, 20, 8, 20)); // Canh lề cho chữ bên trong nút
+
+                JLabel lbl = new JLabel(ca.getTenCa(), SwingConstants.CENTER);
+                lbl.setFont(FONT_THUONG.deriveFont(15f));
+                lbl.setForeground(isSelected ? Color.WHITE : (isEnabled ? MAU_CHU_CHINH : Color.GRAY));
+                btn.add(lbl, BorderLayout.CENTER);
+
+                if (isEnabled) {
+                    btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                    btn.addMouseListener(new MouseAdapter() {
+                        @Override
+                        public void mouseClicked(MouseEvent e) {
+                            selectedIndex = idx; // Cập nhật vị trí đang chọn
+                            renderButtons();     // Vẽ lại màu sắc
+                        }
+                    });
+                }
+                container.add(btn);
+            }
+            container.revalidate();
+            container.repaint();
+        }
+    }
+    
+    public static void main(String[] args) {
+        // Thiết lập giao diện giống hệ điều hành (Windows/Mac) để UI mượt mà hơn
+        try {
+            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+                if ("Nimbus".equals(info.getName())) { // Hoặc dùng "Windows" nếu chạy trên Windows
+                    UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+
+        // Khởi chạy giao diện trong luồng sự kiện Event Dispatch Thread (EDT) của Swing
+        SwingUtilities.invokeLater(() -> {
+            JFrame frame = new JFrame("Hệ thống quản lý ca làm việc - Test Mode");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            
+            // Đặt kích thước lớn một chút vì giao diện của bạn có cả bảng lịch bên phải rất rộng
+            frame.setSize(1400, 850); 
+            frame.setLocationRelativeTo(null); // Hiển thị khung hình ở giữa màn hình
+
+            // Khởi tạo panel với một mã nhân viên giả lập (ví dụ: "NV001") để kiểm thử
+            // Bạn cũng có thể dùng constructor không tham số: ChiaCaUi panel = new ChiaCaUi();
+            ChiaCaUi panel = new ChiaCaUi("NV001");
+
+            frame.add(panel);
+            frame.setVisible(true);
+        });
     }
 }

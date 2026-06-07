@@ -508,6 +508,7 @@ public class BanHangUi extends JPanel implements DanhSachSPUi.CallBackGioHang {
         // Bật panel giỏ hàng lên ngay lập tức
         if (pnlGioHang.getParent() == null) {
             this.add(pnlGioHang, BorderLayout.EAST);
+            pnlDanhSachSP.setGiaoDienThuGon(true);
             this.revalidate();
         }
         renderLaiDanhSachMon();

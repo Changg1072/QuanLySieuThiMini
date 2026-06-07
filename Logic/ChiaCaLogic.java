@@ -495,52 +495,22 @@ public class ChiaCaLogic {
     public boolean kiemTraNhanVienDangTrongCa(String maNV) {
         try {
             LocalDate homNay = LocalDate.now();
-            LocalTime bayGio = LocalTime.now();
             
-            // Tìm mã ca hiện tại dựa theo giờ thực tế
-            Logic.LoaiCaLogic lcLogic = new Logic.LoaiCaLogic();
-            List<Data.LoaiCa> dsLoaiCa = lcLogic.layDanhSachLoaiCa();
-            String maCaHienTai = null;
-
-            // ==========================================
-            // 🔥 ĐÃ FIX: Đồng bộ logic thời gian với Check-in
-            // ==========================================
-            for (Data.LoaiCa lc : dsLoaiCa) {
-                java.time.LocalTime batDau = lc.getGioBatDau();
-                java.time.LocalTime ketThuc = lc.getGioKetThuc();
-                
-                // Trừ đi 60 phút để khớp với logic cho phép vào ca sớm
-                java.time.LocalTime batDauChoPhep = batDau.minusMinutes(60); 
-
-                boolean trongCa = false;
-                if (batDauChoPhep.isBefore(ketThuc)) {
-                    // Ca bình thường
-                    trongCa = !bayGio.isBefore(batDauChoPhep) && !bayGio.isAfter(ketThuc);
-                } else { 
-                    // Ca qua đêm
-                    trongCa = !bayGio.isBefore(batDauChoPhep) || !bayGio.isAfter(ketThuc);
-                }
-
-                if (trongCa) {
-                    maCaHienTai = lc.getMaLoaiCa();
-                    break;
-                }
-            }
-
-            // Nếu không quét được mã ca nào khớp giờ thì báo lỗi
-            if (maCaHienTai == null) return false;
-
-            // Kiểm tra nhân viên này có lịch hôm nay và đang ở trạng thái Đang làm việc không
-            List<ChiaCa> dsCa = layDanhSachChiaCa();
-            for (ChiaCa cc : dsCa) {
+            // 🔥 LOGIC MỚI: Chỉ quét Database xem hôm nay nhân viên này 
+            // có ca nào đang ở trạng thái "Đang làm việc" không.
+            // Bỏ qua việc xét giờ đồng hồ để tránh lỗi lố giờ chưa kịp kết ca.
+            List<Data.ChiaCa> dsCa = layDanhSachChiaCa();
+            
+            for (Data.ChiaCa cc : dsCa) {
                 if (cc.getNgayLam() != null && cc.getNgayLam().equals(homNay) 
-                    && cc.getMaLoaiCa().equals(maCaHienTai)
-                    && cc.getMaNV().equals(maNV)
-                    && "Đang làm việc".equals(cc.getTinhTrang())) {
+                    && cc.getMaNV() != null && cc.getMaNV().trim().equalsIgnoreCase(maNV.trim())
+                    && cc.getTinhTrang() != null 
+                    && cc.getTinhTrang().trim().equalsIgnoreCase("Đang làm việc")) {
                     return true;
                 }
             }
         } catch (Exception e) {
+            System.err.println("Lỗi khi kiểm tra nhân viên trong ca: " + e.getMessage());
             e.printStackTrace();
         }
         return false;

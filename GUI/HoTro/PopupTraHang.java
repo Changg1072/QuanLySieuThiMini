@@ -222,15 +222,23 @@ public class PopupTraHang extends JDialog {
     private void xuLyTraHang() {
         // --- 🛡️ BƯỚC BẢO MẬT: KIỂM TRA CA LÀM VIỆC ---
         try {
-            // Lấy mã nhân viên đang đăng nhập từ hệ thống (Ví dụ: "NV001")
-            // Bạn có thể lấy từ biến static hoặc session của bạn
-            String maNVHienTai = "NV001"; 
+            Logic.ChiaCaLogic ccLogic = new Logic.ChiaCaLogic(); 
+            
+            // 🔥 FIX LỖI HARDCODE: Tự động tìm nhân viên đang trực ca thay vì gán cứng "NV001"
+            String maNVHienTai = "";
+            for (Data.ChiaCa cc : ccLogic.layDanhSachChiaCa()) {
+                if (cc.getNgayLam() != null && cc.getNgayLam().equals(LocalDate.now())
+                    && cc.getTinhTrang() != null 
+                    && cc.getTinhTrang().trim().equalsIgnoreCase("Đang làm việc")) {
+                    maNVHienTai = cc.getMaNV();
+                    break;
+                }
+            }
 
-            Logic.ChiaCaLogic ccLogic = new Logic.ChiaCaLogic(); //
-            if (!ccLogic.kiemTraNhanVienDangTrongCa(maNVHienTai)) { //
+            if (maNVHienTai.isEmpty() || !ccLogic.kiemTraNhanVienDangTrongCa(maNVHienTai)) { 
                 GUI.HoTro.TienIchGiaoDien.hienThiThongBao(this, 
                     "BẠN KHÔNG TRONG CA LÀM VIỆC!\n" +
-                    "Vui lòng điểm danh 'Có mặt' trước khi thực hiện trả hàng.", "ERROR"); //
+                    "Vui lòng điểm danh 'Có mặt' trước khi thực hiện trả hàng.", "ERROR"); 
                 return; 
             }
         } catch (Exception e) {

@@ -281,10 +281,10 @@ public class ChiTietChotLuongDialog extends JDialog {
         pnl.add(new ThongSoRow("Lương cơ bản", df.format(luongCoBan) + " VNĐ/h", COLOR_TEXT_PRIMARY, false));
         pnl.add(Box.createRigidArea(new Dimension(0, 15)));
         
-        pnl.add(new ThongSoRow("Giờ làm hệ thống", gioLam + "h", COLOR_TEXT_PRIMARY, false));
+        pnl.add(new ThongSoRow("Giờ làm hệ thống", String.format("%.2f", gioLam) + "h", COLOR_TEXT_PRIMARY, false));
         pnl.add(Box.createRigidArea(new Dimension(0, 15)));
         
-        pnl.add(new ThongSoRow("Tăng ca (OT) x" + heSoOT, gioLam > 0 && gioOT == 0 ? "0h" : gioOT + "h", COLOR_TEXT_PRIMARY, false));
+        pnl.add(new ThongSoRow("Tăng ca (OT) x" + heSoOT, gioLam > 0 && gioOT == 0 ? "0h" : String.format("%.2f", gioOT) + "h", COLOR_TEXT_PRIMARY, false));
         pnl.add(Box.createRigidArea(new Dimension(0, 15)));
         
         String phatStr = phatHeThong.compareTo(BigDecimal.ZERO) > 0 ? "-" + df.format(phatHeThong) + " VNĐ" : "0 VNĐ";

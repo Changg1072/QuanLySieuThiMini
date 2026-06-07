@@ -6,6 +6,27 @@
     "configurations": [
         {
             "type": "java",
+            "name": "KiemKeGUI",
+            "request": "launch",
+            "mainClass": "GUI.KiemKeGUI",
+            "projectName": "QuanLySieuThiMini_e2aa0a7f"
+        },
+        {
+            "type": "java",
+            "name": "BangLuongUi",
+            "request": "launch",
+            "mainClass": "GUI.BangLuongUi",
+            "projectName": "QuanLySieuThiMini_e2aa0a7f"
+        },
+        {
+            "type": "java",
+            "name": "ChiaCaUi",
+            "request": "launch",
+            "mainClass": "GUI.ChiaCaUi",
+            "projectName": "QuanLySieuThiMini_e2aa0a7f"
+        },
+        {
+            "type": "java",
             "name": "ThongKePanel",
             "request": "launch",
             "mainClass": "GUI.ThongKe.ThongKePanel",

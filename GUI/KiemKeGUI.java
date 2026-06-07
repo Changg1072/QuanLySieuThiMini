@@ -61,7 +61,7 @@ public class KiemKeGUI extends JPanel {
     private JComboBox<String> cboSapXep;
     private JTextField txtTimKiem;
     private JLabel lblTenSPChiTiet, lblMaSPChiTiet, lblAnhSPChiTiet;
-    private JComboBox<String> cboLoHang; 
+    private ThanhChonLo cboLoHang;
     private JLabel lblTonHeThong, lblDVT1, lblDVT2, lblDVT3, lblChenhLech;
     private JTextField txtKiemDem;
     private PanelBoGoc panelTrangThai;
@@ -91,6 +91,7 @@ public class KiemKeGUI extends JPanel {
     private String tenNhanVienHienTai = "Chưa rõ";
     private JLabel lblUserInfo;
     private JLabel lblTongKiemKeSP;
+    private PanelBoGoc roundedStat;
     public void setNhanVienTruyenVao(String maNV, String tenNV) {
         this.maNhanVienHienTai = maNV;
         this.tenNhanVienHienTai = tenNV;
@@ -355,226 +356,157 @@ public class KiemKeGUI extends JPanel {
         PanelBoGoc pnlChiTiet = new PanelBoGoc(20, MAU_NEN_APP); 
         pnlChiTiet.setLayout(new BorderLayout(0, 20));
 
-        PanelBoGoc cardInfo = new PanelBoGoc(20, MAU_TRANG);
-        cardInfo.setLayout(new BorderLayout(20, 0));
-        cardInfo.setBorder(new EmptyBorder(20, 30, 20, 30));
+        // --- BƯỚC 1: CARD THÔNG TIN SẢN PHẨM HIỆN ĐẠI (CÓ SHADOW MỜ) ---
+        PanelBoGoc cardInfo = new PanelBoGoc(16, MAU_TRANG) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                // Đổ bóng mờ (Subtle Shadow)
+                g2.setColor(new Color(0, 0, 0, 8));
+                g2.fillRoundRect(2, 4, getWidth() - 4, getHeight() - 4, 16, 16);
+                g2.setColor(getBackground());
+                g2.fillRoundRect(0, 0, getWidth() - 2, getHeight() - 4, 16, 16);
+                g2.setColor(new Color(243, 244, 246));
+                g2.drawRoundRect(0, 0, getWidth() - 2, getHeight() - 4, 16, 16);
+                g2.dispose();
+            }
+        };
+        cardInfo.setLayout(new BorderLayout(25, 0));
+        cardInfo.setBorder(new EmptyBorder(25, 25, 25, 25));
 
-        lblAnhSPChiTiet = new JLabel("Ảnh", SwingConstants.CENTER);
-        lblAnhSPChiTiet.setPreferredSize(new Dimension(100, 100));
-        lblAnhSPChiTiet.setBorder(BorderFactory.createLineBorder(MAU_VIEN));
+        // Ảnh Sản Phẩm bên trái
+        lblAnhSPChiTiet = new JLabel("", SwingConstants.CENTER);
+        lblAnhSPChiTiet.setPreferredSize(new Dimension(140, 140));
+        lblAnhSPChiTiet.setBorder(BorderFactory.createLineBorder(new Color(243, 244, 246), 1));
+        lblAnhSPChiTiet.setBackground(Color.WHITE);
+        lblAnhSPChiTiet.setOpaque(true);
 
-        JPanel pnlTextInfo = new JPanel(new GridLayout(5, 1, 0, 5));
+        // Vùng Thông tin Text bên phải
+        JPanel pnlTextInfo = new JPanel();
+        pnlTextInfo.setLayout(new BoxLayout(pnlTextInfo, BoxLayout.Y_AXIS));
         pnlTextInfo.setOpaque(false);
+        
         lblTenSPChiTiet = new JLabel("Vui lòng chọn sản phẩm...");
-        lblTenSPChiTiet.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        lblTenSPChiTiet.setForeground(MAU_CHU_CHINH);
+        lblTenSPChiTiet.setFont(new Font("Segoe UI", Font.BOLD, 26)); // To & Đậm
+        lblTenSPChiTiet.setForeground(new Color(17, 24, 39));
+        lblTenSPChiTiet.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        lblMaSPChiTiet = new JLabel("Mã: ---  |  Loại: ---  |  ĐVT: ---");
-        lblMaSPChiTiet.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-        lblMaSPChiTiet.setForeground(MAU_CHU_NHAT);
+        lblMaSPChiTiet = new JLabel("Mã: ---  •  Loại: ---  •  ĐVT: ---");
+        lblMaSPChiTiet.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblMaSPChiTiet.setForeground(new Color(107, 114, 128)); // Màu xám nhạt
+        lblMaSPChiTiet.setAlignmentX(Component.LEFT_ALIGNMENT);
         
+        // Pill (Thẻ) hiển thị số lượng tổng (Highlight)
         lblTongKiemKeSP = new JLabel("Tổng kiểm đếm: -- / --");
-        lblTongKiemKeSP.setFont(new Font("Segoe UI", Font.ITALIC, 14));
-        lblTongKiemKeSP.setForeground(MAU_XANH_PRIMARY);
+        lblTongKiemKeSP.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblTongKiemKeSP.setForeground(new Color(37, 99, 235));
+        
+        roundedStat = new PanelBoGoc(12, new Color(239, 246, 255));
+        roundedStat.setLayout(new BorderLayout());
+        roundedStat.setBorder(new EmptyBorder(6, 12, 6, 12));
+        roundedStat.add(lblTongKiemKeSP, BorderLayout.CENTER);
+        roundedStat.setAlignmentX(Component.LEFT_ALIGNMENT);
+        roundedStat.setMaximumSize(new Dimension(300, 32));
 
-        JPanel pnlChonLo = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        // Vùng chọn Lô hàng
+        JPanel pnlChonLo = new JPanel();
+        pnlChonLo.setLayout(new BoxLayout(pnlChonLo, BoxLayout.Y_AXIS));
         pnlChonLo.setOpaque(false);
-        JLabel lblLo = new JLabel("Lô Đang Đếm:  ");
-        lblLo.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        lblLo.setForeground(MAU_XANH_PRIMARY);
+        pnlChonLo.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel lblLo = new JLabel("CURRENTLY COUNTING / LÔ ĐANG ĐẾM:");
+        lblLo.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblLo.setForeground(new Color(156, 163, 175));
+        lblLo.setBorder(new EmptyBorder(15, 0, 8, 0));
+        lblLo.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        cboLoHang = new JComboBox<>();
-        cboLoHang.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        cboLoHang.setPreferredSize(new Dimension(280, 30));
-        cboLoHang.setBackground(MAU_TRANG);
-        
+        cboLoHang = new ThanhChonLo();
         cboLoHang.addItemListener(loHangListener);
+        cboLoHang.setAlignmentX(Component.LEFT_ALIGNMENT);
         
         pnlChonLo.add(lblLo);
         pnlChonLo.add(cboLoHang);
 
         pnlTextInfo.add(lblTenSPChiTiet);
+        pnlTextInfo.add(Box.createVerticalStrut(8));
         pnlTextInfo.add(lblMaSPChiTiet);
-        pnlTextInfo.add(lblTongKiemKeSP);
+        pnlTextInfo.add(Box.createVerticalStrut(15));
+        pnlTextInfo.add(roundedStat);
+        pnlTextInfo.add(Box.createVerticalStrut(5));
         pnlTextInfo.add(pnlChonLo);
         
         cardInfo.add(lblAnhSPChiTiet, BorderLayout.WEST);
         cardInfo.add(pnlTextInfo, BorderLayout.CENTER);
 
+        // --- BƯỚC 2: CÁC CARD THỐNG KÊ (Giữ nguyên như cũ) ---
         JPanel pnlThongKe = new JPanel(new GridLayout(1, 3, 20, 0));
         pnlThongKe.setOpaque(false);
 
         PanelBoGoc cardTon = taoCardThongKe("TỒN KHO LÔ NÀY", "📦", MAU_XANH_PRIMARY, MAU_NEN_ICON_XANH, MAU_XANH_NHAT);
         lblTonHeThong = taoLabelSoLieu("0", MAU_XANH_PRIMARY);
         lblDVT1 = taoLabelDVT("Gói");
-        
-        JPanel pnlCenterTon = new JPanel(new GridBagLayout()); 
-        pnlCenterTon.setOpaque(false);
-        pnlCenterTon.add(lblTonHeThong);
-        
-        JPanel pnlWrapTon = new JPanel(new BorderLayout());
-        pnlWrapTon.setOpaque(false);
-        pnlWrapTon.add(pnlCenterTon, BorderLayout.CENTER);
-        pnlWrapTon.add(lblDVT1, BorderLayout.SOUTH);
+        JPanel pnlCenterTon = new JPanel(new GridBagLayout()); pnlCenterTon.setOpaque(false); pnlCenterTon.add(lblTonHeThong);
+        JPanel pnlWrapTon = new JPanel(new BorderLayout()); pnlWrapTon.setOpaque(false);
+        pnlWrapTon.add(pnlCenterTon, BorderLayout.CENTER); pnlWrapTon.add(lblDVT1, BorderLayout.SOUTH);
         cardTon.add(pnlWrapTon, BorderLayout.CENTER);
 
         PanelBoGoc cardKiem = taoCardThongKe("KIỂM ĐẾM THỰC TẾ", "📋", MAU_XANH_LA, MAU_NEN_ICON_LA, new Color(244, 253, 248));
-        
         PanelBoGoc pnlSpinner = new PanelBoGoc(15, MAU_TRANG);
-        pnlSpinner.setLayout(new BorderLayout());
-        pnlSpinner.setBorder(BorderFactory.createLineBorder(MAU_VIEN, 1));
-        pnlSpinner.setPreferredSize(new Dimension(240, 85));
-
-        JButton btnMinus = taoNutSpinner("-");
-        JButton btnPlus = taoNutSpinner("+");
-        btnMinus.addActionListener(e -> tangGiamSoLuong(-1));
-        btnPlus.addActionListener(e -> tangGiamSoLuong(1));
-
-        txtKiemDem = new JTextField();
-        txtKiemDem.setFont(new Font("Segoe UI", Font.BOLD, 50));
-        txtKiemDem.setHorizontalAlignment(JTextField.CENTER);
-        txtKiemDem.setBorder(new EmptyBorder(5, 10, 5, 10)); 
-        txtKiemDem.setOpaque(false);
-        txtKiemDem.setEnabled(false);
+        pnlSpinner.setLayout(new BorderLayout()); pnlSpinner.setBorder(BorderFactory.createLineBorder(MAU_VIEN, 1)); pnlSpinner.setPreferredSize(new Dimension(240, 85));
+        JButton btnMinus = taoNutSpinner("-"); JButton btnPlus = taoNutSpinner("+");
+        btnMinus.addActionListener(e -> tangGiamSoLuong(-1)); btnPlus.addActionListener(e -> tangGiamSoLuong(1));
+        txtKiemDem = new JTextField(); txtKiemDem.setFont(new Font("Segoe UI", Font.BOLD, 50)); txtKiemDem.setHorizontalAlignment(JTextField.CENTER);
+        txtKiemDem.setBorder(new EmptyBorder(5, 10, 5, 10)); txtKiemDem.setOpaque(false); txtKiemDem.setEnabled(false);
         txtKiemDem.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { tinhChenhLech(); }
             public void removeUpdate(DocumentEvent e) { tinhChenhLech(); }
             public void changedUpdate(DocumentEvent e) { tinhChenhLech(); }
         });
-        txtKiemDem.addKeyListener(new KeyAdapter() {
-            public void keyTyped(KeyEvent e) { if (!Character.isDigit(e.getKeyChar())) e.consume(); }
-        });
-
-        pnlSpinner.add(btnMinus, BorderLayout.WEST);
-        pnlSpinner.add(txtKiemDem, BorderLayout.CENTER);
-        pnlSpinner.add(btnPlus, BorderLayout.EAST);
-        
-        JPanel pnlCenterKiem = new JPanel(new GridBagLayout()); 
-        pnlCenterKiem.setOpaque(false);
-        pnlCenterKiem.add(pnlSpinner);
-
+        txtKiemDem.addKeyListener(new KeyAdapter() { public void keyTyped(KeyEvent e) { if (!Character.isDigit(e.getKeyChar())) e.consume(); } });
+        pnlSpinner.add(btnMinus, BorderLayout.WEST); pnlSpinner.add(txtKiemDem, BorderLayout.CENTER); pnlSpinner.add(btnPlus, BorderLayout.EAST);
+        JPanel pnlCenterKiem = new JPanel(new GridBagLayout()); pnlCenterKiem.setOpaque(false); pnlCenterKiem.add(pnlSpinner);
         lblDVT2 = taoLabelDVT("Gói");
-        JPanel pnlWrapKiem = new JPanel(new BorderLayout());
-        pnlWrapKiem.setOpaque(false);
-        pnlWrapKiem.add(pnlCenterKiem, BorderLayout.CENTER);
-        pnlWrapKiem.add(lblDVT2, BorderLayout.SOUTH);
+        JPanel pnlWrapKiem = new JPanel(new BorderLayout()); pnlWrapKiem.setOpaque(false);
+        pnlWrapKiem.add(pnlCenterKiem, BorderLayout.CENTER); pnlWrapKiem.add(lblDVT2, BorderLayout.SOUTH);
         cardKiem.add(pnlWrapKiem, BorderLayout.CENTER);
 
         PanelBoGoc cardLech = taoCardThongKe("CHÊNH LỆCH KHO", "⚖", MAU_CAM_DAM, MAU_NEN_ICON_CAM, new Color(248, 250, 252));
         lblChenhLech = taoLabelSoLieu("0", MAU_XANH_LA);
-        lblTextChenhLechNho = new JLabel("Khớp", SwingConstants.CENTER);
-        lblTextChenhLechNho.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        lblTextChenhLechNho.setForeground(MAU_XANH_LA);
+        lblTextChenhLechNho = new JLabel("Khớp", SwingConstants.CENTER); lblTextChenhLechNho.setFont(new Font("Segoe UI", Font.BOLD, 22)); lblTextChenhLechNho.setForeground(MAU_XANH_LA);
         lblDVT3 = taoLabelDVT("Gói");
-
-        FlowLayout fl = new FlowLayout(FlowLayout.CENTER, 10, 0);
-        fl.setAlignOnBaseline(true); 
-        
-        JPanel pnlSoVaChu = new JPanel(fl);
-        pnlSoVaChu.setOpaque(false);
-        pnlSoVaChu.add(lblChenhLech);
-        pnlSoVaChu.add(lblTextChenhLechNho);
-        
-        JPanel pnlCenterLech = new JPanel(new GridBagLayout()); 
-        pnlCenterLech.setOpaque(false);
-        pnlCenterLech.add(pnlSoVaChu);
-        
-        JPanel pnlWrapLech = new JPanel(new BorderLayout());
-        pnlWrapLech.setOpaque(false);
-        pnlWrapLech.add(pnlCenterLech, BorderLayout.CENTER);
-        pnlWrapLech.add(lblDVT3, BorderLayout.SOUTH);
+        FlowLayout fl = new FlowLayout(FlowLayout.CENTER, 10, 0); fl.setAlignOnBaseline(true); 
+        JPanel pnlSoVaChu = new JPanel(fl); pnlSoVaChu.setOpaque(false); pnlSoVaChu.add(lblChenhLech); pnlSoVaChu.add(lblTextChenhLechNho);
+        JPanel pnlCenterLech = new JPanel(new GridBagLayout()); pnlCenterLech.setOpaque(false); pnlCenterLech.add(pnlSoVaChu);
+        JPanel pnlWrapLech = new JPanel(new BorderLayout()); pnlWrapLech.setOpaque(false);
+        pnlWrapLech.add(pnlCenterLech, BorderLayout.CENTER); pnlWrapLech.add(lblDVT3, BorderLayout.SOUTH);
         cardLech.add(pnlWrapLech, BorderLayout.CENTER);
 
-        pnlThongKe.add(cardTon);
-        pnlThongKe.add(cardKiem);
-        pnlThongKe.add(cardLech);
+        pnlThongKe.add(cardTon); pnlThongKe.add(cardKiem); pnlThongKe.add(cardLech);
 
+        // --- BƯỚC 3: CÁC PANEL BOTTOM (Giữ nguyên như cũ) ---
         JPanel pnlBottom = new JPanel(new BorderLayout(0, 15));
         pnlBottom.setOpaque(false);
-
-        panelTrangThai = new PanelBoGoc(12, new Color(248, 250, 252));
-        panelTrangThai.setLayout(new BorderLayout(15, 0));
-        panelTrangThai.setBorder(new EmptyBorder(15, 20, 15, 20));
+        panelTrangThai = new PanelBoGoc(12, new Color(248, 250, 252)); panelTrangThai.setLayout(new BorderLayout(15, 0)); panelTrangThai.setBorder(new EmptyBorder(15, 20, 15, 20));
+        lblIconTrangThai = taoIconTron("i", MAU_CHU_NHAT); lblIconTrangThai.setBackground(MAU_VIEN);
+        JPanel pnlTextTrangThai = new JPanel(new GridLayout(2, 1)); pnlTextTrangThai.setOpaque(false);
+        JLabel lblTitleTrangThai = new JLabel("TRẠNG THÁI KIỂM KÊ (CỦA LÔ NÀY)"); lblTitleTrangThai.setFont(new Font("Segoe UI", Font.BOLD, 11)); lblTitleTrangThai.setForeground(MAU_CHU_NHAT);
+        lblTextTrangThai = new JLabel("Chưa kiểm đếm"); lblTextTrangThai.setFont(new Font("Segoe UI", Font.BOLD, 18)); lblTextTrangThai.setForeground(MAU_CHU_CHINH);
+        pnlTextTrangThai.add(lblTitleTrangThai); pnlTextTrangThai.add(lblTextTrangThai);
+        lblBadgeTrangThai = new JLabel("CHỜ ĐẾM", SwingConstants.CENTER); lblBadgeTrangThai.setFont(new Font("Segoe UI", Font.BOLD, 13)); lblBadgeTrangThai.setOpaque(true); lblBadgeTrangThai.setBackground(MAU_VIEN); lblBadgeTrangThai.setForeground(MAU_CHU_NHAT); lblBadgeTrangThai.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(MAU_VIEN, 1, true), new EmptyBorder(5, 15, 5, 15)));
+        panelTrangThai.add(lblIconTrangThai, BorderLayout.WEST); panelTrangThai.add(pnlTextTrangThai, BorderLayout.CENTER); panelTrangThai.add(lblBadgeTrangThai, BorderLayout.EAST);
         
-        lblIconTrangThai = taoIconTron("i", MAU_CHU_NHAT);
-        lblIconTrangThai.setBackground(MAU_VIEN);
-        
-        JPanel pnlTextTrangThai = new JPanel(new GridLayout(2, 1));
-        pnlTextTrangThai.setOpaque(false);
-        JLabel lblTitleTrangThai = new JLabel("TRẠNG THÁI KIỂM KÊ (CỦA LÔ NÀY)");
-        lblTitleTrangThai.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblTitleTrangThai.setForeground(MAU_CHU_NHAT);
-        
-        lblTextTrangThai = new JLabel("Chưa kiểm đếm");
-        lblTextTrangThai.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        lblTextTrangThai.setForeground(MAU_CHU_CHINH);
-        
-        pnlTextTrangThai.add(lblTitleTrangThai);
-        pnlTextTrangThai.add(lblTextTrangThai);
-
-        lblBadgeTrangThai = new JLabel("CHỜ ĐẾM", SwingConstants.CENTER);
-        lblBadgeTrangThai.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblBadgeTrangThai.setOpaque(true);
-        lblBadgeTrangThai.setBackground(MAU_VIEN);
-        lblBadgeTrangThai.setForeground(MAU_CHU_NHAT);
-        lblBadgeTrangThai.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(MAU_VIEN, 1, true),
-            new EmptyBorder(5, 15, 5, 15)
-        ));
-        
-        panelTrangThai.add(lblIconTrangThai, BorderLayout.WEST);
-        panelTrangThai.add(pnlTextTrangThai, BorderLayout.CENTER);
-        panelTrangThai.add(lblBadgeTrangThai, BorderLayout.EAST);
-
-        panelLyDo = new PanelBoGoc(12, MAU_TRANG);
-        panelLyDo.setLayout(new BorderLayout(5, 10));
-        panelLyDo.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(MAU_VIEN, 1, true),
-            new EmptyBorder(15, 20, 15, 20)
-        ));
-        
-        JPanel pnlTitleLyDo = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        pnlTitleLyDo.setOpaque(false);
-        JLabel lblIconLyDo = taoIconTron("📄", MAU_TIM);
-        lblIconLyDo.setBackground(new Color(243, 232, 255));
-        lblIconLyDo.setPreferredSize(new Dimension(28, 28));
-        lblIconLyDo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        JLabel lblTitleLyDo = new JLabel("LÝ DO CHÊNH LỆCH (nếu có)");
-        lblTitleLyDo.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblTitleLyDo.setForeground(MAU_TIM); 
-        pnlTitleLyDo.add(lblIconLyDo);
-        pnlTitleLyDo.add(lblTitleLyDo);
-        
-        txtLyDo = new JTextArea(3, 20);
-        txtLyDo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        txtLyDo.setLineWrap(true);
-        txtLyDo.setWrapStyleWord(true);
-        txtLyDo.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(MAU_VIEN, 1),
-            new EmptyBorder(10, 10, 10, 10)
-        ));
-        txtLyDo.setText("Đã kiểm tra");
-        txtLyDo.setForeground(MAU_CHU_CHINH);
-        txtLyDo.addFocusListener(new FocusAdapter() {
-            public void focusGained(FocusEvent e) { if (txtLyDo.getText().equals("Nhập lý do chênh lệch nếu có...")) { txtLyDo.setText(""); txtLyDo.setForeground(MAU_CHU_CHINH); } }
-            public void focusLost(FocusEvent e) { if (txtLyDo.getText().isEmpty()) { txtLyDo.setText("Nhập lý do chênh lệch nếu có..."); txtLyDo.setForeground(MAU_CHU_NHAT); } }
-        });
-        
-        lblDemKyTu = new JLabel("0/200", SwingConstants.RIGHT);
-        lblDemKyTu.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblDemKyTu.setForeground(MAU_CHU_NHAT);
-        txtLyDo.getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) { capNhatDemKyTu(); }
-            public void removeUpdate(DocumentEvent e) { capNhatDemKyTu(); }
-            public void changedUpdate(DocumentEvent e) { capNhatDemKyTu(); }
-        });
-
-        panelLyDo.add(pnlTitleLyDo, BorderLayout.NORTH);
-        panelLyDo.add(new JScrollPane(txtLyDo), BorderLayout.CENTER);
-        panelLyDo.add(lblDemKyTu, BorderLayout.SOUTH);
-
-        pnlBottom.add(panelTrangThai, BorderLayout.NORTH);
-        pnlBottom.add(panelLyDo, BorderLayout.CENTER);
+        panelLyDo = new PanelBoGoc(12, MAU_TRANG); panelLyDo.setLayout(new BorderLayout(5, 10)); panelLyDo.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(MAU_VIEN, 1, true), new EmptyBorder(15, 20, 15, 20)));
+        JPanel pnlTitleLyDo = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0)); pnlTitleLyDo.setOpaque(false);
+        JLabel lblIconLyDo = taoIconTron("📄", MAU_TIM); lblIconLyDo.setBackground(new Color(243, 232, 255)); lblIconLyDo.setPreferredSize(new Dimension(28, 28)); lblIconLyDo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        JLabel lblTitleLyDo = new JLabel("LÝ DO CHÊNH LỆCH (nếu có)"); lblTitleLyDo.setFont(new Font("Segoe UI", Font.BOLD, 13)); lblTitleLyDo.setForeground(MAU_TIM); 
+        pnlTitleLyDo.add(lblIconLyDo); pnlTitleLyDo.add(lblTitleLyDo);
+        txtLyDo = new JTextArea(3, 20); txtLyDo.setFont(new Font("Segoe UI", Font.PLAIN, 14)); txtLyDo.setLineWrap(true); txtLyDo.setWrapStyleWord(true); txtLyDo.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(MAU_VIEN, 1), new EmptyBorder(10, 10, 10, 10))); txtLyDo.setText("Đã kiểm tra"); txtLyDo.setForeground(MAU_CHU_CHINH);
+        txtLyDo.addFocusListener(new FocusAdapter() { public void focusGained(FocusEvent e) { if (txtLyDo.getText().equals("Nhập lý do chênh lệch nếu có...")) { txtLyDo.setText(""); txtLyDo.setForeground(MAU_CHU_CHINH); } } public void focusLost(FocusEvent e) { if (txtLyDo.getText().isEmpty()) { txtLyDo.setText("Nhập lý do chênh lệch nếu có..."); txtLyDo.setForeground(MAU_CHU_NHAT); } } });
+        lblDemKyTu = new JLabel("0/200", SwingConstants.RIGHT); lblDemKyTu.setFont(new Font("Segoe UI", Font.PLAIN, 12)); lblDemKyTu.setForeground(MAU_CHU_NHAT);
+        txtLyDo.getDocument().addDocumentListener(new DocumentListener() { public void insertUpdate(DocumentEvent e) { capNhatDemKyTu(); } public void removeUpdate(DocumentEvent e) { capNhatDemKyTu(); } public void changedUpdate(DocumentEvent e) { capNhatDemKyTu(); } });
+        panelLyDo.add(pnlTitleLyDo, BorderLayout.NORTH); panelLyDo.add(new JScrollPane(txtLyDo), BorderLayout.CENTER); panelLyDo.add(lblDemKyTu, BorderLayout.SOUTH);
+        pnlBottom.add(panelTrangThai, BorderLayout.NORTH); pnlBottom.add(panelLyDo, BorderLayout.CENTER);
 
         pnlChiTiet.add(cardInfo, BorderLayout.NORTH);
         pnlChiTiet.add(pnlThongKe, BorderLayout.CENTER);
@@ -582,7 +514,6 @@ public class KiemKeGUI extends JPanel {
 
         return pnlChiTiet;
     }
-
     private JPanel taoFooter() {
         cardFooter = new CardLayout();
         pnlFooterContainer = new JPanel(cardFooter);
@@ -655,32 +586,31 @@ public class KiemKeGUI extends JPanel {
         return pnlFooterContainer;
     }
     private void capNhatTongKiemDeSP() {
-        if (maSPDangChon.isEmpty()) return;
+        if (maSPDangChon.isEmpty() || roundedStat == null) return;
         
         int tongTonHT = duLieuSQL.mapTongTonKho.getOrDefault(maSPDangChon, 0);
         int tongThucTe = 0;
         
-        // Lấy danh sách các lô của sản phẩm này
         List<ChiTietLoHang> dsLo = duLieuSQL.mapDanhSachLo.get(maSPDangChon);
         for (ChiTietLoHang lo : dsLo) {
             ChiTietKiemKeUI ct = mapTrangThaiUI.get(maSPDangChon + "_" + lo.getMaLoHang());
             if (ct != null && ct.daKiem) {
                 tongThucTe += ct.soLuongThucTe;
-            } else {
-                // Nếu lô chưa đếm, ta coi như thực tế đang bằng 0 (hoặc có thể cộng dồn theo ý cậu)
-                tongThucTe += 0; 
-            }
+            } 
         }
         
-        lblTongKiemKeSP.setText("Tổng kiểm đếm: " + tongThucTe + " / " + tongTonHT + " (Toàn bộ lô)");
-        
-        // Đổi màu để nhấn mạnh cho nhân viên biết
+        // Cập nhật text và đổi nền Pill (highlight background) tùy theo việc khớp số hay chưa
         if (tongThucTe == tongTonHT) {
-            lblTongKiemKeSP.setText("⭐ Tổng kiểm đếm: " + tongThucTe + " / " + tongTonHT + " (Khớp tổng kho)");
-            lblTongKiemKeSP.setForeground(MAU_XANH_LA);
+            lblTongKiemKeSP.setText("⭐ Tổng kiểm đếm: " + tongThucTe + " / " + tongTonHT + " (Đã Khớp Toàn Bộ Lô)");
+            lblTongKiemKeSP.setForeground(new Color(22, 163, 74));   // Xanh lá đậm
+            roundedStat.setBackground(new Color(220, 252, 231));      // Nền Pill xanh lá nhạt
         } else {
-            lblTongKiemKeSP.setForeground(MAU_XANH_PRIMARY);
+            lblTongKiemKeSP.setText("Tổng kiểm đếm: " + tongThucTe + " / " + tongTonHT + " (Toàn bộ lô)");
+            lblTongKiemKeSP.setForeground(new Color(37, 99, 235));    // Xanh dương
+            roundedStat.setBackground(new Color(239, 246, 255));      // Nền Pill xanh dương nhạt
         }
+        
+        roundedStat.repaint();
     }
     // ==========================================
     // LOGIC NGHIỆP VỤ & LƯU DB THỰC TẾ
@@ -1392,6 +1322,158 @@ public class KiemKeGUI extends JPanel {
             // Nếu chưa bắt đầu load thì kick off
             if (duLieuSQL == null) {
                 taiDuLieuTuDatabase();
+            }
+        }
+    }
+    // =======================================================
+    // COMPONENT CHỌN LÔ HÀNG (MATERIAL CHIPS 2 DÒNG HIỆN ĐẠI)
+    // =======================================================
+    class ThanhChonLo extends JPanel implements java.awt.ItemSelectable {
+        private List<String> items = new ArrayList<>();
+        private int selectedIndex = -1;
+        private int hoveredIndex = -1;
+        private List<ItemListener> itemListeners = new ArrayList<>();
+
+        public ThanhChonLo() {
+            setLayout(new FlowLayout(FlowLayout.LEFT, 10, 10)); // Tăng khoảng cách chip
+            setOpaque(false);
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            int n = getComponentCount();
+            if (n == 0) return new Dimension(500, 60);
+            
+            int maxW = 500;
+            // Lấy chiều rộng khả dụng của Component cha
+            if (getParent() != null && getParent().getWidth() > 50) {
+                maxW = getParent().getWidth() - 10; 
+            }
+            
+            int x = 10, y = 10, rowH = 0; // 10 là hgap và vgap của FlowLayout
+            for (int i = 0; i < n; i++) {
+                Component c = getComponent(i);
+                Dimension d = c.getPreferredSize();
+                if (x + d.width > maxW && x > 10) { // Nếu rớt xuống dòng mới
+                    x = 10;
+                    y += rowH + 10; // Cộng thêm vgap
+                    rowH = 0;
+                }
+                x += d.width + 10;
+                rowH = Math.max(rowH, d.height);
+            }
+            
+            // 🚀 QUAN TRỌNG: Cộng thêm 25px (không gian đáy) để Swing vẽ trọn vẹn viền và đổ bóng
+            return new Dimension(maxW, y + rowH + 25);
+        }
+
+        public void addItem(String item) { items.add(item); render(); }
+        public void removeAllItems() { items.clear(); selectedIndex = -1; render(); }
+        public int getItemCount() { return items.size(); }
+        public String getItemAt(int index) { return (index >= 0 && index < items.size()) ? items.get(index) : null; }
+        public int getSelectedIndex() { return selectedIndex; }
+
+        public void setSelectedIndex(int index) {
+            if (index >= -1 && index < items.size()) {
+                int oldIndex = selectedIndex;
+                selectedIndex = index;
+                render();
+                if (oldIndex != selectedIndex && selectedIndex != -1) {
+                    ItemEvent event = new ItemEvent(this, ItemEvent.ITEM_STATE_CHANGED, items.get(selectedIndex), ItemEvent.SELECTED);
+                    for (ItemListener l : itemListeners) l.itemStateChanged(event);
+                }
+            }
+        }
+
+        @Override public void addItemListener(ItemListener l) { itemListeners.add(l); }
+        @Override public void removeItemListener(ItemListener l) { itemListeners.remove(l); }
+        @Override public Object[] getSelectedObjects() {
+            if (selectedIndex == -1) return null;
+            return new Object[]{items.get(selectedIndex)};
+        }
+
+        private void render() {
+            removeAll(); 
+            for (int i = 0; i < items.size(); i++) {
+                final int idx = i;
+                String rawText = items.get(i);
+                
+                // Cắt chuỗi "Lô: LH... (HSD: ...)" thành 2 dòng riêng biệt
+                String line1 = rawText;
+                String line2 = "";
+                if (rawText.contains("(HSD:")) {
+                    int splitIdx = rawText.indexOf("(HSD:");
+                    line1 = rawText.substring(0, splitIdx).trim();
+                    line2 = rawText.substring(splitIdx).replace("(", "").replace(")", "").trim();
+                }
+
+                boolean isSelected = (idx == selectedIndex);
+                boolean isHovered = (idx == hoveredIndex);
+
+                JPanel chip = new JPanel(new BorderLayout()) {
+                    @Override
+                    protected void paintComponent(Graphics g) {
+                        Graphics2D g2 = (Graphics2D) g.create();
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        
+                        if (isSelected) {
+                            g2.setColor(new Color(232, 241, 255)); // Nền xanh nhạt (#E8F1FF)
+                        } else if (isHovered) {
+                            g2.setColor(new Color(249, 250, 251)); // Xám hover nhẹ
+                        } else {
+                            g2.setColor(Color.WHITE); 
+                        }
+                        g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+
+                        if (isSelected) {
+                            g2.setColor(new Color(191, 219, 254)); // Viền xanh pastel
+                        } else {
+                            g2.setColor(new Color(229, 231, 235)); // Viền xám nhạt
+                        }
+                        g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+                        g2.dispose();
+                    }
+                };
+                chip.setOpaque(false);
+                chip.setBorder(new EmptyBorder(8, 16, 8, 16));
+                chip.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                // Bọc 2 label text
+                JPanel pnlText = new JPanel();
+                pnlText.setLayout(new BoxLayout(pnlText, BoxLayout.Y_AXIS));
+                pnlText.setOpaque(false);
+
+                JLabel lbl1 = new JLabel(line1);
+                lbl1.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                lbl1.setForeground(isSelected ? new Color(37, 99, 235) : new Color(31, 41, 55));
+                lbl1.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+                JLabel lbl2 = new JLabel(line2);
+                lbl2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+                lbl2.setForeground(isSelected ? new Color(96, 165, 250) : new Color(107, 114, 128));
+                lbl2.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+                pnlText.add(lbl1);
+                if (!line2.isEmpty()) {
+                    pnlText.add(Box.createVerticalStrut(2));
+                    pnlText.add(lbl2);
+                }
+
+                chip.add(pnlText, BorderLayout.CENTER);
+
+                chip.addMouseListener(new MouseAdapter() {
+                    @Override public void mouseClicked(MouseEvent e) { setSelectedIndex(idx); }
+                    @Override public void mouseEntered(MouseEvent e) { hoveredIndex = idx; chip.repaint(); }
+                    @Override public void mouseExited(MouseEvent e) { hoveredIndex = -1; chip.repaint(); }
+                });
+
+                add(chip); 
+            }
+            revalidate();
+            repaint();
+            if (getParent() != null) {
+                getParent().revalidate();
+                getParent().repaint();
             }
         }
     }

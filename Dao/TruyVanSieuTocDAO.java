@@ -31,7 +31,7 @@ public class TruyVanSieuTocDAO {
     
     public static class DuLieuChiaCaDTO {
         public List<ChiaCa> dsChiaCa = new ArrayList<>();
-        public Map<String, LoaiCa> mapLoaiCa = new HashMap<>();
+        public Map<String, LoaiCa> mapLoaiCa = new java.util.LinkedHashMap<>();
         public Map<String, NhanVien> mapNhanVien = new HashMap<>();
     }
 
@@ -1338,6 +1338,130 @@ public class TruyVanSieuTocDAO {
             ex.printStackTrace();
         }
 
+        return dto;
+    }
+        // =========================================================================
+    // 16. TẢI DỮ LIỆU BẢNG LƯƠNG SIÊU TỐC (Trị dứt điểm giật lag N+1) 🚀
+    // =========================================================================
+    public static class DuLieuBangLuongDTO {
+        public Map<String, CauHinhLuong> mapCauHinh = new HashMap<>();
+        public Map<String, BangLuong> mapBangLuongChot = new HashMap<>();
+        public Map<String, Double> mapTongGioLam = new HashMap<>();
+        public Map<String, BigDecimal> mapTongPhat = new HashMap<>();
+    }
+
+    // DÀNH CHO CHẾ ĐỘ QUẢN LÝ (Load toàn bộ NV trong 1 tháng)
+    public DuLieuBangLuongDTO loadBangLuongQuanLySieuToc(String thangNam, int thang, int nam) {
+        DuLieuBangLuongDTO dto = new DuLieuBangLuongDTO();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return dto;
+
+        // Bắn 3 câu SQL cùng 1 lúc
+        String sql = 
+            // 1. Lấy toàn bộ Cấu hình lương đang áp dụng
+            "SELECT * FROM CauHinhLuong WHERE TrangThai = N'Đang áp dụng'; " +
+            // 2. Lấy toàn bộ Bảng lương đã chốt trong tháng này
+            "SELECT * FROM BangLuong WHERE ThangNam = '" + thangNam + "'; " +
+            // 3. Tính tổng giờ làm và tiền phạt (những ca đã hoàn thành)
+            "SELECT MaNV, SUM(DATEDIFF(MINUTE, ThoiGianCheckIn, ThoiGianCheckOut)) AS TongPhut, " +
+            "SUM(CASE WHEN TienChenhLech < 0 THEN ABS(TienChenhLech) ELSE 0 END) AS TongPhat " +
+            "FROM ChiaCa WHERE MONTH(NgayLam) = " + thang + " AND YEAR(NgayLam) = " + nam + " " +
+            "AND TinhTrang = N'Đã hoàn thành' AND ThoiGianCheckIn IS NOT NULL AND ThoiGianCheckOut IS NOT NULL " +
+            "GROUP BY MaNV;";
+
+        try (Statement st = con.createStatement()) {
+            boolean hasResults = st.execute(sql);
+
+            // RS 1: Nạp Map Cấu Hình
+            if (hasResults) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        CauHinhLuong ch = new CauHinhLuong.ThoXayCauHinhLuong()
+                            .ganMaNV(rs.getString("MaNV"))
+                            .ganLuongTheoGio(rs.getBigDecimal("LuongTheoGio"))
+                            .ganHeSoLuong(rs.getBigDecimal("HeSoLuong"))
+                            .ganPhuCapCoDinh(rs.getBigDecimal("PhuCapCoDinh"))
+                            .taoMoi();
+                        dto.mapCauHinh.put(ch.getMaNV(), ch);
+                    }
+                }
+            }
+
+            // RS 2: Nạp Map Bảng Lương Đã Chốt
+            if (st.getMoreResults()) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        BangLuong bl = new BangLuong.ThoXayBangLuong()
+                            .ganMaNV(rs.getString("MaNV"))
+                            .ganTongGioLam(rs.getBigDecimal("TongGioLam"))
+                            .ganThuong(rs.getBigDecimal("Thuong"))
+                            .ganKhauTru(rs.getBigDecimal("KhauTru"))
+                            .ganTongLuong(rs.getBigDecimal("TongLuong"))
+                            .taoMoi();
+                        dto.mapBangLuongChot.put(bl.getMaNV(), bl);
+                    }
+                }
+            }
+
+            // RS 3: Nạp Map Giờ Làm & Tiền Phạt Tạm Tính
+            if (st.getMoreResults()) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        String maNV = rs.getString("MaNV");
+                        int tongPhut = rs.getInt("TongPhut");
+                        dto.mapTongGioLam.put(maNV, tongPhut / 60.0);
+                        dto.mapTongPhat.put(maNV, rs.getBigDecimal("TongPhat"));
+                    }
+                }
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return dto;
+    }
+
+    // DÀNH CHO CHẾ ĐỘ NHÂN VIÊN (Load 12 tháng của 1 NV)
+    public DuLieuBangLuongDTO loadBangLuongNhanVienSieuToc(String maNV, int nam) {
+        DuLieuBangLuongDTO dto = new DuLieuBangLuongDTO();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return dto;
+
+        String sql = 
+            "SELECT * FROM BangLuong WHERE MaNV = '" + maNV + "' AND ThangNam LIKE '%/" + nam + "'; " +
+            "SELECT MONTH(NgayLam) AS Thang, SUM(DATEDIFF(MINUTE, ThoiGianCheckIn, ThoiGianCheckOut)) AS TongPhut, " +
+            "SUM(CASE WHEN TienChenhLech < 0 THEN ABS(TienChenhLech) ELSE 0 END) AS TongPhat " +
+            "FROM ChiaCa WHERE MaNV = '" + maNV + "' AND YEAR(NgayLam) = " + nam + " " +
+            "AND TinhTrang = N'Đã hoàn thành' AND ThoiGianCheckIn IS NOT NULL AND ThoiGianCheckOut IS NOT NULL " +
+            "GROUP BY MONTH(NgayLam);";
+
+        try (Statement st = con.createStatement()) {
+            boolean hasResults = st.execute(sql);
+
+            // RS 1: Bảng lương đã chốt trong năm
+            if (hasResults) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        BangLuong bl = new BangLuong.ThoXayBangLuong()
+                            .ganThangNam(rs.getString("ThangNam"))
+                            .ganTongGioLam(rs.getBigDecimal("TongGioLam"))
+                            .ganThuong(rs.getBigDecimal("Thuong"))
+                            .ganKhauTru(rs.getBigDecimal("KhauTru"))
+                            .ganTongLuong(rs.getBigDecimal("TongLuong"))
+                            .taoMoi();
+                        dto.mapBangLuongChot.put(bl.getThangNam(), bl); // Key là ThangNam
+                    }
+                }
+            }
+
+            // RS 2: Giờ làm & Phạt tạm tính theo từng tháng
+            if (st.getMoreResults()) {
+                try (ResultSet rs = st.getResultSet()) {
+                    while (rs.next()) {
+                        String thangKey = String.format("%02d/%d", rs.getInt("Thang"), nam);
+                        dto.mapTongGioLam.put(thangKey, rs.getInt("TongPhut") / 60.0);
+                        dto.mapTongPhat.put(thangKey, rs.getBigDecimal("TongPhat"));
+                    }
+                }
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
         return dto;
     }
 }
